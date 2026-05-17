@@ -23,7 +23,8 @@
 enum class HttpMethod
 {
 	GET,
-	POST
+	POST,
+	POST_FORM
 };
 
 struct HttpRequest
@@ -106,7 +107,7 @@ static bool PerformRequest(const HttpRequest &req, std::string &outBody)
 	}
 
 	DWORD flags = isHttps ? WINHTTP_FLAG_SECURE : 0;
-	const wchar_t *verb = (req.method == HttpMethod::POST) ? L"POST" : L"GET";
+	const wchar_t *verb = (req.method == HttpMethod::GET) ? L"GET" : L"POST";
 	HINTERNET hRequest = WinHttpOpenRequest(hConnect, verb, ToWide(path).c_str(), nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
 	if (!hRequest)
 	{
@@ -126,11 +127,16 @@ static bool PerformRequest(const HttpRequest &req, std::string &outBody)
 	{
 		headers = L"Content-Type: application/json\r\n";
 	}
+	else if (req.method == HttpMethod::POST_FORM)
+	{
+		headers = L"Content-Type: application/x-www-form-urlencoded\r\n";
+	}
 
+	bool hasBody = (req.method == HttpMethod::POST || req.method == HttpMethod::POST_FORM);
 	BOOL sent = WinHttpSendRequest(hRequest, headers.empty() ? WINHTTP_NO_ADDITIONAL_HEADERS : headers.c_str(), headers.empty() ? 0 : (DWORD)-1,
-								   req.method == HttpMethod::POST ? (LPVOID)req.body.c_str() : WINHTTP_NO_REQUEST_DATA,
-								   req.method == HttpMethod::POST ? (DWORD)req.body.size() : 0,
-								   req.method == HttpMethod::POST ? (DWORD)req.body.size() : 0, 0);
+								   hasBody ? (LPVOID)req.body.c_str() : WINHTTP_NO_REQUEST_DATA,
+								   hasBody ? (DWORD)req.body.size() : 0,
+								   hasBody ? (DWORD)req.body.size() : 0, 0);
 
 	bool success = false;
 	if (sent && WinHttpReceiveResponse(hRequest, nullptr))
@@ -192,9 +198,13 @@ static bool PerformRequest(const HttpRequest &req, std::string &outBody)
 	{
 		headers = curl_slist_append(headers, "Content-Type: application/json");
 	}
+	else if (req.method == HttpMethod::POST_FORM)
+	{
+		headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
+	}
 
 	curl_easy_setopt(curl, CURLOPT_URL, req.url.c_str());
-	if (req.method == HttpMethod::POST)
+	if (req.method == HttpMethod::POST || req.method == HttpMethod::POST_FORM)
 	{
 		curl_easy_setopt(curl, CURLOPT_POST, 1L);
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req.body.c_str());
@@ -289,6 +299,16 @@ void RTV_HttpPost(const std::string &url, const std::string &jsonBody, HttpCallb
 	{
 		std::lock_guard<std::mutex> lock(s_mutex);
 		s_queue.push({HttpMethod::POST, url, jsonBody, std::move(callback)});
+	}
+	s_cv.notify_one();
+}
+
+void RTV_HttpPostForm(const std::string &url, const std::string &formBody, HttpCallback callback)
+{
+	EnsureStarted();
+	{
+		std::lock_guard<std::mutex> lock(s_mutex);
+		s_queue.push({HttpMethod::POST_FORM, url, formBody, std::move(callback)});
 	}
 	s_cv.notify_one();
 }

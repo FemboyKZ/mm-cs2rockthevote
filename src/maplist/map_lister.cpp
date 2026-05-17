@@ -469,8 +469,8 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 					std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
 										   "GetPublishedFileDetails/v1/";
 					std::string postBody = "itemcount=1&publishedfileids[0]=" + workshopId;
-					// Steam's v1 endpoint uses POST with form data - send as plain body.
-					RTV_HttpPost(steamUrl, postBody,
+					// Steam's v1 endpoint uses POST with form-encoded data.
+					RTV_HttpPostForm(steamUrl, postBody,
 								 [workshopId, callback](bool ok2, std::string body2)
 								 {
 									 MapEntry fallback;
@@ -646,7 +646,7 @@ void MapLister::ValidateMapsAsync() const
 		std::string apiKey = g_RTVConfig.general.steamApiKey;
 		std::string webhook = g_RTVConfig.general.discordWebhook;
 
-		RTV_HttpPost("https://api.steampowered.com/ISteamRemoteStorage/"
+		RTV_HttpPostForm("https://api.steampowered.com/ISteamRemoteStorage/"
 					 "GetPublishedFileDetails/v1/"
 					 "?key="
 						 + apiKey,

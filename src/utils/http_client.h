@@ -29,6 +29,9 @@ void RTV_HttpGet(const std::string &url, HttpCallback callback);
 // POST request with JSON body.
 void RTV_HttpPost(const std::string &url, const std::string &jsonBody, HttpCallback callback);
 
+// POST request with application/x-www-form-urlencoded body.
+void RTV_HttpPostForm(const std::string &url, const std::string &formBody, HttpCallback callback);
+
 // Shutdown: wait for any pending requests to complete (called on plugin unload).
 void RTV_HttpShutdown();
 
