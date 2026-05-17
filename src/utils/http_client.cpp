@@ -40,6 +40,18 @@ static std::mutex s_mutex;
 static std::condition_variable s_cv;
 static std::queue<HttpRequest> s_queue;
 static std::atomic<bool> s_running {false};
+static std::atomic<bool> s_shutdown {false};
+
+// In-flight cancellation state. The worker thread publishes its current
+// per-platform handle so that RTV_HttpShutdown() can abort a blocking I/O
+// call instead of waiting for the full HTTP timeout (up to ~30 s).
+#ifdef _WIN32
+// Exchanged to nullptr by whoever owns the close (worker on normal completion,
+// shutdown on cancel). Guarantees exactly one WinHttpCloseHandle() call.
+static std::atomic<HINTERNET> s_currentRequest {nullptr};
+#else
+static std::atomic<bool> s_cancelInFlight {false};
+#endif
 
 // Main-thread dispatch queue
 static std::mutex s_mainMutex;
@@ -63,6 +75,14 @@ void RTV_DrainMainThread()
 		fn();
 	}
 	s_mainDrain.clear();
+}
+
+void RTV_ClearMainQueue()
+{
+	std::lock_guard<std::mutex> lock(s_mainMutex);
+	std::vector<std::function<void()>> empty;
+	s_mainQueue.swap(empty);
+	// `empty` is destroyed under the lock; any callable destructors run here.
 }
 
 #ifdef _WIN32
@@ -116,6 +136,9 @@ static bool PerformRequest(const HttpRequest &req, std::string &outBody)
 		return false;
 	}
 
+	// Publish the request handle so RTV_HttpShutdown() can abort us by closing it from another thread.
+	s_currentRequest.store(hRequest);
+
 	// Set timeouts: resolve=5s, connect=5s, send=15s, receive=15s
 	DWORD t5s = 5000;
 	DWORD t15s = 15000;
@@ -134,8 +157,7 @@ static bool PerformRequest(const HttpRequest &req, std::string &outBody)
 
 	bool hasBody = (req.method == HttpMethod::POST || req.method == HttpMethod::POST_FORM);
 	BOOL sent = WinHttpSendRequest(hRequest, headers.empty() ? WINHTTP_NO_ADDITIONAL_HEADERS : headers.c_str(), headers.empty() ? 0 : (DWORD)-1,
-								   hasBody ? (LPVOID)req.body.c_str() : WINHTTP_NO_REQUEST_DATA,
-								   hasBody ? (DWORD)req.body.size() : 0,
+								   hasBody ? (LPVOID)req.body.c_str() : WINHTTP_NO_REQUEST_DATA, hasBody ? (DWORD)req.body.size() : 0,
 								   hasBody ? (DWORD)req.body.size() : 0, 0);
 
 	bool success = false;
@@ -164,9 +186,16 @@ static bool PerformRequest(const HttpRequest &req, std::string &outBody)
 		}
 	}
 
-	WinHttpCloseHandle(hRequest);
 	WinHttpCloseHandle(hConnect);
 	WinHttpCloseHandle(hSession);
+
+	// Try to take ownership of the request handle.
+	// If shutdown beat us to it, the handle is already closed and `owned` will be nullptr.
+	HINTERNET owned = s_currentRequest.exchange(nullptr);
+	if (owned)
+	{
+		WinHttpCloseHandle(owned);
+	}
 	return success;
 }
 
@@ -182,6 +211,14 @@ static size_t CurlWriteCb(char *ptr, size_t size, size_t nmemb, void *userdata)
 	auto *ctx = static_cast<CurlWriteCtx *>(userdata);
 	ctx->data.append(ptr, size * nmemb);
 	return size * nmemb;
+}
+
+// Returning non-zero from CURLOPT_XFERINFOFUNCTION aborts the transfer with
+// CURLE_ABORTED_BY_CALLBACK, letting RTV_HttpShutdown() unblock a worker that
+// is currently inside curl_easy_perform().
+static int CurlXferInfoCb(void * /*clientp*/, curl_off_t /*dltotal*/, curl_off_t /*dlnow*/, curl_off_t /*ultotal*/, curl_off_t /*ulnow*/)
+{
+	return s_cancelInFlight.load() ? 1 : 0;
 }
 
 static bool PerformRequest(const HttpRequest &req, std::string &outBody)
@@ -219,6 +256,8 @@ static bool PerformRequest(const HttpRequest &req, std::string &outBody)
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlWriteCb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &wctx);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, CurlXferInfoCb);
 
 	CURLcode res = curl_easy_perform(curl);
 	bool success = false;
@@ -276,15 +315,21 @@ static void WorkerThread()
 
 static void EnsureStarted()
 {
-	if (!s_running.load())
+	// Never restart after RTV_HttpShutdown() has been called.
+	if (s_shutdown.load() || s_running.load())
 	{
-		s_running.store(true);
-		s_worker = std::thread(WorkerThread);
+		return;
 	}
+	s_running.store(true);
+	s_worker = std::thread(WorkerThread);
 }
 
 void RTV_HttpGet(const std::string &url, HttpCallback callback)
 {
+	if (s_shutdown.load())
+	{
+		return;
+	}
 	EnsureStarted();
 	{
 		std::lock_guard<std::mutex> lock(s_mutex);
@@ -295,6 +340,10 @@ void RTV_HttpGet(const std::string &url, HttpCallback callback)
 
 void RTV_HttpPost(const std::string &url, const std::string &jsonBody, HttpCallback callback)
 {
+	if (s_shutdown.load())
+	{
+		return;
+	}
 	EnsureStarted();
 	{
 		std::lock_guard<std::mutex> lock(s_mutex);
@@ -305,6 +354,10 @@ void RTV_HttpPost(const std::string &url, const std::string &jsonBody, HttpCallb
 
 void RTV_HttpPostForm(const std::string &url, const std::string &formBody, HttpCallback callback)
 {
+	if (s_shutdown.load())
+	{
+		return;
+	}
 	EnsureStarted();
 	{
 		std::lock_guard<std::mutex> lock(s_mutex);
@@ -315,6 +368,7 @@ void RTV_HttpPostForm(const std::string &url, const std::string &formBody, HttpC
 
 void RTV_HttpShutdown()
 {
+	s_shutdown.store(true);
 	if (!s_running.load())
 	{
 		return;
@@ -323,14 +377,40 @@ void RTV_HttpShutdown()
 	s_running.store(false);
 	s_cv.notify_all();
 
+#ifdef _WIN32
+	{
+		HINTERNET owned = s_currentRequest.exchange(nullptr);
+		if (owned)
+		{
+			// Closing the request handle from another thread causes any
+			// pending WinHttpReceiveResponse / WinHttpReadData call in the
+			// worker to return ERROR_WINHTTP_OPERATION_CANCELLED.
+			WinHttpCloseHandle(owned);
+		}
+	}
+#else
+	s_cancelInFlight.store(true);
+#endif
+
 	if (s_worker.joinable())
 	{
 		s_worker.join();
 	}
+
+#ifndef _WIN32
+	s_cancelInFlight.store(false);
+#endif
 
 	std::lock_guard<std::mutex> lock(s_mutex);
 	while (!s_queue.empty())
 	{
 		s_queue.pop();
 	}
+}
+
+void RTV_HttpResetShutdownLatch()
+{
+	// Called from plugin Load(). Safe because the worker is guaranteed not
+	// running here (Unload() joins it before returning).
+	s_shutdown.store(false);
 }

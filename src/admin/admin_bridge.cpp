@@ -25,6 +25,38 @@ void RTV_AdminBridge_Init()
 	}
 }
 
+void RTV_AdminBridge_Refresh()
+{
+	// Called when any sibling plugin loads or unloads.
+	// Drop the cached pointer unconditionally and re-resolve
+	ICS2Admin *prev = s_pAdmin;
+	s_pAdmin = nullptr;
+
+	if (!g_SMAPI)
+	{
+		return;
+	}
+
+	void *iface = g_SMAPI->MetaFactory(CS2ADMIN_INTERFACE, nullptr, nullptr);
+	if (iface)
+	{
+		s_pAdmin = static_cast<ICS2Admin *>(iface);
+		if (!prev)
+		{
+			META_CONPRINTF("[CS2RTV] mm-cs2admin loaded - admin bridge active.\n");
+		}
+	}
+	else if (prev)
+	{
+		META_CONPRINTF("[CS2RTV] mm-cs2admin unloaded - admin commands will be blocked.\n");
+	}
+}
+
+void RTV_AdminBridge_Shutdown()
+{
+	s_pAdmin = nullptr;
+}
+
 bool RTV_AdminBridge_Available()
 {
 	return s_pAdmin != nullptr;

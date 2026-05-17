@@ -11,6 +11,13 @@
 // Call once in AllPluginsLoaded() to try to acquire the ICS2Admin interface.
 void RTV_AdminBridge_Init();
 
+// Re-resolve the interface. Call from IMetamodListener::OnPluginLoad and
+// OnPluginUnload so we never hold a dangling pointer into a freed plugin.
+void RTV_AdminBridge_Refresh();
+
+// Drop any cached interface pointer. Call from plugin Unload().
+void RTV_AdminBridge_Shutdown();
+
 // Returns true if the admin plugin is available.
 bool RTV_AdminBridge_Available();
 

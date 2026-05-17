@@ -32,7 +32,17 @@ void RTV_HttpPost(const std::string &url, const std::string &jsonBody, HttpCallb
 // POST request with application/x-www-form-urlencoded body.
 void RTV_HttpPostForm(const std::string &url, const std::string &formBody, HttpCallback callback);
 
-// Shutdown: wait for any pending requests to complete (called on plugin unload).
+// Shutdown: cancel any in-flight request and join the worker thread.
+// Called on plugin unload.
 void RTV_HttpShutdown();
+
+// Reset internal shutdown latch so that the worker can be restarted by the
+// next request. Called from plugin Load() so that an unload/reload cycle
+// inside the same process leaves HTTP functional.
+void RTV_HttpResetShutdownLatch();
+
+// Discard any queued main-thread callbacks without executing them.
+// Called at the very end of plugin Unload() after hooks are gone.
+void RTV_ClearMainQueue();
 
 #endif // _INCLUDE_RTV_HTTP_CLIENT_H_

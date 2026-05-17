@@ -24,6 +24,38 @@ void RTV_WhitelistBridge_Init()
 	}
 }
 
+void RTV_WhitelistBridge_Refresh()
+{
+	// Called when any sibling plugin loads or unloads.
+	// Drop the cached pointer unconditionally and re-resolve.
+	ICS2Whitelist *prev = s_pWhitelist;
+	s_pWhitelist = nullptr;
+
+	if (!g_SMAPI)
+	{
+		return;
+	}
+
+	void *iface = g_SMAPI->MetaFactory(CS2WHITELIST_INTERFACE, nullptr, nullptr);
+	if (iface)
+	{
+		s_pWhitelist = static_cast<ICS2Whitelist *>(iface);
+		if (!prev)
+		{
+			META_CONPRINTF("[CS2RTV] mm-cs2whitelist loaded - RTV restricted to whitelisted players.\n");
+		}
+	}
+	else if (prev)
+	{
+		META_CONPRINTF("[CS2RTV] mm-cs2whitelist unloaded - RTV available to all players.\n");
+	}
+}
+
+void RTV_WhitelistBridge_Shutdown()
+{
+	s_pWhitelist = nullptr;
+}
+
 bool RTV_WhitelistBridge_Available()
 {
 	return s_pWhitelist != nullptr;

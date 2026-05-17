@@ -106,6 +106,8 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 {
 	PLUGIN_SAVEVARS();
 
+	RTV_HttpResetShutdownLatch();
+
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pICvar, ICvar, CVAR_INTERFACE_VERSION);
 	GET_V_IFACE_CURRENT(GetFileSystemFactory, g_pFullFileSystem, IFileSystem, FILESYSTEM_INTERFACE_VERSION);
@@ -115,13 +117,11 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	GET_V_IFACE_ANY(GetEngineFactory, g_pGameEventSystem, IGameEventSystem, GAMEEVENTSYSTEM_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkMessages, INetworkMessages, NETWORKMESSAGES_INTERFACE_VERSION);
 
-	// INetworkMessages is acquired after AllPluginsLoaded when all interfaces are
-	// up
-
 	g_SMAPI->AddListener(this, this);
 
 	SH_ADD_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameFrame), true);
-	SH_ADD_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated), true);
+	SH_ADD_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated),
+				true);
 	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_OnClientConnected), false);
 	SH_ADD_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientPutInServer), true);
 	SH_ADD_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientDisconnect), true);
@@ -136,8 +136,11 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 {
+	RTV_DrainMainThread();
+
 	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameFrame), true);
-	SH_REMOVE_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated), true);
+	SH_REMOVE_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated),
+				   true);
 	SH_REMOVE_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_OnClientConnected), false);
 	SH_REMOVE_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientPutInServer), true);
 	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientDisconnect), true);
@@ -145,7 +148,13 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 
 	g_Timers.KillAll();
 	RTV_HttpShutdown();
-	RTV_DrainMainThread(); // discard any queued game-state callbacks from completed requests
+
+	RTV_ClearMainQueue();
+
+	RTV_AdminBridge_Shutdown();
+	RTV_WhitelistBridge_Shutdown();
+	g_RTVSteamAPI.Clear();
+
 	return true;
 }
 
@@ -153,6 +162,18 @@ void CS2RTVPlugin::AllPluginsLoaded()
 {
 	RTV_AdminBridge_Init();
 	RTV_WhitelistBridge_Init();
+}
+
+void CS2RTVPlugin::OnPluginLoad(PluginId /*id*/)
+{
+	RTV_AdminBridge_Refresh();
+	RTV_WhitelistBridge_Refresh();
+}
+
+void CS2RTVPlugin::OnPluginUnload(PluginId /*id*/)
+{
+	RTV_AdminBridge_Refresh();
+	RTV_WhitelistBridge_Refresh();
 }
 
 // IMetamodListener: map load/unload

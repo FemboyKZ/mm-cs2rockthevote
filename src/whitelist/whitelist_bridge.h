@@ -9,6 +9,13 @@
 // Call once in AllPluginsLoaded() to try to acquire the ICS2Whitelist interface.
 void RTV_WhitelistBridge_Init();
 
+// Re-resolve the interface. Call from IMetamodListener::OnPluginLoad and
+// OnPluginUnload so we never hold a dangling pointer into a freed plugin.
+void RTV_WhitelistBridge_Refresh();
+
+// Drop any cached interface pointer. Call from plugin Unload().
+void RTV_WhitelistBridge_Shutdown();
+
 // Returns true if the whitelist plugin is loaded.
 bool RTV_WhitelistBridge_Available();
 

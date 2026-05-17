@@ -18,6 +18,8 @@ public: // IMetamodListener
 	void OnLevelInit(char const *pMapName, char const *pMapEntities, char const *pOldLevel, char const *pLandmarkName, bool loadGame,
 					 bool background);
 	void OnLevelShutdown();
+	void OnPluginLoad(PluginId id);
+	void OnPluginUnload(PluginId id);
 
 public: // SourceHook hook handlers
 	void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
