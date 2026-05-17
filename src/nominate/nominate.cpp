@@ -90,6 +90,25 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		return;
 	}
 
+	// Strip leading and trailing whitespace
+	const char *trimmed = arg;
+	while (*trimmed == ' ' || *trimmed == '\t')
+	{
+		trimmed++;
+	}
+	std::string argStr(trimmed);
+	while (!argStr.empty() && (argStr.back() == ' ' || argStr.back() == '\t'))
+	{
+		argStr.pop_back();
+	}
+	arg = argStr.c_str();
+
+	if (!*arg)
+	{
+		ShowNominateMenu(slot);
+		return;
+	}
+
 	if (LooksLikeWorkshopId(arg))
 	{
 		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
