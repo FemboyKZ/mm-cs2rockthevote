@@ -15,13 +15,17 @@
 #include "utils/print_utils.h"
 #include "vote/map_vote.h"
 #include "whitelist/whitelist_bridge.h"
+#include "workshop/workshop_validator.h"
 
 #include <engine/igameeventsystem.h>
 #include <iserver.h>
 #include <networksystem/inetworkmessages.h>
+#include <filesystem.h>
+#include "steam/steam_gameserver.h"
 
 // SourceHook declarations
 SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
+SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIActivated, SH_NOATTRIB, 0);
 SH_DECL_HOOK6_void(IServerGameClients, OnClientConnected, SH_NOATTRIB, 0, CPlayerSlot, const char *, uint64, const char *, const char *, bool);
 SH_DECL_HOOK4_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, CPlayerSlot, char const *, int, uint64);
 SH_DECL_HOOK5_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, CPlayerSlot, ENetworkDisconnectionReason, const char *, uint64,
@@ -29,13 +33,16 @@ SH_DECL_HOOK5_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, CPlayer
 SH_DECL_HOOK3_void(ICvar, DispatchConCommand, SH_NOATTRIB, 0, ConCommandRef, const CCommandContext &, const CCommand &);
 
 // Global interface pointers (defined here, declared extern in common.h)
-// g_pNetworkServerService and g_pNetworkMessages are defined in interfaces.lib
+// g_pNetworkServerService, g_pFullFileSystem and g_pNetworkMessages are defined in interfaces.lib
 IServerGameDLL *g_pServerGameDLL = nullptr;
 IServerGameClients *g_pGameClients = nullptr;
 IVEngineServer *g_pEngine = nullptr;
 IGameEventManager2 *g_pGameEvents = nullptr;
 ICvar *g_pICvar = nullptr;
 IGameEventSystem *g_pGameEventSystem = nullptr;
+
+// Steam game-server API context used for workshop validation (ISteamUGC).
+CSteamGameServerAPIContext g_RTVSteamAPI;
 
 // Plugin globals
 CS2RTVPlugin g_ThisPlugin;
@@ -71,6 +78,7 @@ static void ShowMapChooserMenu(int slot)
 						char cmd[256];
 						if (entryCopy.isWorkshop && !entryCopy.workshopId.empty())
 						{
+							RTV_EnsureWorkshopMapReady(entryCopy.workshopId);
 							snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entryCopy.workshopId.c_str());
 						}
 						else
@@ -100,6 +108,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pICvar, ICvar, CVAR_INTERFACE_VERSION);
+	GET_V_IFACE_CURRENT(GetFileSystemFactory, g_pFullFileSystem, IFileSystem, FILESYSTEM_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetServerFactory, g_pServerGameDLL, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL);
 	GET_V_IFACE_ANY(GetServerFactory, g_pGameClients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkServerService, INetworkServerService, NETWORKSERVERSERVICE_INTERFACE_VERSION);
@@ -112,6 +121,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	g_SMAPI->AddListener(this, this);
 
 	SH_ADD_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameFrame), true);
+	SH_ADD_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated), true);
 	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_OnClientConnected), false);
 	SH_ADD_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientPutInServer), true);
 	SH_ADD_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientDisconnect), true);
@@ -127,6 +137,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 {
 	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameFrame), true);
+	SH_REMOVE_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated), true);
 	SH_REMOVE_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_OnClientConnected), false);
 	SH_REMOVE_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientPutInServer), true);
 	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientDisconnect), true);
@@ -183,6 +194,16 @@ void CS2RTVPlugin::Hook_GameFrame(bool /*simulating*/, bool /*bFirstTick*/, bool
 	g_Timers.Process(curtime);
 	g_ChatMenus.Tick(curtime);
 
+	RETURN_META(MRES_IGNORED);
+}
+
+void CS2RTVPlugin::Hook_GameServerSteamAPIActivated()
+{
+	if (g_RTVSteamAPI.SteamUGC())
+	{
+		RETURN_META(MRES_IGNORED);
+	}
+	g_RTVSteamAPI.Init();
 	RETURN_META(MRES_IGNORED);
 }
 

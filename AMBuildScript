@@ -6,6 +6,13 @@ from ambuild2.frontend.v2_2.cpp.builders import TargetSuffix
 # a list of path's to wanted locations
 def additionalLibs(context, binary, sdk):
   libs = []
+  cxx = binary.compiler
+  # steam_api is needed for ISteamUGC (workshop ACF validation before a map change).
+  # On Linux the .so is already loaded into the server process at plugin load time;
+  # the linker accepts unresolved references in shared objects by default.
+  # On Windows we need the import library to satisfy the linker.
+  if cxx.target.platform == 'windows':
+    libs.append(os.path.join(sdk['path'], 'lib', 'public', 'win64', 'steam_api64.lib'))
   # WinHTTP is needed by http_client.cpp on Windows (#pragma comment handles it,
   # but adding it explicitly here keeps the build system consistent).
   # On Linux, libcurl must be installed (e.g. apt install libcurl4-openssl-dev).

@@ -6,6 +6,7 @@
 #include "src/rtv/rtv_manager.h"
 #include "src/timers/timer_system.h"
 #include "src/utils/print_utils.h"
+#include "src/workshop/workshop_validator.h"
 
 #include <algorithm>
 #include <cmath>
@@ -22,6 +23,7 @@ static void DoMapChange(const MapEntry &entry)
 	char cmd[256];
 	if (entry.isWorkshop && !entry.workshopId.empty())
 	{
+		RTV_EnsureWorkshopMapReady(entry.workshopId);
 		snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entry.workshopId.c_str());
 	}
 	else

@@ -21,6 +21,7 @@ for sdk_target in MMSPlugin.sdk_targets:
     'src/nominate/nominate.cpp',
     'src/admin/admin_bridge.cpp',
     'src/whitelist/whitelist_bridge.cpp',
+    'src/workshop/workshop_validator.cpp',
   ]
 
   binary.custom = [builder.tools.Protoc(protoc = sdk_target.protoc, sources = [

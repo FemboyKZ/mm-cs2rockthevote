@@ -39,6 +39,9 @@ extern IGameEventManager2 *g_pGameEvents;
 extern ICvar *g_pICvar;
 extern INetworkServerService *g_pNetworkServerService;
 
+class IFileSystem;
+extern IFileSystem *g_pFullFileSystem;
+
 class INetworkMessages;
 class IGameEventSystem;
 extern INetworkMessages *g_pNetworkMessages;
