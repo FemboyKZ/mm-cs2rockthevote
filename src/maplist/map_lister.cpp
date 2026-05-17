@@ -465,9 +465,6 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 						}
 					}
 
-					META_CONPRINTF("[CS2RTV] CS2KZ API miss for %s (ok=%d body_len=%zu), trying Steam.\n",
-								   workshopId.c_str(), (int)ok, body.size());
-
 					// 2) Fallback: Steam GetPublishedFileDetails
 					std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
 										   "GetPublishedFileDetails/v1/";
@@ -481,9 +478,6 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 					RTV_HttpPostForm(steamUrl, postBody,
 								 [workshopId, callback](bool ok2, std::string body2)
 								 {
-									 META_CONPRINTF("[CS2RTV] Steam API response for %s: ok=%d body_len=%zu.\n",
-												workshopId.c_str(), (int)ok2, body2.size());
-									 MapEntry fallback;
 									 if (ok2 && !body2.empty())
 									 {
 										 // Response:
@@ -491,20 +485,63 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 										 std::string title = JsonGetString(body2, "title");
 										 if (!title.empty())
 										 {
+											 MapEntry fallback;
 											 fallback.mapName = title;
 											 fallback.displayName = title;
 											 fallback.workshopId = workshopId;
 											 fallback.isWorkshop = true;
+											 MapEntry captured = std::move(fallback);
+											 RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+											 return;
 										 }
-										 else
-										 {
-											 META_CONPRINTF("[CS2RTV] Steam API returned no title for %s. Body: %.256s\n",
-														workshopId.c_str(), body2.c_str());
-										 }
+										 META_CONPRINTF("[CS2RTV] Steam API returned no title for %s (result=9?), trying Workshop page.\n",
+													workshopId.c_str());
 									 }
-									 // Dispatch to game thread: callback touches game state.
-									 MapEntry captured = std::move(fallback);
-									 RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+
+									 // 3) Fallback: scrape the Steam Workshop page <title> tag.
+									 // The page title is "Steam Workshop::MAP NAME" for public items.
+									 std::string pageUrl = "https://steamcommunity.com/sharedfiles/filedetails?id=" + workshopId;
+									 RTV_HttpGet(pageUrl,
+												 [workshopId, callback](bool ok3, std::string body3)
+												 {
+													 MapEntry fallback;
+													 if (ok3 && !body3.empty())
+													 {
+														 // Look for <title>Steam Workshop::MAP NAME</title>
+														 const std::string prefix = "Steam Workshop::";
+														 size_t p = body3.find(prefix);
+														 if (p != std::string::npos)
+														 {
+															 p += prefix.size();
+															 size_t end = body3.find('<', p);
+															 if (end == std::string::npos)
+															 {
+																 end = body3.size();
+															 }
+															 std::string title = body3.substr(p, end - p);
+															 // Trim trailing whitespace
+															 while (!title.empty() && (title.back() == ' ' || title.back() == '\r' || title.back() == '\n' || title.back() == '\t'))
+															 {
+																 title.pop_back();
+															 }
+															 if (!title.empty())
+															 {
+																 fallback.mapName = title;
+																 fallback.displayName = title;
+																 fallback.workshopId = workshopId;
+																 fallback.isWorkshop = true;
+																 META_CONPRINTF("[CS2RTV] Workshop page title for %s: '%s'\n",
+																			workshopId.c_str(), title.c_str());
+															 }
+														 }
+													 }
+													 if (fallback.mapName.empty())
+													 {
+														 META_CONPRINTF("[CS2RTV] Workshop page lookup also failed for %s.\n", workshopId.c_str());
+													 }
+													 MapEntry captured = std::move(fallback);
+													 RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+												 });
 								 });
 				});
 }
