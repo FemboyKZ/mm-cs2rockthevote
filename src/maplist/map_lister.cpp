@@ -465,14 +465,24 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 						}
 					}
 
+					META_CONPRINTF("[CS2RTV] CS2KZ API miss for %s (ok=%d body_len=%zu), trying Steam.\n",
+								   workshopId.c_str(), (int)ok, body.size());
+
 					// 2) Fallback: Steam GetPublishedFileDetails
 					std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
 										   "GetPublishedFileDetails/v1/";
+					const std::string &steamKey = g_RTVConfig.general.steamApiKey;
+					if (!steamKey.empty())
+					{
+						steamUrl += "?key=" + steamKey;
+					}
 					std::string postBody = "itemcount=1&publishedfileids[0]=" + workshopId;
 					// Steam's v1 endpoint uses POST with form-encoded data.
 					RTV_HttpPostForm(steamUrl, postBody,
 								 [workshopId, callback](bool ok2, std::string body2)
 								 {
+									 META_CONPRINTF("[CS2RTV] Steam API response for %s: ok=%d body_len=%zu.\n",
+												workshopId.c_str(), (int)ok2, body2.size());
 									 MapEntry fallback;
 									 if (ok2 && !body2.empty())
 									 {
@@ -485,6 +495,11 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 											 fallback.displayName = title;
 											 fallback.workshopId = workshopId;
 											 fallback.isWorkshop = true;
+										 }
+										 else
+										 {
+											 META_CONPRINTF("[CS2RTV] Steam API returned no title for %s. Body: %.256s\n",
+														workshopId.c_str(), body2.c_str());
 										 }
 									 }
 									 // Dispatch to game thread: callback touches game state.
