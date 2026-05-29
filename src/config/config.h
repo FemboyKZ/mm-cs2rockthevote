@@ -11,6 +11,8 @@ struct RtvCfg
 	int mapChangeDelay = 5;
 	int cooldownDuration = 30;
 	int mapStartDelay = 30;
+	bool endOfMapVote = false;
+	int endOfMapVoteTime = 180;
 };
 
 struct MapVoteCfg

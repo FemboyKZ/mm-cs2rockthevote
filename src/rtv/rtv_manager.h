@@ -21,6 +21,11 @@ public:
 	using StartVoteCallback = std::function<void()>;
 	void CommandHandler(int slot, StartVoteCallback startVote);
 
+	// Called every frame. When the end-of-map-vote setting is on, starts the
+	// vote automatically once mp_timelimit is within endOfMapVoteTime seconds
+	// of expiring and nobody has triggered !rtv yet. Cheap-throttled internally.
+	void CheckEndOfMapVote(StartVoteCallback startVote);
+
 	// Re-open the current vote menu for a player (when vote is already running)
 	// The caller owns calling this through the map-vote manager.
 
@@ -62,6 +67,8 @@ private:
 	bool m_mapChangeScheduled = false;
 	float m_cooldownExpireTime = 0.0f;
 	float m_mapStartTime = 0.0f;
+	bool m_endOfMapVoteTriggered = false;
+	float m_nextEomCheckTime = 0.0f;
 
 	int RequiredVotes(int eligibleCount) const;
 	void StartReminderTimer();

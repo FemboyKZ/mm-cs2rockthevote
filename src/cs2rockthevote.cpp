@@ -215,6 +215,15 @@ void CS2RTVPlugin::Hook_GameFrame(bool /*simulating*/, bool /*bFirstTick*/, bool
 	g_Timers.Process(curtime);
 	g_ChatMenus.Tick(curtime);
 
+	// Auto end-of-map vote: start the next-map vote before mp_timelimit expires
+	// if nobody has triggered !rtv (no-op unless the setting is enabled).
+	g_RTVManager.CheckEndOfMapVote(
+		[]()
+		{
+			auto noms = g_NominateManager.GetNominations();
+			g_MapVoteManager.StartVote(false, noms);
+		});
+
 	RETURN_META(MRES_IGNORED);
 }
 

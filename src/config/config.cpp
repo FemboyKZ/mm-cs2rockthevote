@@ -73,6 +73,14 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->rtv.mapStartDelay = std::atoi(value.c_str());
 		}
+		else if (k == "endofmapvote")
+		{
+			cfg->rtv.endOfMapVote = (value != "0");
+		}
+		else if (k == "endofmapvotetime")
+		{
+			cfg->rtv.endOfMapVoteTime = std::atoi(value.c_str());
+		}
 	}
 	else if (sec == "mapvote")
 	{
