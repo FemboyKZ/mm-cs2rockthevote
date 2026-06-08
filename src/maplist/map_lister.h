@@ -1,6 +1,7 @@
 #ifndef _INCLUDE_RTV_MAP_LISTER_H_
 #define _INCLUDE_RTV_MAP_LISTER_H_
 
+#include <atomic>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -86,8 +87,13 @@ private:
 	std::string m_lastPath;
 
 	// Cache of CS2KZ tiers keyed by lowercased clean map name -> {classic, vanilla}.
-	// Populated by FetchTiersAsync(); read on the game thread only.
+	// Populated by FetchTiersAsync(); read/written on the game thread only.
 	std::unordered_map<std::string, std::pair<int, int>> m_tierCache;
+
+	// True while a tier fetch is in progress. Prevents overlapping API sweeps
+	// when maps change faster than a fetch completes. Set/cleared from both the
+	// game thread and the HTTP worker thread, hence atomic.
+	std::atomic<bool> m_tierFetchInFlight {false};
 
 	// Fill an entry's tiers from m_tierCache if not already set.
 	void ApplyCachedTiers(MapEntry &e) const;

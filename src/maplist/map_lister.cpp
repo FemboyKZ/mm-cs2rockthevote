@@ -738,11 +738,21 @@ void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
 
 void MapLister::FetchTiersAsync()
 {
+	// Only one paginated sweep at a time. Guards against rapid map changes
+	// re-triggering a fetch before the first one's results are merged.
+	bool expected = false;
+	if (!m_tierFetchInFlight.compare_exchange_strong(expected, true))
+	{
+		return;
+	}
+
 	FetchAllApprovedMapsAsync(
 		[this](std::vector<MapEntry> maps)
 		{
 			if (maps.empty())
 			{
+				// Failed / cancelled - clear the latch so a later load can retry.
+				m_tierFetchInFlight.store(false);
 				return;
 			}
 
@@ -769,6 +779,7 @@ void MapLister::FetchTiersAsync()
 					{
 						ApplyCachedTiers(e);
 					}
+					m_tierFetchInFlight.store(false);
 					META_CONPRINTF("[CS2RTV] Loaded CS2KZ tiers for %d maps.\n", static_cast<int>(cache->size()));
 				});
 		});
