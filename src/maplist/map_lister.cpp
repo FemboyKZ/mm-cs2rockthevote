@@ -851,33 +851,67 @@ std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const c
 		wantClassic = wantVanilla = true;
 	}
 
-	std::string suffix;
-	// Color codes (0x01-0x10) only render in chat/menus, not the console.
-	auto appendTier = [&](const char *labelColor, const char *tag, int tier)
+	// Collect the mode parts to show.
+	struct TierPart
 	{
-		suffix += " ";
-		if (colorize)
-		{
-			suffix += labelColor; // "CKZ:" red / "VNL:" green
-			suffix += tag;
-			suffix += TierColorCode(tier); // tier value per CS2KZ palette
-			suffix += FormatTier(tier);
-			suffix += resetColor; // restore the surrounding row color
-		}
-		else
-		{
-			suffix += tag;
-			suffix += FormatTier(tier);
-		}
+		const char *labelColor;
+		const char *label;
+		int tier;
 	};
-
+	std::vector<TierPart> parts;
 	if (wantClassic && e.classicTier > 0)
 	{
-		appendTier(CHAT_COLOR_RED, "CKZ: ", e.classicTier);
+		parts.push_back({CHAT_COLOR_RED, "CKZ", e.classicTier});
 	}
 	if (wantVanilla && e.vanillaTier > 0)
 	{
-		appendTier(CHAT_COLOR_GREEN, "VNL: ", e.vanillaTier);
+		parts.push_back({CHAT_COLOR_GREEN, "VNL", e.vanillaTier});
+	}
+	if (parts.empty())
+	{
+		return clean;
+	}
+
+	// Format: " [CKZ: x | VNL: x]". Brackets, "|" and ":" stay default; only the
+	// mode label and the tier value are colored. Color codes (0x01-0x10) only
+	// render in chat/menus, not the console.
+	std::string suffix = " ";
+	if (colorize)
+	{
+		suffix += CHAT_COLOR_DEFAULT;
+		suffix += "[";
+		for (size_t i = 0; i < parts.size(); i++)
+		{
+			if (i > 0)
+			{
+				suffix += CHAT_COLOR_DEFAULT;
+				suffix += " | ";
+			}
+			suffix += parts[i].labelColor;
+			suffix += parts[i].label;
+			suffix += CHAT_COLOR_DEFAULT;
+			suffix += ": ";
+			suffix += TierColorCode(parts[i].tier);
+			suffix += FormatTier(parts[i].tier);
+		}
+		suffix += CHAT_COLOR_DEFAULT;
+		suffix += "]";
+		suffix += resetColor; // restore the surrounding row color
+	}
+	else
+	{
+		suffix += "[";
+		for (size_t i = 0; i < parts.size(); i++)
+		{
+			if (i > 0)
+			{
+				suffix += " | ";
+			}
+			suffix += parts[i].label;
+			suffix += ": ";
+			suffix += FormatTier(parts[i].tier);
+		}
+		suffix += "]";
 	}
 
 	return clean + suffix;
