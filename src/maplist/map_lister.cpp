@@ -467,49 +467,74 @@ static void JsonForEachObject(const std::string &json, std::function<void(const 
 	}
 }
 
-// Parse the nub_tier for one mode under "filters". modeKey must be the quoted
-// key, e.g. "\"classic\"" or "\"vanilla\"". Returns 1-10, or 0 if absent.
-// API structure: courses[0].filters.{vanilla|classic}.nub_tier (string)
-static int ParseTierForMode(const std::string &jsonObj, const char *modeKey)
+// Parse the nub_tier range for one mode across ALL courses. modeKey must be the
+// quoted key, e.g. "\"classic\"" or "\"vanilla\"". outMin/outMax are set to the
+// lowest/highest tier (1-10) found; both 0 if the mode has no tier on any course.
+// API structure: map.courses[].filters.{vanilla|classic}.nub_tier (string)
+static void ParseTierRangeForMode(const std::string &jsonObj, const char *modeKey, int &outMin, int &outMax)
 {
-	size_t filtersPos = jsonObj.find("\"filters\"");
-	if (filtersPos == std::string::npos)
+	outMin = 0;
+	outMax = 0;
+
+	size_t pos = 0;
+	while (true)
 	{
-		return 0;
+		size_t filtersPos = jsonObj.find("\"filters\"", pos);
+		if (filtersPos == std::string::npos)
+		{
+			break;
+		}
+		size_t nextFilters = jsonObj.find("\"filters\"", filtersPos + 9);
+		size_t bound = (nextFilters == std::string::npos) ? jsonObj.size() : nextFilters;
+		pos = bound;
+
+		size_t modePos = jsonObj.find(modeKey, filtersPos);
+		if (modePos == std::string::npos || modePos >= bound)
+		{
+			continue;
+		}
+		size_t nubPos = jsonObj.find("\"nub_tier\"", modePos);
+		if (nubPos == std::string::npos || nubPos >= bound)
+		{
+			continue;
+		}
+		size_t colon = jsonObj.find(':', nubPos + 10);
+		if (colon == std::string::npos || colon >= bound)
+		{
+			continue;
+		}
+		size_t q1 = jsonObj.find('"', colon + 1);
+		if (q1 == std::string::npos || q1 >= bound)
+		{
+			continue;
+		}
+		size_t q2 = jsonObj.find('"', q1 + 1);
+		if (q2 == std::string::npos || q2 >= bound)
+		{
+			continue;
+		}
+
+		int tier = TierNameToInt(jsonObj.substr(q1 + 1, q2 - q1 - 1));
+		if (tier <= 0)
+		{
+			continue;
+		}
+		if (outMin == 0 || tier < outMin)
+		{
+			outMin = tier;
+		}
+		if (tier > outMax)
+		{
+			outMax = tier;
+		}
 	}
-	size_t modePos = jsonObj.find(modeKey, filtersPos);
-	if (modePos == std::string::npos)
-	{
-		return 0;
-	}
-	size_t nubPos = jsonObj.find("\"nub_tier\"", modePos);
-	if (nubPos == std::string::npos)
-	{
-		return 0;
-	}
-	size_t colon = jsonObj.find(':', nubPos + 10);
-	if (colon == std::string::npos)
-	{
-		return 0;
-	}
-	size_t q1 = jsonObj.find('"', colon + 1);
-	if (q1 == std::string::npos)
-	{
-		return 0;
-	}
-	size_t q2 = jsonObj.find('"', q1 + 1);
-	if (q2 == std::string::npos)
-	{
-		return 0;
-	}
-	return TierNameToInt(jsonObj.substr(q1 + 1, q2 - q1 - 1));
 }
 
 // CS2KZ API parsing
 bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 {
 	// Expected fields: "name" (map name), "workshop_id" (string)
-	// We also look into courses[0].filters for tier name
+	// We also look into courses[].filters for nub_tier (all courses)
 	std::string name = JsonGetString(jsonObj, "name");
 	std::string wsId = JsonGetString(jsonObj, "workshop_id");
 
@@ -522,9 +547,10 @@ bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 	out.workshopId = wsId;
 	out.isWorkshop = !wsId.empty();
 
-	// Parse both classic and vanilla tiers so DisplayKzTiers can show either/both.
-	out.classicTier = ParseTierForMode(jsonObj, "\"classic\"");
-	out.vanillaTier = ParseTierForMode(jsonObj, "\"vanilla\"");
+	// Parse both classic and vanilla tier ranges (across all courses) so
+	// DisplayKzTiers can show either/both.
+	ParseTierRangeForMode(jsonObj, "\"classic\"", out.classicTierMin, out.classicTierMax);
+	ParseTierRangeForMode(jsonObj, "\"vanilla\"", out.vanillaTierMin, out.vanillaTierMax);
 
 	// Global maps come straight from the API with no baked tier annotation.
 	// tiers are shown live via DisplayKzTiers / GetDisplayLabel.
@@ -787,15 +813,15 @@ void MapLister::FetchTiersAsync()
 				return;
 			}
 
-			// Build name -> {classic, vanilla} on the background thread.
-			auto cache = std::make_shared<std::unordered_map<std::string, std::pair<int, int>>>();
+			// Build name -> tier ranges on the background thread.
+			auto cache = std::make_shared<std::unordered_map<std::string, TierRange>>();
 			for (const auto &e : maps)
 			{
 				if (e.mapName.empty())
 				{
 					continue;
 				}
-				(*cache)[ToLowerStr(e.mapName)] = {e.classicTier, e.vanillaTier};
+				(*cache)[ToLowerStr(e.mapName)] = {e.classicTierMin, e.classicTierMax, e.vanillaTierMin, e.vanillaTierMax};
 			}
 
 			// Merge into live state on the game thread (touches m_maps / m_tierCache).
@@ -818,15 +844,17 @@ void MapLister::FetchTiersAsync()
 
 void MapLister::ApplyCachedTiers(MapEntry &e) const
 {
-	if (e.classicTier > 0 || e.vanillaTier > 0)
+	if (e.classicTierMin > 0 || e.vanillaTierMin > 0)
 	{
 		return;
 	}
 	auto it = m_tierCache.find(ToLowerStr(e.mapName));
 	if (it != m_tierCache.end())
 	{
-		e.classicTier = it->second.first;
-		e.vanillaTier = it->second.second;
+		e.classicTierMin = it->second.classicMin;
+		e.classicTierMax = it->second.classicMax;
+		e.vanillaTierMin = it->second.vanillaMin;
+		e.vanillaTierMax = it->second.vanillaMax;
 	}
 }
 
@@ -856,62 +884,68 @@ std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const c
 	{
 		const char *labelColor;
 		const char *label;
-		int tier;
+		int tierMin;
+		int tierMax;
 	};
+
 	std::vector<TierPart> parts;
-	if (wantClassic && e.classicTier > 0)
+	if (wantClassic && e.classicTierMin > 0)
 	{
-		parts.push_back({CHAT_COLOR_RED, "CKZ", e.classicTier});
+		parts.push_back({CHAT_COLOR_RED, "CKZ", e.classicTierMin, e.classicTierMax});
 	}
-	if (wantVanilla && e.vanillaTier > 0)
+	if (wantVanilla && e.vanillaTierMin > 0)
 	{
-		parts.push_back({CHAT_COLOR_GREEN, "VNL", e.vanillaTier});
+		parts.push_back({CHAT_COLOR_GREEN, "VNL", e.vanillaTierMin, e.vanillaTierMax});
 	}
 	if (parts.empty())
 	{
 		return clean;
 	}
 
-	// Format: " [CKZ: x | VNL: x]". Brackets, "|" and ":" stay default; only the
-	// mode label and the tier value are colored. Color codes (0x01-0x10) only
-	// render in chat/menus, not the console.
+	// Render a mode's tier value. Single-course -> one tier (honoring KzTierFormat).
+	// Multi-course -> numeric range "min-max" (e.g. "2-7"), always numbers.
+	// Each number is colored by its own tier.
+	auto renderValue = [&](int mn, int mx) -> std::string
+	{
+		if (mn == mx)
+		{
+			if (colorize)
+			{
+				return std::string(TierColorCode(mn)) + FormatTier(mn);
+			}
+			return FormatTier(mn);
+		}
+		if (colorize)
+		{
+			return std::string(TierColorCode(mn)) + std::to_string(mn) + CHAT_COLOR_DEFAULT + "-" + TierColorCode(mx) + std::to_string(mx);
+		}
+		return std::to_string(mn) + "-" + std::to_string(mx);
+	};
+
+	// Format: " [CKZ: x | VNL: x]".
+	// Color codes (0x01-0x10) only render in chat/menus, not the console.
 	std::string suffix = " ";
+	const char *def = colorize ? CHAT_COLOR_DEFAULT : "";
+	suffix += def;
+	suffix += "[";
+	for (size_t i = 0; i < parts.size(); i++)
+	{
+		if (i > 0)
+		{
+			suffix += def;
+			suffix += " | ";
+		}
+		suffix += colorize ? parts[i].labelColor : "";
+		suffix += parts[i].label;
+		suffix += def;
+		suffix += ": ";
+		suffix += renderValue(parts[i].tierMin, parts[i].tierMax);
+	}
+	suffix += def;
+	suffix += "]";
 	if (colorize)
 	{
-		suffix += CHAT_COLOR_DEFAULT;
-		suffix += "[";
-		for (size_t i = 0; i < parts.size(); i++)
-		{
-			if (i > 0)
-			{
-				suffix += CHAT_COLOR_DEFAULT;
-				suffix += " | ";
-			}
-			suffix += parts[i].labelColor;
-			suffix += parts[i].label;
-			suffix += CHAT_COLOR_DEFAULT;
-			suffix += ": ";
-			suffix += TierColorCode(parts[i].tier);
-			suffix += FormatTier(parts[i].tier);
-		}
-		suffix += CHAT_COLOR_DEFAULT;
-		suffix += "]";
 		suffix += resetColor; // restore the surrounding row color
-	}
-	else
-	{
-		suffix += "[";
-		for (size_t i = 0; i < parts.size(); i++)
-		{
-			if (i > 0)
-			{
-				suffix += " | ";
-			}
-			suffix += parts[i].label;
-			suffix += ": ";
-			suffix += FormatTier(parts[i].tier);
-		}
-		suffix += "]";
 	}
 
 	return clean + suffix;

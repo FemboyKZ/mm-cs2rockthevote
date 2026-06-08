@@ -14,8 +14,21 @@ struct MapEntry
 	std::string mapName;     // Clean name for changelevel, e.g. "kz_grotto"
 	std::string workshopId;  // Workshop ID if present, else empty
 	bool isWorkshop = false;
-	int classicTier = 0; // CS2KZ classic nub_tier (1-10), 0 = unknown
-	int vanillaTier = 0; // CS2KZ vanilla nub_tier (1-10), 0 = unknown
+	// CS2KZ nub_tier range across all courses (1-10, 0 = unknown).
+	// min == max for single-course maps.
+	int classicTierMin = 0;
+	int classicTierMax = 0;
+	int vanillaTierMin = 0;
+	int vanillaTierMax = 0;
+};
+
+// CS2KZ nub_tier ranges for a map, cached by clean map name.
+struct TierRange
+{
+	int classicMin = 0;
+	int classicMax = 0;
+	int vanillaMin = 0;
+	int vanillaMax = 0;
 };
 
 class MapLister
@@ -91,7 +104,7 @@ private:
 
 	// Cache of CS2KZ tiers keyed by lowercased clean map name -> {classic, vanilla}.
 	// Populated by FetchTiersAsync(); read/written on the game thread only.
-	std::unordered_map<std::string, std::pair<int, int>> m_tierCache;
+	std::unordered_map<std::string, TierRange> m_tierCache;
 
 	// True while a tier fetch is in progress. Prevents overlapping API sweeps
 	// when maps change faster than a fetch completes. Set/cleared from both the
