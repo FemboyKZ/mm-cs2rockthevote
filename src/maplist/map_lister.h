@@ -58,7 +58,10 @@ public:
 
 	// Player-facing label for a map: displayName (or mapName) plus the CS2KZ tier
 	// annotation ("CKZ: x VNL: x") when DisplayKzTiers is enabled.
-	std::string GetDisplayLabel(const MapEntry &e) const;
+	// When colorize is true the tier values are wrapped in chat color codes.
+	// resetColor is the color restored after each colored tier value, so trailing
+	// text keeps the surrounding row color (e.g. "\x08" grey for disabled rows).
+	std::string GetDisplayLabel(const MapEntry &e, bool colorize = true, const char *resetColor = "\x01") const;
 
 	// Async API lookups (run on background thread; callback on same thread).
 	// DO NOT call game engine APIs from the callback - set a flag and handle on next GameFrame tick.

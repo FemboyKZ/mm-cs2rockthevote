@@ -123,6 +123,37 @@ static std::string FormatTier(int tier)
 	return std::to_string(tier);
 }
 
+// Closest in-game chat color to the CS2KZ website tier palette
+// (cs2kz-website src/utils/index.ts tierColorMap).
+static const char *TierColorCode(int tier)
+{
+	switch (tier)
+	{
+		case 1:
+			return CHAT_COLOR_LIME; // very-easy  #6bc96f
+		case 2:
+			return CHAT_COLOR_GREEN; // easy       #33bd3a
+		case 3:
+			return CHAT_COLOR_OLIVE; // medium     #d8e302
+		case 4:
+			return CHAT_COLOR_YELLOW; // advanced   #ffc107
+		case 5:
+			return CHAT_COLOR_GOLD; // hard       #e37910
+		case 6:
+			return CHAT_COLOR_LIGHTRED; // very-hard  #e34202
+		case 7:
+			return CHAT_COLOR_RED; // extreme    #e31c02
+		case 8:
+			return CHAT_COLOR_PURPLE; // death      #bb02db
+		case 9:
+			return CHAT_COLOR_ORCHID; // unfeasible #e800e1
+		case 10:
+			return CHAT_COLOR_GREY; // impossible #d1d1d1
+		default:
+			return CHAT_COLOR_DEFAULT;
+	}
+}
+
 std::string MapLister::StripAnnotation(const std::string &displayName)
 {
 	// "kz_grotto (T3, Linear)" -> "kz_grotto"
@@ -799,7 +830,7 @@ void MapLister::ApplyCachedTiers(MapEntry &e) const
 	}
 }
 
-std::string MapLister::GetDisplayLabel(const MapEntry &e) const
+std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const char *resetColor) const
 {
 	std::string base = e.displayName.empty() ? e.mapName : e.displayName;
 
@@ -821,13 +852,32 @@ std::string MapLister::GetDisplayLabel(const MapEntry &e) const
 	}
 
 	std::string suffix;
+	// Color codes (0x01-0x10) only render in chat/menus, not the console.
+	auto appendTier = [&](const char *labelColor, const char *tag, int tier)
+	{
+		suffix += " ";
+		if (colorize)
+		{
+			suffix += labelColor; // "CKZ:" red / "VNL:" green
+			suffix += tag;
+			suffix += TierColorCode(tier); // tier value per CS2KZ palette
+			suffix += FormatTier(tier);
+			suffix += resetColor; // restore the surrounding row color
+		}
+		else
+		{
+			suffix += tag;
+			suffix += FormatTier(tier);
+		}
+	};
+
 	if (wantClassic && e.classicTier > 0)
 	{
-		suffix += " CKZ: " + FormatTier(e.classicTier);
+		appendTier(CHAT_COLOR_RED, "CKZ: ", e.classicTier);
 	}
 	if (wantVanilla && e.vanillaTier > 0)
 	{
-		suffix += " VNL: " + FormatTier(e.vanillaTier);
+		appendTier(CHAT_COLOR_GREEN, "VNL: ", e.vanillaTier);
 	}
 
 	return clean + suffix;

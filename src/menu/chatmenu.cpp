@@ -246,27 +246,27 @@ void ChatMenuHandler::RenderPage(int slot, float /*curtime*/)
 		const ChatMenuItem &item = items[pageStart + i];
 		if (item.disabled)
 		{
-			snprintf(buf, sizeof(buf), "\x08[%d] %s", i + 1, item.text.c_str());
+			snprintf(buf, sizeof(buf), "\x08#%d %s", i + 1, item.text.c_str());
 		}
 		else
 		{
-			snprintf(buf, sizeof(buf), "\x01[%d] %s", i + 1, item.text.c_str());
+			snprintf(buf, sizeof(buf), "\x01#%d %s", i + 1, item.text.c_str());
 		}
 		RTV_PrintToChat(slot, "%s", buf);
 	}
 
 	if (hasMore)
 	{
-		snprintf(buf, sizeof(buf), "\x01[%d] \x04-> Next Page", MENU_ITEMS_PER_PAGE + 1);
+		snprintf(buf, sizeof(buf), "\x01#%d \x04-> Next Page", MENU_ITEMS_PER_PAGE + 1);
 		RTV_PrintToChat(slot, "%s", buf);
 	}
 	if (hasPrev)
 	{
-		snprintf(buf, sizeof(buf), "\x01[%d] \x04-> Previous Page", MENU_ITEMS_PER_PAGE + 2);
+		snprintf(buf, sizeof(buf), "\x01#%d \x04-> Previous Page", MENU_ITEMS_PER_PAGE + 2);
 		RTV_PrintToChat(slot, "%s", buf);
 	}
 	if (def.exitButton)
 	{
-		RTV_PrintToChat(slot, "\x01[0] \x04-> Exit");
+		RTV_PrintToChat(slot, "\x01#0 \x04-> Exit");
 	}
 }

@@ -222,7 +222,7 @@ void NominateManager::CommandMaps(int slot) const
 	RTV_PrintToClient(slot, "Available maps (%d):", static_cast<int>(maps.size()));
 	for (const auto &e : maps)
 	{
-		RTV_PrintToClient(slot, "  %s", g_MapLister.GetDisplayLabel(e).c_str());
+		RTV_PrintToClient(slot, "  %s", g_MapLister.GetDisplayLabel(e, false).c_str());
 	}
 }
 
@@ -268,7 +268,8 @@ void NominateManager::ShowNominateMenu(int slot)
 		bool disabled = (e.mapName == m_currentMap);
 
 		bool alreadyNom = m_nomCounts.count(e.mapName) > 0;
-		std::string label = g_MapLister.GetDisplayLabel(e);
+		// Disabled rows render grey (\x08); keep trailing text grey after the tier.
+		std::string label = g_MapLister.GetDisplayLabel(e, true, disabled ? "\x08" : "\x01");
 		if (alreadyNom)
 		{
 			label += " [nominated]";
