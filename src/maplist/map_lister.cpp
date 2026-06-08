@@ -467,14 +467,13 @@ static void JsonForEachObject(const std::string &json, std::function<void(const 
 	}
 }
 
-// Parse the nub_tier range for one mode across ALL courses. modeKey must be the
-// quoted key, e.g. "\"classic\"" or "\"vanilla\"". outMin/outMax are set to the
-// lowest/highest tier (1-10) found; both 0 if the mode has no tier on any course.
+// Parse the nub_tier for one mode for EVERY course, in course order.
+// modeKey must be the quoted key, e.g. "\"classic\"" or "\"vanilla\"".
+// Appends each course's tier (1-10) to out; a course with no tier for this mode is skipped.
 // API structure: map.courses[].filters.{vanilla|classic}.nub_tier (string)
-static void ParseTierRangeForMode(const std::string &jsonObj, const char *modeKey, int &outMin, int &outMax)
+static void ParseTierListForMode(const std::string &jsonObj, const char *modeKey, std::vector<int> &out)
 {
-	outMin = 0;
-	outMax = 0;
+	out.clear();
 
 	size_t pos = 0;
 	while (true)
@@ -515,17 +514,9 @@ static void ParseTierRangeForMode(const std::string &jsonObj, const char *modeKe
 		}
 
 		int tier = TierNameToInt(jsonObj.substr(q1 + 1, q2 - q1 - 1));
-		if (tier <= 0)
+		if (tier > 0)
 		{
-			continue;
-		}
-		if (outMin == 0 || tier < outMin)
-		{
-			outMin = tier;
-		}
-		if (tier > outMax)
-		{
-			outMax = tier;
+			out.push_back(tier);
 		}
 	}
 }
@@ -547,10 +538,9 @@ bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 	out.workshopId = wsId;
 	out.isWorkshop = !wsId.empty();
 
-	// Parse both classic and vanilla tier ranges (across all courses) so
-	// DisplayKzTiers can show either/both.
-	ParseTierRangeForMode(jsonObj, "\"classic\"", out.classicTierMin, out.classicTierMax);
-	ParseTierRangeForMode(jsonObj, "\"vanilla\"", out.vanillaTierMin, out.vanillaTierMax);
+	// Parse per-course classic and vanilla tiers so DisplayKzTiers can list them.
+	ParseTierListForMode(jsonObj, "\"classic\"", out.classicTiers);
+	ParseTierListForMode(jsonObj, "\"vanilla\"", out.vanillaTiers);
 
 	// Global maps come straight from the API with no baked tier annotation.
 	// tiers are shown live via DisplayKzTiers / GetDisplayLabel.
@@ -813,15 +803,15 @@ void MapLister::FetchTiersAsync()
 				return;
 			}
 
-			// Build name -> tier ranges on the background thread.
-			auto cache = std::make_shared<std::unordered_map<std::string, TierRange>>();
+			// Build name -> per-course tier lists on the background thread.
+			auto cache = std::make_shared<std::unordered_map<std::string, TierLists>>();
 			for (const auto &e : maps)
 			{
 				if (e.mapName.empty())
 				{
 					continue;
 				}
-				(*cache)[ToLowerStr(e.mapName)] = {e.classicTierMin, e.classicTierMax, e.vanillaTierMin, e.vanillaTierMax};
+				(*cache)[ToLowerStr(e.mapName)] = {e.classicTiers, e.vanillaTiers};
 			}
 
 			// Merge into live state on the game thread (touches m_maps / m_tierCache).
@@ -844,17 +834,15 @@ void MapLister::FetchTiersAsync()
 
 void MapLister::ApplyCachedTiers(MapEntry &e) const
 {
-	if (e.classicTierMin > 0 || e.vanillaTierMin > 0)
+	if (!e.classicTiers.empty() || !e.vanillaTiers.empty())
 	{
 		return;
 	}
 	auto it = m_tierCache.find(ToLowerStr(e.mapName));
 	if (it != m_tierCache.end())
 	{
-		e.classicTierMin = it->second.classicMin;
-		e.classicTierMax = it->second.classicMax;
-		e.vanillaTierMin = it->second.vanillaMin;
-		e.vanillaTierMax = it->second.vanillaMax;
+		e.classicTiers = it->second.classic;
+		e.vanillaTiers = it->second.vanilla;
 	}
 }
 
@@ -884,48 +872,67 @@ std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const c
 	{
 		const char *labelColor;
 		const char *label;
-		int tierMin;
-		int tierMax;
+		const std::vector<int> *tiers;
 	};
 
 	std::vector<TierPart> parts;
-	if (wantClassic && e.classicTierMin > 0)
+	if (wantClassic && !e.classicTiers.empty())
 	{
-		parts.push_back({CHAT_COLOR_RED, "CKZ", e.classicTierMin, e.classicTierMax});
+		parts.push_back({CHAT_COLOR_RED, "CKZ", &e.classicTiers});
 	}
-	if (wantVanilla && e.vanillaTierMin > 0)
+	if (wantVanilla && !e.vanillaTiers.empty())
 	{
-		parts.push_back({CHAT_COLOR_GREEN, "VNL", e.vanillaTierMin, e.vanillaTierMax});
+		parts.push_back({CHAT_COLOR_GREEN, "VNL", &e.vanillaTiers});
 	}
 	if (parts.empty())
 	{
 		return clean;
 	}
 
-	// Render a mode's tier value. Single-course -> one tier (honoring KzTierFormat).
-	// Multi-course -> numeric range "min-max" (e.g. "2-7"), always numbers.
-	// Each number is colored by its own tier.
-	auto renderValue = [&](int mn, int mx) -> std::string
+	const char *def = colorize ? CHAT_COLOR_DEFAULT : "";
+
+	// Render a mode's tier value. Single course -> one tier (honoring KzTierFormat).
+	// Multiple courses -> each course's tier as a number joined by "/" (e.g. "1/2/2/3");
+	// capped at MAX_COURSES with a trailing "..." when there are more.
+	// Each number is colored by its own tier; the "/" stays default.
+	const size_t MAX_COURSES = 5;
+	auto renderValue = [&](const std::vector<int> &tiers) -> std::string
 	{
-		if (mn == mx)
+		if (tiers.size() == 1)
 		{
 			if (colorize)
 			{
-				return std::string(TierColorCode(mn)) + FormatTier(mn);
+				return std::string(TierColorCode(tiers[0])) + FormatTier(tiers[0]);
 			}
-			return FormatTier(mn);
+			return FormatTier(tiers[0]);
 		}
-		if (colorize)
+
+		size_t shown = (tiers.size() < MAX_COURSES) ? tiers.size() : MAX_COURSES;
+		std::string s;
+		for (size_t i = 0; i < shown; i++)
 		{
-			return std::string(TierColorCode(mn)) + std::to_string(mn) + CHAT_COLOR_DEFAULT + "-" + TierColorCode(mx) + std::to_string(mx);
+			if (i > 0)
+			{
+				s += def;
+				s += "/";
+			}
+			if (colorize)
+			{
+				s += TierColorCode(tiers[i]);
+			}
+			s += std::to_string(tiers[i]);
 		}
-		return std::to_string(mn) + "-" + std::to_string(mx);
+		if (tiers.size() > MAX_COURSES)
+		{
+			s += def;
+			s += "...";
+		}
+		return s;
 	};
 
 	// Format: " [CKZ: x | VNL: x]".
 	// Color codes (0x01-0x10) only render in chat/menus, not the console.
 	std::string suffix = " ";
-	const char *def = colorize ? CHAT_COLOR_DEFAULT : "";
 	suffix += def;
 	suffix += "[";
 	for (size_t i = 0; i < parts.size(); i++)
@@ -939,7 +946,7 @@ std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const c
 		suffix += parts[i].label;
 		suffix += def;
 		suffix += ": ";
-		suffix += renderValue(parts[i].tierMin, parts[i].tierMax);
+		suffix += renderValue(*parts[i].tiers);
 	}
 	suffix += def;
 	suffix += "]";
