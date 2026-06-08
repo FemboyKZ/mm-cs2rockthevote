@@ -54,7 +54,8 @@ struct GeneralCfg
 	bool enableMapValidation = false;
 	std::string steamApiKey = "";
 	std::string discordWebhook = "";
-	std::string kzTierMode = "classic"; // "classic" or "vanilla"
+	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"
+	std::string kzTierFormat = "number"; // "number" (e.g. 3) | "text" (e.g. medium)
 };
 
 struct RTVPluginConfig

@@ -177,9 +177,13 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.discordWebhook = value;
 		}
-		else if (k == "kztiermode")
+		else if (k == "displaykztiers")
 		{
-			cfg->general.kzTierMode = value;
+			cfg->general.displayKzTiers = value;
+		}
+		else if (k == "kztierformat")
+		{
+			cfg->general.kzTierFormat = value;
 		}
 		else if (k == "commandprefix")
 		{

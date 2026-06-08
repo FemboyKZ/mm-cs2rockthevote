@@ -177,7 +177,7 @@ void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, b
 
 		VoteOption opt;
 		opt.entry = e;
-		opt.label = e->displayName.empty() ? e->mapName : e->displayName;
+		opt.label = g_MapLister.GetDisplayLabel(*e);
 		m_options.push_back(opt);
 		usedNames.push_back(e->mapName);
 	}
@@ -190,7 +190,7 @@ void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, b
 		{
 			VoteOption opt;
 			opt.entry = e;
-			opt.label = e->displayName.empty() ? e->mapName : e->displayName;
+			opt.label = g_MapLister.GetDisplayLabel(*e);
 			m_options.push_back(opt);
 		}
 	}

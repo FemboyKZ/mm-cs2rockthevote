@@ -3,6 +3,8 @@
 
 #include <functional>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 struct MapEntry
@@ -11,13 +13,15 @@ struct MapEntry
 	std::string mapName;     // Clean name for changelevel, e.g. "kz_grotto"
 	std::string workshopId;  // Workshop ID if present, else empty
 	bool isWorkshop = false;
+	int classicTier = 0; // CS2KZ classic nub_tier (1-10), 0 = unknown
+	int vanillaTier = 0; // CS2KZ vanilla nub_tier (1-10), 0 = unknown
 };
 
 class MapLister
 {
 public:
 	// Load maps from file. Returns number of maps loaded, or -1 on error.
-	// If file doesn't exist and KzTierMode is set, triggers auto-generate.
+	// If the file doesn't exist, triggers auto-generate from the CS2KZ API.
 	int LoadFromFile(const char *path);
 
 	// Reload using the last used path.
@@ -51,6 +55,10 @@ public:
 		return !m_maps.empty();
 	}
 
+	// Player-facing label for a map: displayName (or mapName) plus the CS2KZ tier
+	// annotation ("CKZ: x VNL: x") when DisplayKzTiers is enabled.
+	std::string GetDisplayLabel(const MapEntry &e) const;
+
 	// Async API lookups (run on background thread; callback on same thread).
 	// DO NOT call game engine APIs from the callback - set a flag and handle on next GameFrame tick.
 
@@ -69,9 +77,24 @@ public:
 	// Dead maps are reported to server console and optionally Discord webhook.
 	void ValidateMapsAsync() const;
 
+	// Fetch classic+vanilla tiers for all approved maps from the CS2KZ API into
+	// the tier cache, then apply them to currently loaded maps. Async.
+	void FetchTiersAsync();
+
 private:
 	std::vector<MapEntry> m_maps;
 	std::string m_lastPath;
+
+	// Cache of CS2KZ tiers keyed by lowercased clean map name -> {classic, vanilla}.
+	// Populated by FetchTiersAsync(); read on the game thread only.
+	std::unordered_map<std::string, std::pair<int, int>> m_tierCache;
+
+	// Fill an entry's tiers from m_tierCache if not already set.
+	void ApplyCachedTiers(MapEntry &e) const;
+
+	// Paginate the CS2KZ approved-maps endpoint, parsing tiers into each entry.
+	// onComplete is invoked on a BACKGROUND thread with the full list.
+	static void FetchAllApprovedMapsAsync(std::function<void(std::vector<MapEntry>)> onComplete);
 
 	// Parse a single line into a MapEntry. Returns false if line should be
 	// skipped.

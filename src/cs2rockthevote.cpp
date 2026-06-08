@@ -68,7 +68,7 @@ static void ShowMapChooserMenu(int slot)
 
 	for (const auto &e : maps)
 	{
-		const std::string &display = e.displayName.empty() ? e.mapName : e.displayName;
+		std::string display = g_MapLister.GetDisplayLabel(e);
 		// Capture a value copy of the entry so we're not holding a pointer into
 		// m_maps, which can reallocate (AddDynamicMap) or be cleared (Reload).
 		MapEntry entryCopy = e;

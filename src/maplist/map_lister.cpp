@@ -29,6 +29,100 @@ static std::string ToLowerStr(const std::string &s)
 	return r;
 }
 
+// Returns true if DisplayKzTiers is set to anything other than off/none.
+// outMode receives the lowercased config value.
+static bool TierDisplayEnabled(std::string &outMode)
+{
+	outMode = ToLowerStr(g_RTVConfig.general.displayKzTiers);
+	return !(outMode.empty() || outMode == "off" || outMode == "none" || outMode == "0");
+}
+
+// CS2KZ nub_tier name -> integer (1-10). Returns 0 for unknown.
+static int TierNameToInt(const std::string &tierStr)
+{
+	if (tierStr == "very-easy")
+	{
+		return 1;
+	}
+	if (tierStr == "easy")
+	{
+		return 2;
+	}
+	if (tierStr == "medium")
+	{
+		return 3;
+	}
+	if (tierStr == "advanced")
+	{
+		return 4;
+	}
+	if (tierStr == "hard")
+	{
+		return 5;
+	}
+	if (tierStr == "very-hard")
+	{
+		return 6;
+	}
+	if (tierStr == "extreme")
+	{
+		return 7;
+	}
+	if (tierStr == "death")
+	{
+		return 8;
+	}
+	if (tierStr == "unfeasible")
+	{
+		return 9;
+	}
+	if (tierStr == "impossible")
+	{
+		return 10;
+	}
+	return 0;
+}
+
+// Integer tier (1-10) -> CS2KZ tier name.
+static const char *IntToTierName(int tier)
+{
+	switch (tier)
+	{
+		case 1:
+			return "very-easy";
+		case 2:
+			return "easy";
+		case 3:
+			return "medium";
+		case 4:
+			return "advanced";
+		case 5:
+			return "hard";
+		case 6:
+			return "very-hard";
+		case 7:
+			return "extreme";
+		case 8:
+			return "death";
+		case 9:
+			return "unfeasible";
+		case 10:
+			return "impossible";
+		default:
+			return "";
+	}
+}
+
+// Render a tier per KzTierFormat: "text" -> tier name, otherwise the number.
+static std::string FormatTier(int tier)
+{
+	if (ToLowerStr(g_RTVConfig.general.kzTierFormat) == "text")
+	{
+		return IntToTierName(tier);
+	}
+	return std::to_string(tier);
+}
+
 std::string MapLister::StripAnnotation(const std::string &displayName)
 {
 	// "kz_grotto (T3, Linear)" -> "kz_grotto"
@@ -106,6 +200,19 @@ int MapLister::LoadFromFile(const char *path)
 	}
 
 	fclose(fp);
+
+	// Apply any already-cached CS2KZ tiers to the freshly loaded entries.
+	for (auto &e : m_maps)
+	{
+		ApplyCachedTiers(e);
+	}
+
+	// Fetch CS2KZ tiers for display if enabled and not yet cached.
+	std::string tierMode;
+	if (TierDisplayEnabled(tierMode) && m_tierCache.empty())
+	{
+		FetchTiersAsync();
+	}
 
 	// Optionally validate workshop maps in background
 	if (g_RTVConfig.general.enableMapValidation && !g_RTVConfig.general.steamApiKey.empty())
@@ -329,6 +436,44 @@ static void JsonForEachObject(const std::string &json, std::function<void(const 
 	}
 }
 
+// Parse the nub_tier for one mode under "filters". modeKey must be the quoted
+// key, e.g. "\"classic\"" or "\"vanilla\"". Returns 1-10, or 0 if absent.
+// API structure: courses[0].filters.{vanilla|classic}.nub_tier (string)
+static int ParseTierForMode(const std::string &jsonObj, const char *modeKey)
+{
+	size_t filtersPos = jsonObj.find("\"filters\"");
+	if (filtersPos == std::string::npos)
+	{
+		return 0;
+	}
+	size_t modePos = jsonObj.find(modeKey, filtersPos);
+	if (modePos == std::string::npos)
+	{
+		return 0;
+	}
+	size_t nubPos = jsonObj.find("\"nub_tier\"", modePos);
+	if (nubPos == std::string::npos)
+	{
+		return 0;
+	}
+	size_t colon = jsonObj.find(':', nubPos + 10);
+	if (colon == std::string::npos)
+	{
+		return 0;
+	}
+	size_t q1 = jsonObj.find('"', colon + 1);
+	if (q1 == std::string::npos)
+	{
+		return 0;
+	}
+	size_t q2 = jsonObj.find('"', q1 + 1);
+	if (q2 == std::string::npos)
+	{
+		return 0;
+	}
+	return TierNameToInt(jsonObj.substr(q1 + 1, q2 - q1 - 1));
+}
+
 // CS2KZ API parsing
 bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 {
@@ -346,92 +491,14 @@ bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 	out.workshopId = wsId;
 	out.isWorkshop = !wsId.empty();
 
-	// Build display name with tier if present.
-	// API structure: courses[0].filters.{vanilla|classic}.nub_tier  (string)
-	// Tier strings: very-easy=1, easy=2, medium=3, advanced=4, hard=5,
-	//               very-hard=6, extreme=7, death=8
-	const std::string &mode = g_RTVConfig.general.kzTierMode;
-	// Pick "vanilla" or "classic" sub-object under "filters"
-	std::string modeKey = (mode == "vanilla") ? "\"vanilla\"" : "\"classic\"";
+	// Parse both classic and vanilla tiers so DisplayKzTiers can show either/both.
+	out.classicTier = ParseTierForMode(jsonObj, "\"classic\"");
+	out.vanillaTier = ParseTierForMode(jsonObj, "\"vanilla\"");
 
-	int tier = 0;
-	size_t filtersPos = jsonObj.find("\"filters\"");
-	if (filtersPos != std::string::npos)
-	{
-		size_t modePos = jsonObj.find(modeKey, filtersPos);
-		if (modePos != std::string::npos)
-		{
-			size_t nubPos = jsonObj.find("\"nub_tier\"", modePos);
-			if (nubPos != std::string::npos)
-			{
-				// Find the string value after "nub_tier":
-				size_t colon = jsonObj.find(':', nubPos + 10);
-				if (colon != std::string::npos)
-				{
-					size_t q1 = jsonObj.find('"', colon + 1);
-					if (q1 != std::string::npos)
-					{
-						size_t q2 = jsonObj.find('"', q1 + 1);
-						if (q2 != std::string::npos)
-						{
-							std::string tierStr = jsonObj.substr(q1 + 1, q2 - q1 - 1);
-							if (tierStr == "very-easy")
-							{
-								tier = 1;
-							}
-							else if (tierStr == "easy")
-							{
-								tier = 2;
-							}
-							else if (tierStr == "medium")
-							{
-								tier = 3;
-							}
-							else if (tierStr == "advanced")
-							{
-								tier = 4;
-							}
-							else if (tierStr == "hard")
-							{
-								tier = 5;
-							}
-							else if (tierStr == "very-hard")
-							{
-								tier = 6;
-							}
-							else if (tierStr == "extreme")
-							{
-								tier = 7;
-							}
-							else if (tierStr == "death")
-							{
-								tier = 8;
-							}
-							else if (tierStr == "unfeasible")
-							{
-								tier = 9;
-							}
-							else if (tierStr == "impossible")
-							{
-								tier = 10;
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if (tier > 0)
-	{
-		char buf[128];
-		snprintf(buf, sizeof(buf), "%s (T%d)", name.c_str(), tier);
-		out.displayName = buf;
-	}
-	else
-	{
-		out.displayName = name;
-	}
+	// Global maps come straight from the API with no baked tier annotation.
+	// tiers are shown live via DisplayKzTiers / GetDisplayLabel.
+	// Manual annotations on non-global maps live only in maplist.txt.
+	out.displayName = name;
 
 	return true;
 }
@@ -440,110 +507,111 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 {
 	// 1) Try CS2KZ API
 	std::string cs2kzUrl = "https://api.cs2kz.org/maps?workshop_id=" + workshopId + "&state=approved";
-	RTV_HttpGet(cs2kzUrl,
-				[workshopId, callback](bool ok, std::string body)
+	RTV_HttpGet(
+		cs2kzUrl,
+		[workshopId, callback](bool ok, std::string body)
+		{
+			if (ok && !body.empty())
+			{
+				// CS2KZ returns an array; grab first object
+				MapEntry found;
+				bool parsed = false;
+				JsonForEachObject(body,
+								  [&](const std::string &obj)
+								  {
+									  if (!parsed && MapLister::ParseCS2KZMapJson(obj, found))
+									  {
+										  parsed = true;
+									  }
+								  });
+				if (parsed)
 				{
-					if (ok && !body.empty())
+					// Dispatch to game thread: callback touches game state.
+					MapEntry captured = std::move(found);
+					RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+					return;
+				}
+			}
+
+			// 2) Fallback: Steam GetPublishedFileDetails
+			std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
+								   "GetPublishedFileDetails/v1/";
+			const std::string &steamKey = g_RTVConfig.general.steamApiKey;
+			if (!steamKey.empty())
+			{
+				steamUrl += "?key=" + steamKey;
+			}
+			std::string postBody = "itemcount=1&publishedfileids[0]=" + workshopId;
+			// Steam's v1 endpoint uses POST with form-encoded data.
+			RTV_HttpPostForm(
+				steamUrl, postBody,
+				[workshopId, callback](bool ok2, std::string body2)
+				{
+					if (ok2 && !body2.empty())
 					{
-						// CS2KZ returns an array; grab first object
-						MapEntry found;
-						bool parsed = false;
-						JsonForEachObject(body,
-										  [&](const std::string &obj)
-										  {
-											  if (!parsed && MapLister::ParseCS2KZMapJson(obj, found))
-											  {
-												  parsed = true;
-											  }
-										  });
-						if (parsed)
+						// Response:
+						// {"response":{"publishedfiledetails":[{"publishedfileid":"...","title":"...","result":1}]}}
+						std::string title = JsonGetString(body2, "title");
+						if (!title.empty())
 						{
-							// Dispatch to game thread: callback touches game state.
-							MapEntry captured = std::move(found);
+							MapEntry fallback;
+							fallback.mapName = title;
+							fallback.displayName = title;
+							fallback.workshopId = workshopId;
+							fallback.isWorkshop = true;
+							MapEntry captured = std::move(fallback);
 							RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
 							return;
 						}
+						META_CONPRINTF("[CS2RTV] Steam API returned no title for %s (result=9?), trying Workshop page.\n", workshopId.c_str());
 					}
 
-					// 2) Fallback: Steam GetPublishedFileDetails
-					std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
-										   "GetPublishedFileDetails/v1/";
-					const std::string &steamKey = g_RTVConfig.general.steamApiKey;
-					if (!steamKey.empty())
-					{
-						steamUrl += "?key=" + steamKey;
-					}
-					std::string postBody = "itemcount=1&publishedfileids[0]=" + workshopId;
-					// Steam's v1 endpoint uses POST with form-encoded data.
-					RTV_HttpPostForm(steamUrl, postBody,
-								 [workshopId, callback](bool ok2, std::string body2)
-								 {
-									 if (ok2 && !body2.empty())
-									 {
-										 // Response:
-										 // {"response":{"publishedfiledetails":[{"publishedfileid":"...","title":"...","result":1}]}}
-										 std::string title = JsonGetString(body2, "title");
-										 if (!title.empty())
-										 {
-											 MapEntry fallback;
-											 fallback.mapName = title;
-											 fallback.displayName = title;
-											 fallback.workshopId = workshopId;
-											 fallback.isWorkshop = true;
-											 MapEntry captured = std::move(fallback);
-											 RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
-											 return;
-										 }
-										 META_CONPRINTF("[CS2RTV] Steam API returned no title for %s (result=9?), trying Workshop page.\n",
-													workshopId.c_str());
-									 }
-
-									 // 3) Fallback: scrape the Steam Workshop page <title> tag.
-									 // The page title is "Steam Workshop::MAP NAME" for public items.
-									 std::string pageUrl = "https://steamcommunity.com/sharedfiles/filedetails?id=" + workshopId;
-									 RTV_HttpGet(pageUrl,
-												 [workshopId, callback](bool ok3, std::string body3)
-												 {
-													 MapEntry fallback;
-													 if (ok3 && !body3.empty())
-													 {
-														 // Look for <title>Steam Workshop::MAP NAME</title>
-														 const std::string prefix = "Steam Workshop::";
-														 size_t p = body3.find(prefix);
-														 if (p != std::string::npos)
-														 {
-															 p += prefix.size();
-															 size_t end = body3.find('<', p);
-															 if (end == std::string::npos)
-															 {
-																 end = body3.size();
-															 }
-															 std::string title = body3.substr(p, end - p);
-															 // Trim trailing whitespace
-															 while (!title.empty() && (title.back() == ' ' || title.back() == '\r' || title.back() == '\n' || title.back() == '\t'))
-															 {
-																 title.pop_back();
-															 }
-															 if (!title.empty())
-															 {
-																 fallback.mapName = title;
-																 fallback.displayName = title;
-																 fallback.workshopId = workshopId;
-																 fallback.isWorkshop = true;
-																 META_CONPRINTF("[CS2RTV] Workshop page title for %s: '%s'\n",
-																			workshopId.c_str(), title.c_str());
-															 }
-														 }
-													 }
-													 if (fallback.mapName.empty())
-													 {
-														 META_CONPRINTF("[CS2RTV] Workshop page lookup also failed for %s.\n", workshopId.c_str());
-													 }
-													 MapEntry captured = std::move(fallback);
-													 RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
-												 });
-								 });
+					// 3) Fallback: scrape the Steam Workshop page <title> tag.
+					// The page title is "Steam Workshop::MAP NAME" for public items.
+					std::string pageUrl = "https://steamcommunity.com/sharedfiles/filedetails?id=" + workshopId;
+					RTV_HttpGet(pageUrl,
+								[workshopId, callback](bool ok3, std::string body3)
+								{
+									MapEntry fallback;
+									if (ok3 && !body3.empty())
+									{
+										// Look for <title>Steam Workshop::MAP NAME</title>
+										const std::string prefix = "Steam Workshop::";
+										size_t p = body3.find(prefix);
+										if (p != std::string::npos)
+										{
+											p += prefix.size();
+											size_t end = body3.find('<', p);
+											if (end == std::string::npos)
+											{
+												end = body3.size();
+											}
+											std::string title = body3.substr(p, end - p);
+											// Trim trailing whitespace
+											while (!title.empty()
+												   && (title.back() == ' ' || title.back() == '\r' || title.back() == '\n' || title.back() == '\t'))
+											{
+												title.pop_back();
+											}
+											if (!title.empty())
+											{
+												fallback.mapName = title;
+												fallback.displayName = title;
+												fallback.workshopId = workshopId;
+												fallback.isWorkshop = true;
+												META_CONPRINTF("[CS2RTV] Workshop page title for %s: '%s'\n", workshopId.c_str(), title.c_str());
+											}
+										}
+									}
+									if (fallback.mapName.empty())
+									{
+										META_CONPRINTF("[CS2RTV] Workshop page lookup also failed for %s.\n", workshopId.c_str());
+									}
+									MapEntry captured = std::move(fallback);
+									RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+								});
 				});
+		});
 }
 
 void MapLister::LookupByNameAsync(const std::string &name, std::function<void(MapEntry)> callback) const
@@ -570,21 +638,19 @@ void MapLister::LookupByNameAsync(const std::string &name, std::function<void(Ma
 				});
 }
 
-void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
+void MapLister::FetchAllApprovedMapsAsync(std::function<void(std::vector<MapEntry>)> onComplete)
 {
-	// Paginate CS2KZ API to get all approved maps
+	// Paginate CS2KZ API to get all approved maps.
 	// We fetch page 0 first, then continue until we get an empty result.
-	const int PAGE_SIZE = 500;
-
 	struct State
 	{
-		std::string outputPath;
 		std::vector<MapEntry> collected;
 		int offset = 0;
+		std::function<void(std::vector<MapEntry>)> done;
 	};
 
 	auto state = std::make_shared<State>();
-	state->outputPath = outputPath;
+	state->done = std::move(onComplete);
 
 	// Recursive lambda via shared_ptr to allow self-reference
 	struct Fetcher
@@ -600,7 +666,7 @@ void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
 						{
 							if (!ok || body.empty())
 							{
-								Write();
+								st->done(std::move(st->collected));
 								return;
 							}
 
@@ -623,27 +689,37 @@ void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
 							}
 							else
 							{
-								Write();
+								st->done(std::move(st->collected));
 							}
 						});
 		}
+	};
 
-		void Write()
+	auto fetcher = std::make_shared<Fetcher>();
+	fetcher->st = state;
+	fetcher->Fetch(fetcher);
+}
+
+void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
+{
+	std::string out = outputPath;
+	FetchAllApprovedMapsAsync(
+		[out](std::vector<MapEntry> maps)
 		{
-			if (st->collected.empty())
+			if (maps.empty())
 			{
 				META_CONPRINTF("[CS2RTV] No maps returned from CS2KZ API.\n");
 				return;
 			}
 
-			FILE *fp = fopen(st->outputPath.c_str(), "w");
+			FILE *fp = fopen(out.c_str(), "w");
 			if (!fp)
 			{
-				META_CONPRINTF("[CS2RTV] Cannot write '%s'.\n", st->outputPath.c_str());
+				META_CONPRINTF("[CS2RTV] Cannot write '%s'.\n", out.c_str());
 				return;
 			}
 
-			for (const auto &e : st->collected)
+			for (const auto &e : maps)
 			{
 				if (e.isWorkshop && !e.workshopId.empty())
 				{
@@ -656,13 +732,94 @@ void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
 			}
 			fclose(fp);
 
-			META_CONPRINTF("[CS2RTV] Wrote %d maps to '%s'.\n", static_cast<int>(st->collected.size()), st->outputPath.c_str());
-		}
-	};
+			META_CONPRINTF("[CS2RTV] Wrote %d maps to '%s'.\n", static_cast<int>(maps.size()), out.c_str());
+		});
+}
 
-	auto fetcher = std::make_shared<Fetcher>();
-	fetcher->st = state;
-	fetcher->Fetch(fetcher);
+void MapLister::FetchTiersAsync()
+{
+	FetchAllApprovedMapsAsync(
+		[this](std::vector<MapEntry> maps)
+		{
+			if (maps.empty())
+			{
+				return;
+			}
+
+			// Build name -> {classic, vanilla} on the background thread.
+			auto cache = std::make_shared<std::unordered_map<std::string, std::pair<int, int>>>();
+			for (const auto &e : maps)
+			{
+				if (e.mapName.empty())
+				{
+					continue;
+				}
+				(*cache)[ToLowerStr(e.mapName)] = {e.classicTier, e.vanillaTier};
+			}
+
+			// Merge into live state on the game thread (touches m_maps / m_tierCache).
+			RTV_QueueMainThread(
+				[this, cache]()
+				{
+					for (const auto &kv : *cache)
+					{
+						m_tierCache[kv.first] = kv.second;
+					}
+					for (auto &e : m_maps)
+					{
+						ApplyCachedTiers(e);
+					}
+					META_CONPRINTF("[CS2RTV] Loaded CS2KZ tiers for %d maps.\n", static_cast<int>(cache->size()));
+				});
+		});
+}
+
+void MapLister::ApplyCachedTiers(MapEntry &e) const
+{
+	if (e.classicTier > 0 || e.vanillaTier > 0)
+	{
+		return;
+	}
+	auto it = m_tierCache.find(ToLowerStr(e.mapName));
+	if (it != m_tierCache.end())
+	{
+		e.classicTier = it->second.first;
+		e.vanillaTier = it->second.second;
+	}
+}
+
+std::string MapLister::GetDisplayLabel(const MapEntry &e) const
+{
+	std::string base = e.displayName.empty() ? e.mapName : e.displayName;
+
+	std::string mode;
+	if (!TierDisplayEnabled(mode))
+	{
+		return base;
+	}
+
+	// Use the clean map name as the base so we don't duplicate any baked "(Tn)".
+	std::string clean = e.mapName.empty() ? base : e.mapName;
+
+	bool wantClassic = (mode == "both" || mode == "classic" || mode == "ckz");
+	bool wantVanilla = (mode == "both" || mode == "vanilla" || mode == "vnl");
+	if (!wantClassic && !wantVanilla)
+	{
+		// Unrecognized value - default to showing both.
+		wantClassic = wantVanilla = true;
+	}
+
+	std::string suffix;
+	if (wantClassic && e.classicTier > 0)
+	{
+		suffix += " CKZ: " + FormatTier(e.classicTier);
+	}
+	if (wantVanilla && e.vanillaTier > 0)
+	{
+		suffix += " VNL: " + FormatTier(e.vanillaTier);
+	}
+
+	return clean + suffix;
 }
 
 void MapLister::ValidateMapsAsync() const
@@ -699,51 +856,51 @@ void MapLister::ValidateMapsAsync() const
 		std::string webhook = g_RTVConfig.general.discordWebhook;
 
 		RTV_HttpPostForm("https://api.steampowered.com/ISteamRemoteStorage/"
-					 "GetPublishedFileDetails/v1/"
-					 "?key="
-						 + apiKey,
-					 postBody,
-					 [batch, webhook](bool ok, std::string body)
-					 {
-						 if (!ok)
+						 "GetPublishedFileDetails/v1/"
+						 "?key="
+							 + apiKey,
+						 postBody,
+						 [batch, webhook](bool ok, std::string body)
 						 {
-							 return;
-						 }
-
-						 // Check each map; result != 1 means it's dead/removed
-						 for (const auto &e : batch)
-						 {
-							 // Find the entry for this ID
-							 size_t idPos = body.find("\"" + e.workshopId + "\"");
-							 if (idPos == std::string::npos)
+							 if (!ok)
 							 {
-								 continue;
+								 return;
 							 }
 
-							 // Extract result field in the object containing this ID
-							 size_t objStart = body.rfind('{', idPos);
-							 size_t objEnd = body.find('}', idPos);
-							 if (objStart == std::string::npos || objEnd == std::string::npos)
+							 // Check each map; result != 1 means it's dead/removed
+							 for (const auto &e : batch)
 							 {
-								 continue;
-							 }
-
-							 std::string obj = body.substr(objStart, objEnd - objStart + 1);
-							 std::string result = JsonGetString(obj, "result");
-							 if (result != "1" && result != "")
-							 {
-								 META_CONPRINTF("[CS2RTV] Dead workshop map detected: %s (id=%s, "
-												"result=%s)\n",
-												e.displayName.c_str(), e.workshopId.c_str(), result.c_str());
-
-								 if (!webhook.empty())
+								 // Find the entry for this ID
+								 size_t idPos = body.find("\"" + e.workshopId + "\"");
+								 if (idPos == std::string::npos)
 								 {
-									 std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
-									 std::string json = "{\"content\":\"" + msg + "\"}";
-									 RTV_HttpPost(webhook, json, nullptr);
+									 continue;
+								 }
+
+								 // Extract result field in the object containing this ID
+								 size_t objStart = body.rfind('{', idPos);
+								 size_t objEnd = body.find('}', idPos);
+								 if (objStart == std::string::npos || objEnd == std::string::npos)
+								 {
+									 continue;
+								 }
+
+								 std::string obj = body.substr(objStart, objEnd - objStart + 1);
+								 std::string result = JsonGetString(obj, "result");
+								 if (result != "1" && result != "")
+								 {
+									 META_CONPRINTF("[CS2RTV] Dead workshop map detected: %s (id=%s, "
+													"result=%s)\n",
+													e.displayName.c_str(), e.workshopId.c_str(), result.c_str());
+
+									 if (!webhook.empty())
+									 {
+										 std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
+										 std::string json = "{\"content\":\"" + msg + "\"}";
+										 RTV_HttpPost(webhook, json, nullptr);
+									 }
 								 }
 							 }
-						 }
-					 });
+						 });
 	}
 }

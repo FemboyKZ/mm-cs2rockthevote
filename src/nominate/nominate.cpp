@@ -202,7 +202,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 
 		for (auto *m : matches)
 		{
-			def.AddItem(m->displayName.empty() ? m->mapName : m->displayName, [this, m](int playerSlot) { NominateMap(playerSlot, m); });
+			def.AddItem(g_MapLister.GetDisplayLabel(*m), [this, m](int playerSlot) { NominateMap(playerSlot, m); });
 		}
 		g_ChatMenus.ShowMenu(slot, def, curtime);
 		return;
@@ -222,8 +222,7 @@ void NominateManager::CommandMaps(int slot) const
 	RTV_PrintToClient(slot, "Available maps (%d):", static_cast<int>(maps.size()));
 	for (const auto &e : maps)
 	{
-		const char *name = e.displayName.empty() ? e.mapName.c_str() : e.displayName.c_str();
-		RTV_PrintToClient(slot, "  %s", name);
+		RTV_PrintToClient(slot, "  %s", g_MapLister.GetDisplayLabel(e).c_str());
 	}
 }
 
@@ -267,10 +266,9 @@ void NominateManager::ShowNominateMenu(int slot)
 	for (const auto &e : maps)
 	{
 		bool disabled = (e.mapName == m_currentMap);
-		const std::string &display = e.displayName.empty() ? e.mapName : e.displayName;
 
 		bool alreadyNom = m_nomCounts.count(e.mapName) > 0;
-		std::string label = display;
+		std::string label = g_MapLister.GetDisplayLabel(e);
 		if (alreadyNom)
 		{
 			label += " [nominated]";
@@ -305,7 +303,7 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 	}
 
 	const std::string &mapName = entry->mapName;
-	const std::string &display = entry->displayName.empty() ? entry->mapName : entry->displayName;
+	std::string display = g_MapLister.GetDisplayLabel(*entry);
 
 	if (mapName == m_currentMap)
 	{
