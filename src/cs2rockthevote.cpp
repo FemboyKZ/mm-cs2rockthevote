@@ -9,6 +9,8 @@
 #include "menu/chatmenu.h"
 #include "nominate/nominate.h"
 #include "player/player_manager.h"
+#include "public/forwards.h"
+#include "public/ics2rtv.h"
 #include "rtv/rtv_manager.h"
 #include "timers/timer_system.h"
 #include "utils/http_client.h"
@@ -47,7 +49,112 @@ CSteamGameServerAPIContext g_RTVSteamAPI;
 // Plugin globals
 CS2RTVPlugin g_ThisPlugin;
 
+// Public forwards registry, queried by other plugins via CS2RTV_FORWARDS_INTERFACE.
+CS2RTVForwards g_CS2RTVForwards;
+
 PLUGIN_EXPOSE(CS2RTVPlugin, g_ThisPlugin);
+
+// Public read-only status/maplist interface, queried via CS2RTV_INTERFACE.
+class CS2RTVAPI : public ICS2RTV
+{
+	bool IsVoteActive() override
+	{
+		return g_MapVoteManager.IsVoteActive();
+	}
+
+	bool IsRTVVote() override
+	{
+		return g_MapVoteManager.IsRTVVote();
+	}
+
+	bool IsMapChangeScheduled() override
+	{
+		return g_MapVoteManager.IsChangeScheduled();
+	}
+
+	int GetRTVVoteCount() override
+	{
+		return g_RTVManager.GetVoteCount();
+	}
+
+	int GetRTVVotesNeeded() override
+	{
+		return g_RTVManager.GetVotesNeeded();
+	}
+
+	bool HasPlayerRockedVote(int slot) override
+	{
+		return g_RTVManager.HasVoted(slot);
+	}
+
+	int GetMapCount() override
+	{
+		return static_cast<int>(g_MapLister.GetMaps().size());
+	}
+
+	const char *GetMapName(int index) override
+	{
+		const auto &maps = g_MapLister.GetMaps();
+		if (index < 0 || index >= static_cast<int>(maps.size()))
+		{
+			return "";
+		}
+		return maps[index].mapName.c_str();
+	}
+
+	const char *GetMapDisplayName(int index) override
+	{
+		const auto &maps = g_MapLister.GetMaps();
+		if (index < 0 || index >= static_cast<int>(maps.size()))
+		{
+			return "";
+		}
+		return maps[index].displayName.c_str();
+	}
+
+	const char *GetMapWorkshopId(int index) override
+	{
+		const auto &maps = g_MapLister.GetMaps();
+		if (index < 0 || index >= static_cast<int>(maps.size()))
+		{
+			return "";
+		}
+		return maps[index].workshopId.c_str();
+	}
+
+	const char *GetCurrentMap() override
+	{
+		return g_MapVoteManager.GetCurrentMap();
+	}
+};
+
+static CS2RTVAPI g_CS2RTVAPI;
+
+void *CS2RTVPlugin::OnMetamodQuery(const char *iface, int *ret)
+{
+	if (!strcmp(iface, CS2RTV_INTERFACE))
+	{
+		if (ret)
+		{
+			*ret = META_IFACE_OK;
+		}
+		return static_cast<ICS2RTV *>(&g_CS2RTVAPI);
+	}
+	if (!strcmp(iface, CS2RTV_FORWARDS_INTERFACE))
+	{
+		if (ret)
+		{
+			*ret = META_IFACE_OK;
+		}
+		return static_cast<ICS2RTVForwards *>(&g_CS2RTVForwards);
+	}
+
+	if (ret)
+	{
+		*ret = META_IFACE_FAILED;
+	}
+	return nullptr;
+}
 
 static void ShowMapChooserMenu(int slot)
 {
@@ -154,6 +261,8 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	RTV_AdminBridge_Shutdown();
 	RTV_WhitelistBridge_Shutdown();
 	g_RTVSteamAPI.Clear();
+
+	g_CS2RTVForwards.Shutdown();
 
 	return true;
 }

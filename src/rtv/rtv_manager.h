@@ -61,6 +61,10 @@ public:
 	// True once enough players have voted
 	bool IsThresholdReached(int eligibleCount) const;
 
+	// Number of !rtv votes required to trigger the vote,
+	// computed from the current eligible player count.
+	int GetVotesNeeded() const;
+
 private:
 	std::unordered_set<int> m_votes;
 	bool m_voteStarted = false;

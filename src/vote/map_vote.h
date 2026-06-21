@@ -37,6 +37,18 @@ public:
 		return m_changeScheduled;
 	}
 
+	// True if the current/most recent vote was an RTV vote (vs end-of-map).
+	bool IsRTVVote() const
+	{
+		return m_isRTV;
+	}
+
+	// Clean name of the map currently running.
+	const char *GetCurrentMap() const
+	{
+		return m_currentMap.c_str();
+	}
+
 	// Called from OnLevelInit to cancel the failure-detection timer (change succeeded)
 	void NotifyMapChangeSucceeded();
 

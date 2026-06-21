@@ -20,6 +20,7 @@ public: // IMetamodListener
 	void OnLevelShutdown();
 	void OnPluginLoad(PluginId id);
 	void OnPluginUnload(PluginId id);
+	void *OnMetamodQuery(const char *iface, int *ret);
 
 public: // SourceHook hook handlers
 	void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);

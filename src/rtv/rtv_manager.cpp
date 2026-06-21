@@ -65,6 +65,12 @@ bool RTVManager::IsThresholdReached(int eligibleCount) const
 	return GetVoteCount() >= RequiredVotes(eligibleCount);
 }
 
+int RTVManager::GetVotesNeeded() const
+{
+	int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
+	return RequiredVotes(eligible);
+}
+
 void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 {
 	if (slot < 0 || slot > MAXPLAYERS)

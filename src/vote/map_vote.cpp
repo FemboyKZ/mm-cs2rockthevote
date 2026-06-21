@@ -5,6 +5,7 @@
 #include "src/player/player_manager.h"
 #include "src/rtv/rtv_manager.h"
 #include "src/timers/timer_system.h"
+#include "src/public/forwards.h"
 #include "src/utils/print_utils.h"
 #include "src/workshop/workshop_validator.h"
 
@@ -78,6 +79,12 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	if (!cfg.enabled)
 	{
 		RTV_ChatToAll("\x07Map voting is currently disabled.");
+		g_RTVManager.OnVoteEndedNoVotes();
+		return;
+	}
+
+	if (g_CS2RTVForwards.FireOnMapVoteStart(isRTV))
+	{
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -483,6 +490,8 @@ void MapVoteManager::FinishVote()
 		return;
 	}
 
+	g_CS2RTVForwards.FireOnMapVoteEnd(winner.entry->mapName.c_str(), m_isRTV);
+
 	int delaySecs = g_RTVConfig.rtv.mapChangeDelay;
 	RTV_ChatToAll("\x04%s\x01 won the vote! Map changing in \x04%d\x01 second(s).", winner.label.c_str(), delaySecs);
 
@@ -577,6 +586,8 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 	g_RTVManager.OnMapChangeScheduled();
 
 	MapEntry captured = *winner.entry;
+
+	g_CS2RTVForwards.FireOnMapChangeScheduled(captured.mapName.c_str(), delaySecs);
 
 	m_changeTimerId = g_Timers.CreateTimer(static_cast<float>(delaySecs), [captured]() { DoMapChange(captured); });
 
