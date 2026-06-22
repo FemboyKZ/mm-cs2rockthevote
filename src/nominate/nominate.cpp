@@ -2,6 +2,7 @@
 #include "src/admin/admin_bridge.h"
 #include "src/config/config.h"
 #include "src/menu/chatmenu.h"
+#include "src/menu/menu_bridge.h"
 #include "src/player/player_manager.h"
 #include "src/utils/print_utils.h"
 #include "src/vote/map_vote.h"
@@ -204,7 +205,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		{
 			def.AddItem(g_MapLister.GetDisplayLabel(*m), [this, m](int playerSlot) { NominateMap(playerSlot, m); });
 		}
-		g_ChatMenus.ShowMenu(slot, def, curtime);
+		g_RTVMenus.ShowMenu(slot, def, curtime);
 		return;
 	}
 
@@ -293,7 +294,7 @@ void NominateManager::ShowNominateMenu(int slot)
 			disabled);
 	}
 
-	g_ChatMenus.ShowMenu(slot, def, curtime);
+	g_RTVMenus.ShowMenu(slot, def, curtime);
 }
 
 void NominateManager::NominateMap(int slot, const MapEntry *entry)

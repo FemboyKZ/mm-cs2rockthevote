@@ -12,11 +12,14 @@ CS2 RTV Plugin using Metamod: Source
 * [Metamod: Source 2.0](https://www.metamodsource.net/downloads.php?branch=dev)
 * (Optional\*) [mm-cs2admin](https://github.com/FemboyKZ/mm-cs2admin)
 * (Optional\*\*) [mm-cs2whitelist](https://github.com/FemboyKZ/mm-cs2whitelist)
+* (Optional\*\*\*) [mm-cs2whitelist](https://github.com/FemboyKZ/mm-cs2menus)
 
 \*Admin commands like `reloadrtv` and `mapmenu` will not work without it.
 
 \*\*When loaded alongside cs2rtv, only players that are whitelisted can use !rtv.
 This stops players from spamming it on join before getting kicked to trigger a vote maliciously.
+
+\*\*\*When loaded alongside cs2rtv, the plugin will use cs2menus' menus instead of built in ones.
 
 ### Install
 

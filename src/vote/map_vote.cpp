@@ -1,6 +1,7 @@
 #include "map_vote.h"
 #include "src/config/config.h"
 #include "src/menu/chatmenu.h"
+#include "src/menu/menu_bridge.h"
 #include "src/nominate/nominate.h"
 #include "src/player/player_manager.h"
 #include "src/rtv/rtv_manager.h"
@@ -63,7 +64,7 @@ void MapVoteManager::Reset()
 
 	for (int i = 0; i <= MAXPLAYERS; i++)
 	{
-		g_ChatMenus.CloseMenu(i);
+		g_RTVMenus.CloseMenu(i);
 	}
 }
 
@@ -150,7 +151,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 					{
 						continue;
 					}
-					if (!g_ChatMenus.HasMenu(i))
+					if (!g_RTVMenus.HasMenu(i))
 					{
 						ShowVoteMenuToPlayer(i);
 					}
@@ -355,7 +356,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 					});
 	}
 
-	g_ChatMenus.ShowMenu(slot, def, curtime);
+	g_RTVMenus.ShowMenu(slot, def, curtime);
 }
 
 void MapVoteManager::CommandRevote(int slot)
@@ -418,7 +419,7 @@ void MapVoteManager::FinishVote()
 
 	for (int i = 0; i <= MAXPLAYERS; i++)
 	{
-		g_ChatMenus.CloseMenu(i);
+		g_RTVMenus.CloseMenu(i);
 	}
 
 	if (m_options.empty())
@@ -568,7 +569,7 @@ void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)
 					{
 						continue;
 					}
-					if (!g_ChatMenus.HasMenu(i))
+					if (!g_RTVMenus.HasMenu(i))
 					{
 						ShowVoteMenuToPlayer(i);
 					}

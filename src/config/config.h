@@ -56,6 +56,9 @@ struct GeneralCfg
 	std::string discordWebhook = "";
 	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"
 	std::string kzTierFormat = "number"; // "number" (e.g. 3) | "text" (e.g. medium)
+	// Menu rendering style when mm-cs2menus is loaded:
+	// "default" delegates to the menu plugin's own config; "chat"/"html" force it.
+	std::string menuType = "default";
 };
 
 struct RTVPluginConfig

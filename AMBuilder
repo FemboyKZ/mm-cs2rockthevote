@@ -18,6 +18,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/utils/http_client.cpp",
         "src/timers/timer_system.cpp",
         "src/menu/chatmenu.cpp",
+        "src/menu/menu_bridge.cpp",
         "src/rtv/rtv_manager.cpp",
         "src/vote/map_vote.cpp",
         "src/nominate/nominate.cpp",

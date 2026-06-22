@@ -7,6 +7,7 @@
 #include "config/config.h"
 #include "maplist/map_lister.h"
 #include "menu/chatmenu.h"
+#include "menu/menu_bridge.h"
 #include "nominate/nominate.h"
 #include "player/player_manager.h"
 #include "public/forwards.h"
@@ -196,7 +197,7 @@ static void ShowMapChooserMenu(int slot)
 					});
 	}
 
-	g_ChatMenus.ShowMenu(slot, def, curtime);
+	g_RTVMenus.ShowMenu(slot, def, curtime);
 }
 
 CGlobalVars *GetGameGlobals()
@@ -260,6 +261,7 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 
 	RTV_AdminBridge_Shutdown();
 	RTV_WhitelistBridge_Shutdown();
+	g_RTVMenus.Shutdown();
 	g_RTVSteamAPI.Clear();
 
 	g_CS2RTVForwards.Shutdown();
@@ -271,18 +273,21 @@ void CS2RTVPlugin::AllPluginsLoaded()
 {
 	RTV_AdminBridge_Init();
 	RTV_WhitelistBridge_Init();
+	g_RTVMenus.Init();
 }
 
 void CS2RTVPlugin::OnPluginLoad(PluginId /*id*/)
 {
 	RTV_AdminBridge_Refresh();
 	RTV_WhitelistBridge_Refresh();
+	g_RTVMenus.Refresh();
 }
 
 void CS2RTVPlugin::OnPluginUnload(PluginId /*id*/)
 {
 	RTV_AdminBridge_Refresh();
 	RTV_WhitelistBridge_Refresh();
+	g_RTVMenus.Refresh();
 }
 
 // IMetamodListener: map load/unload
@@ -322,7 +327,7 @@ void CS2RTVPlugin::Hook_GameFrame(bool /*simulating*/, bool /*bFirstTick*/, bool
 	float curtime = globals->curtime;
 	RTV_DrainMainThread();
 	g_Timers.Process(curtime);
-	g_ChatMenus.Tick(curtime);
+	g_RTVMenus.Tick(curtime);
 
 	// Auto end-of-map vote: start the next-map vote before mp_timelimit expires
 	// if nobody has triggered !rtv (no-op unless the setting is enabled).
@@ -369,7 +374,7 @@ void CS2RTVPlugin::Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnection
 	g_RTVManager.OnPlayerDisconnect(s);
 	g_MapVoteManager.OnPlayerDisconnect(s);
 	g_NominateManager.OnPlayerDisconnect(s);
-	g_ChatMenus.OnPlayerDisconnect(s);
+	g_RTVMenus.OnPlayerDisconnect(s);
 	g_RTVPlayerManager.OnClientDisconnect(s);
 	RETURN_META(MRES_IGNORED);
 }
@@ -416,9 +421,9 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 	CGlobalVars *globals = GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 
-	if (g_ChatMenus.HasMenu(slot))
+	if (g_RTVMenus.HasMenu(slot))
 	{
-		if (g_ChatMenus.ProcessInput(slot, msg, curtime))
+		if (g_RTVMenus.ProcessInput(slot, msg, curtime))
 		{
 			RETURN_META(MRES_SUPERCEDE);
 		}

@@ -193,6 +193,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.silentCommandPrefix = value;
 		}
+		else if (k == "menutype")
+		{
+			cfg->general.menuType = ToLower(value);
+		}
 	}
 }
 
