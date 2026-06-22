@@ -197,6 +197,22 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.menuType = ToLower(value);
 		}
+		else if (k == "menunavup")
+		{
+			cfg->general.menuNavUp = ToLower(value);
+		}
+		else if (k == "menunavdown")
+		{
+			cfg->general.menuNavDown = ToLower(value);
+		}
+		else if (k == "menunavselect")
+		{
+			cfg->general.menuNavSelect = ToLower(value);
+		}
+		else if (k == "menunavback")
+		{
+			cfg->general.menuNavBack = ToLower(value);
+		}
 	}
 }
 

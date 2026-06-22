@@ -59,6 +59,13 @@ struct GeneralCfg
 	// Menu rendering style when mm-cs2menus is loaded:
 	// "default" delegates to the menu plugin's own config; "chat"/"html" force it.
 	std::string menuType = "default";
+	// Per-menu HTML nav-key overrides for RTV menus (only used with mm-cs2menus).
+	// "default" delegates to the menu plugin's configured key, otherwise a key name
+	// (w/s/a/d, e/use, shift/speed, ctrl/duck, space/jump, r/reload, mouse1, mouse2, tab).
+	std::string menuNavUp = "default";
+	std::string menuNavDown = "default";
+	std::string menuNavSelect = "default";
+	std::string menuNavBack = "default";
 };
 
 struct RTVPluginConfig
