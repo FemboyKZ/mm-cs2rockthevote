@@ -80,6 +80,10 @@ static MenuButton ParseMenuButton(const std::string &name)
 	{
 		return MenuButton::Score;
 	}
+	if (name == "f" || name == "inspect" || name == "lookatweapon")
+	{
+		return MenuButton::Inspect;
+	}
 	return MenuButton::Default; // "default" / unknown -> inherit menu plugin's key
 }
 
