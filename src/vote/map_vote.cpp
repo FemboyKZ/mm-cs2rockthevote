@@ -269,7 +269,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 	ChatMenuDef def;
 	def.title = "Vote for next map";
 	def.duration = (std::max)(m_voteEndTime - curtime, 5.0f);
-	def.exitButton = false;
+	def.exitButton = true;
 	def.closeOnSelect = true;
 
 	for (int i = 0; i < static_cast<int>(m_options.size()); i++)
