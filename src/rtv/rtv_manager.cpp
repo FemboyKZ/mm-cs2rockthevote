@@ -151,7 +151,7 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	const char *name = pi ? pi->name.c_str() : "Unknown";
 
 	RTV_ChatToAll("\x04%s\x01 wants to rock the vote. "
-				  "(%d/%d needed — type \x04!rtv\x01 to vote)",
+				  "(%d/%d needed - type \x04!rtv\x01 to vote)",
 				  name, count, required);
 
 	if (IsThresholdReached(eligible))
