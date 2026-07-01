@@ -177,3 +177,21 @@ bool RTV_AdminBridge_HasFlag(int slot, uint32_t flag)
 
 	return s_pAdmin->HasFlag(slot, flag);
 }
+
+bool RTV_AdminBridge_CanUseCommand(int slot, const char *commandName, uint32_t defaultFlag)
+{
+	// Console always passes
+	if (slot < 0)
+	{
+		return true;
+	}
+
+	// Admin plugin not loaded. Open commands (defaultFlag 0) stay open,
+	// commands with a configured flag stay blocked (restrictive fallback).
+	if (!s_pAdmin)
+	{
+		return defaultFlag == 0;
+	}
+
+	return s_pAdmin->CanUseCommand(slot, commandName, "cs2rtv", defaultFlag);
+}

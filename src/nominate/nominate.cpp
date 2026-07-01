@@ -74,15 +74,13 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		return;
 	}
 
+	// flag 0 = open by default.
 	const std::string &nomPerm = g_RTVConfig.nominate.permission;
-	if (!nomPerm.empty())
+	uint32_t nomFlag = nomPerm.empty() ? 0 : RTV_ParseFlagName(nomPerm);
+	if (!RTV_AdminBridge_CanUseCommand(slot, "nominate", nomFlag))
 	{
-		uint32_t flag = RTV_ParseFlagName(nomPerm);
-		if (!RTV_AdminBridge_HasFlag(slot, flag))
-		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to nominate.");
-			return;
-		}
+		RTV_PrintToChat(slot, "\x07You don't have permission to nominate.");
+		return;
 	}
 
 	if (!arg || arg[0] == '\0')
@@ -113,14 +111,11 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	if (LooksLikeWorkshopId(arg))
 	{
 		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
-		if (!extPerm.empty())
+		uint32_t extFlag = extPerm.empty() ? 0 : RTV_ParseFlagName(extPerm);
+		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
-			uint32_t flag = RTV_ParseFlagName(extPerm);
-			if (!RTV_AdminBridge_HasFlag(slot, flag))
-			{
-				RTV_PrintToChat(slot, "\x07You don't have permission to nominate workshop maps by ID.");
-				return;
-			}
+			RTV_PrintToChat(slot, "\x07You don't have permission to nominate workshop maps by ID.");
+			return;
 		}
 
 		const MapEntry *existing = g_MapLister.FindByWorkshopId(arg);
@@ -158,14 +153,11 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	if (!entry && matches.empty())
 	{
 		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
-		if (!extPerm.empty())
+		uint32_t extFlag = extPerm.empty() ? 0 : RTV_ParseFlagName(extPerm);
+		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
-			uint32_t flag = RTV_ParseFlagName(extPerm);
-			if (!RTV_AdminBridge_HasFlag(slot, flag))
-			{
-				RTV_PrintToChat(slot, "\x07Map \x04%s\x07 not found in map list.", arg);
-				return;
-			}
+			RTV_PrintToChat(slot, "\x07Map \x04%s\x07 not found in map list.", arg);
+			return;
 		}
 
 		std::string query(arg);
