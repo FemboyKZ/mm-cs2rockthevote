@@ -31,6 +31,10 @@ This stops players from spamming it on join before getting kicked to trigger a v
 * `/cfg/cs2rtv/core.cfg` - Main config file
 * `/cfg/maplist.txt` - Maplist file
 
+### Commands
+
+See: [COMMANDS](./COMMANDS.md)
+
 ## Build
 
 ### Prerequisites
