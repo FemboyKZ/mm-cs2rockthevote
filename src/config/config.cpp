@@ -1,5 +1,5 @@
 #include "config.h"
-#include "vendor/mm-cs2admin/src/config/kv_parser.h"
+#include "kv_parser.h"
 
 #include <algorithm>
 #include <cstdlib>
