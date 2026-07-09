@@ -4,7 +4,7 @@
 // Optional integration with mm-cs2whitelist (ICS2Whitelist002 interface).
 // If mm-cs2whitelist is not loaded at runtime, all checks return true so that RTV behaves normally on non-whitelisted servers.
 
-#include "vendor/mm-cs2whitelist/src/public/ics2whitelist.h"
+#include "vendor/interfaces/ics2whitelist.h"
 
 // Call once in AllPluginsLoaded() to try to acquire the ICS2Whitelist interface.
 void RTV_WhitelistBridge_Init();
