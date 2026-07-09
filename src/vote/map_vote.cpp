@@ -102,7 +102,14 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	float duration = static_cast<float>(cfg.voteDuration);
 	m_voteEndTime = curtime + duration;
 
-	RTV_ChatToAll("\x04Map vote started! \x01Type a number in chat to vote.");
+	if (g_RTVMenus.UsesChatInput())
+	{
+		RTV_ChatToAll("\x04Map vote started! \x01Type a number in chat to vote.");
+	}
+	else
+	{
+		RTV_ChatToAll("\x04Map vote started!");
+	}
 	SendVoteMenuToAll();
 
 	if (cfg.countdownInterval > 0)

@@ -26,6 +26,10 @@ public:
 	// True if the external menu plugin is available.
 	bool Available() const;
 
+	// True if the vote menu renders as a chat (numbered) menu, so the "type a number in chat" hint applies.
+	// False for HTML menus.
+	bool UsesChatInput() const;
+
 	// --- Mirrors ChatMenuHandler so call sites are a drop-in swap ---
 
 	void ShowMenu(int slot, const ChatMenuDef &def, float curtime);

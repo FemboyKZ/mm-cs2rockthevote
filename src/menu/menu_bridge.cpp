@@ -147,6 +147,18 @@ bool RTVMenuBridge::Available() const
 	return m_pMenus != nullptr;
 }
 
+bool RTVMenuBridge::UsesChatInput() const
+{
+	// The fallback in-plugin menu is always a chat menu.
+	if (!m_pMenus)
+	{
+		return true;
+	}
+	// Default delegates to the menu plugin's own config, which may resolve to chat per viewer,
+	// so only suppress the hint when HTML is forced.
+	return ConfiguredMenuType() != MenuType::Html;
+}
+
 void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 {
 	if (!m_pMenus)
