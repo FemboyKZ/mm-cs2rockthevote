@@ -1,5 +1,6 @@
 #include "map_vote.h"
 #include "src/config/config.h"
+#include "src/lang/translations.h"
 #include "src/menu/chatmenu.h"
 #include "src/menu/menu_bridge.h"
 #include "src/nominate/nominate.h"
@@ -79,7 +80,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 
 	if (!cfg.enabled)
 	{
-		RTV_ChatToAll("\x07Map voting is currently disabled.");
+		RTV_ChatToAllT("Map voting is currently disabled.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -104,11 +105,11 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 
 	if (g_RTVMenus.UsesChatInput())
 	{
-		RTV_ChatToAll("\x04Map vote started! \x01Type a number in chat to vote.");
+		RTV_ChatToAllT("Map vote started! Type a number in chat to vote.");
 	}
 	else
 	{
-		RTV_ChatToAll("\x04Map vote started!");
+		RTV_ChatToAllT("Map vote started!");
 	}
 	SendVoteMenuToAll();
 
@@ -274,7 +275,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	ChatMenuDef def;
-	def.title = "Vote for next map";
+	def.title = RTV_Translate(slot, "Vote for next map");
 	def.duration = (std::max)(m_voteEndTime - curtime, 5.0f);
 	def.exitButton = true;
 	def.closeOnSelect = true;
@@ -289,14 +290,18 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 			alreadyVoted = true;
 		}
 
+		// The no-change option carries a phrase key as its label, so translate it per viewer.
+		// Real map options use their language-neutral display name.
+		std::string optLabel = opt.entry ? opt.label : RTV_Translate(slot, opt.label.c_str());
+
 		char label[128];
 		if (alreadyVoted)
 		{
-			snprintf(label, sizeof(label), "\x04%s \x01[your vote]", opt.label.c_str());
+			snprintf(label, sizeof(label), "\x04%s \x01%s", optLabel.c_str(), RTV_Translate(slot, "[your vote]").c_str());
 		}
 		else
 		{
-			snprintf(label, sizeof(label), "%s", opt.label.c_str());
+			snprintf(label, sizeof(label), "%s", optLabel.c_str());
 		}
 
 		int capturedIndex = i;
@@ -318,7 +323,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 								m_playerVotes.erase(vit);
 								PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(playerSlot);
 								const char *name = pi ? pi->name.c_str() : "Unknown";
-								RTV_ChatToAll("\x04%s\x01 removed their vote for \x04%s", name, m_options[capturedIndex].label.c_str());
+								RTV_ChatToAllT("%s removed their vote for %s", name, m_options[capturedIndex].label.c_str());
 								return;
 							}
 							// Switching vote
@@ -333,7 +338,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 
 						PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(playerSlot);
 						const char *name = pi ? pi->name.c_str() : "Unknown";
-						RTV_ChatToAll("\x04%s\x01 voted for \x04%s", name, m_options[capturedIndex].label.c_str());
+						RTV_ChatToAllT("%s voted for %s", name, m_options[capturedIndex].label.c_str());
 
 						// Auto-shorten: if all eligible players voted and >5s remain, end in 5s
 						int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
@@ -349,9 +354,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 								m_voteEndTime = now + 5.0f;
 								g_Timers.KillTimer(m_verifyTimerId);
 								m_verifyTimerId = g_Timers.CreateTimer(5.0f, [this]() { FinishVote(); });
-								RTV_ChatToAll("\x04"
-											  "All players voted! Vote ending in \x04"
-											  "5\x01 second(s).");
+								RTV_ChatToAllT("All players voted! Vote ending in 5 second(s).");
 							}
 							else
 							{
@@ -370,12 +373,12 @@ void MapVoteManager::CommandRevote(int slot)
 {
 	if (!m_voteActive)
 	{
-		RTV_PrintToChat(slot, "\x07There is no vote in progress.");
+		RTV_PrintToChatT(slot, "There is no vote in progress.");
 		return;
 	}
 	if (!g_RTVConfig.mapvote.enableRevote)
 	{
-		RTV_PrintToChat(slot, "\x07Revoting is not enabled.");
+		RTV_PrintToChatT(slot, "Revoting is not enabled.");
 		return;
 	}
 
@@ -405,7 +408,7 @@ void MapVoteManager::OnPlayerDisconnect(int slot)
 
 void MapVoteManager::SendCountdownReminder(int secsLeft)
 {
-	RTV_ChatToAll("\x04Map vote\x01 ends in \x04%d\x01 second(s). Vote now!", secsLeft);
+	RTV_ChatToAllT("Map vote ends in %d second(s). Vote now!", secsLeft);
 }
 
 void MapVoteManager::FinishVote()
@@ -431,7 +434,7 @@ void MapVoteManager::FinishVote()
 
 	if (m_options.empty())
 	{
-		RTV_ChatToAll("\x07Vote ended with no options.");
+		RTV_ChatToAllT("Vote ended with no options.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -444,7 +447,7 @@ void MapVoteManager::FinishVote()
 
 	if (maxVotes == 0)
 	{
-		RTV_ChatToAll("\x07Nobody voted. Map will not change.");
+		RTV_ChatToAllT("Nobody voted. Map will not change.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -467,7 +470,7 @@ void MapVoteManager::FinishVote()
 			int pct = (maxVotes * 100) / total;
 			if (pct < minPct && g_RTVConfig.mapvote.runoffEnabled)
 			{
-				RTV_ChatToAll("\x04No map reached %d%% - starting runoff vote.", minPct);
+				RTV_ChatToAllT("No map reached %d%% - starting runoff vote.", minPct);
 				StartRunoff(topIndices);
 				return;
 			}
@@ -478,11 +481,11 @@ void MapVoteManager::FinishVote()
 	{
 		if (!m_runoffActive && g_RTVConfig.mapvote.runoffEnabled)
 		{
-			RTV_ChatToAll("\x04Tie! Starting runoff vote with the tied maps.");
+			RTV_ChatToAllT("Tie! Starting runoff vote with the tied maps.");
 			StartRunoff(topIndices);
 			return;
 		}
-		RTV_ChatToAll("\x07Tie! The map will \x07NOT\x04 be changed.");
+		RTV_ChatToAllT("Tie! The map will NOT be changed.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -493,7 +496,7 @@ void MapVoteManager::FinishVote()
 
 	if (!winner.entry)
 	{
-		RTV_ChatToAll("\x04The map will \x07NOT\x04 be changed.");
+		RTV_ChatToAllT("The map will NOT be changed.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -501,7 +504,7 @@ void MapVoteManager::FinishVote()
 	g_CS2RTVForwards.FireOnMapVoteEnd(winner.entry->mapName.c_str(), m_isRTV);
 
 	int delaySecs = g_RTVConfig.rtv.mapChangeDelay;
-	RTV_ChatToAll("\x04%s\x01 won the vote! Map changing in \x04%d\x01 second(s).", winner.label.c_str(), delaySecs);
+	RTV_ChatToAllT("%s won the vote! Map changing in %d second(s).", winner.label.c_str(), delaySecs);
 
 	ScheduleChange(winner, delaySecs);
 }
@@ -525,7 +528,7 @@ void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)
 	float duration = static_cast<float>(g_RTVConfig.mapvote.voteDuration);
 	m_voteEndTime = curtime + duration;
 
-	RTV_ChatToAll("\x04Runoff vote started!");
+	RTV_ChatToAllT("Runoff vote started!");
 	SendVoteMenuToAll();
 
 	const MapVoteCfg &cfg = g_RTVConfig.mapvote;

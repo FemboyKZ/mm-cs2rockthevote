@@ -1,6 +1,7 @@
 #include "nominate.h"
 #include "src/admin/admin_bridge.h"
 #include "src/config/config.h"
+#include "src/lang/translations.h"
 #include "src/menu/chatmenu.h"
 #include "src/menu/menu_bridge.h"
 #include "src/player/player_manager.h"
@@ -70,7 +71,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 {
 	if (!g_RTVConfig.nominate.enabled)
 	{
-		RTV_PrintToChat(slot, "\x07Nominations are currently disabled.");
+		RTV_PrintToChatT(slot, "Nominations are currently disabled.");
 		return;
 	}
 
@@ -79,7 +80,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	uint32_t nomFlag = nomPerm.empty() ? 0 : RTV_ParseFlagName(nomPerm);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "nominate", nomFlag))
 	{
-		RTV_PrintToChat(slot, "\x07You don't have permission to nominate.");
+		RTV_PrintToChatT(slot, "You don't have permission to nominate.");
 		return;
 	}
 
@@ -114,7 +115,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		uint32_t extFlag = extPerm.empty() ? 0 : RTV_ParseFlagName(extPerm);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to nominate workshop maps by ID.");
+			RTV_PrintToChatT(slot, "You don't have permission to nominate workshop maps by ID.");
 			return;
 		}
 
@@ -126,14 +127,14 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		}
 
 		std::string wsId(arg);
-		RTV_PrintToChat(slot, "\x01Looking up workshop map \x04%s\x01...", wsId.c_str());
+		RTV_PrintToChatT(slot, "Looking up workshop map %s...", wsId.c_str());
 		g_MapLister.LookupByWorkshopIdAsync(wsId,
 											[this, slot, wsId](MapEntry e)
 											{
 												if (e.mapName.empty())
 												{
 													META_CONPRINTF("[CS2RTV] Workshop lookup failed for ID %s\n", wsId.c_str());
-													RTV_PrintToChat(slot, "\x07Workshop map \x04%s\x07 not found.", wsId.c_str());
+													RTV_PrintToChatT(slot, "Workshop map %s not found.", wsId.c_str());
 													return;
 												}
 												const MapEntry *added = g_MapLister.AddDynamicMap(e);
@@ -156,12 +157,12 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		uint32_t extFlag = extPerm.empty() ? 0 : RTV_ParseFlagName(extPerm);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
-			RTV_PrintToChat(slot, "\x07Map \x04%s\x07 not found in map list.", arg);
+			RTV_PrintToChatT(slot, "Map %s not found in map list.", arg);
 			return;
 		}
 
 		std::string query(arg);
-		RTV_PrintToChat(slot, "\x01Looking up map \x04%s\x01 via API...", query.c_str());
+		RTV_PrintToChatT(slot, "Looking up map %s via API...", query.c_str());
 		g_MapLister.LookupByNameAsync(query,
 									  [this, slot, query](MapEntry e)
 									  {
@@ -177,7 +178,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 										  else
 										  {
 											  META_CONPRINTF("[CS2RTV] API lookup for '%s' returned no results.\n", query.c_str());
-											  RTV_PrintToChat(slot, "\x07Map \x04%s\x07 not found.", query.c_str());
+											  RTV_PrintToChatT(slot, "Map %s not found.", query.c_str());
 										  }
 									  });
 		return;
@@ -189,7 +190,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		float curtime = globals ? globals->curtime : 0.0f;
 
 		ChatMenuDef def;
-		def.title = "Matching maps";
+		def.title = RTV_Translate(slot, "Matching maps");
 		def.exitButton = true;
 		def.closeOnSelect = true;
 
@@ -224,18 +225,17 @@ void NominateManager::CommandReloadMaps(int slot)
 	if (g_MapVoteManager.IsVoteActive() || g_MapVoteManager.IsChangeScheduled())
 	{
 		g_MapVoteManager.Reset();
-		RTV_ChatToAll("\x07Map list reloaded by admin - active vote cancelled.");
+		RTV_ChatToAllT("Map list reloaded by admin - active vote cancelled.");
 	}
 
 	int count = g_MapLister.Reload();
 	if (count < 0)
 	{
-		RTV_PrintToChat(slot, "\x07"
-							  "Failed to reload map list.");
+		RTV_PrintToChatT(slot, "Failed to reload map list.");
 	}
 	else
 	{
-		RTV_PrintToChat(slot, "\x04Map list reloaded. \x01(%d maps)", count);
+		RTV_PrintToChatT(slot, "Map list reloaded. (%d maps)", count);
 	}
 }
 
@@ -244,7 +244,7 @@ void NominateManager::ShowNominateMenu(int slot)
 	const auto &maps = g_MapLister.GetMaps();
 	if (maps.empty())
 	{
-		RTV_PrintToChat(slot, "\x07No maps in the map list.");
+		RTV_PrintToChatT(slot, "No maps in the map list.");
 		return;
 	}
 
@@ -252,7 +252,7 @@ void NominateManager::ShowNominateMenu(int slot)
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	ChatMenuDef def;
-	def.title = "Nominate a map";
+	def.title = RTV_Translate(slot, "Nominate a map");
 	def.exitButton = true;
 	def.closeOnSelect = true;
 
@@ -265,11 +265,11 @@ void NominateManager::ShowNominateMenu(int slot)
 		std::string label = g_MapLister.GetDisplayLabel(e, true, disabled ? "\x08" : "\x01");
 		if (alreadyNom)
 		{
-			label += " [nominated]";
+			label += " " + RTV_Translate(slot, "[nominated]");
 		}
 		if (disabled)
 		{
-			label += " [current]";
+			label += " " + RTV_Translate(slot, "[current]");
 		}
 
 		std::string capturedMapName = e.mapName;
@@ -301,7 +301,7 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 
 	if (mapName == m_currentMap)
 	{
-		RTV_PrintToChat(slot, "\x07You cannot nominate the current map.");
+		RTV_PrintToChatT(slot, "You cannot nominate the current map.");
 		return;
 	}
 
@@ -312,7 +312,7 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 	{
 		if (n == mapName)
 		{
-			RTV_PrintToChat(slot, "\x07You already nominated \x04%s\x07.", display.c_str());
+			RTV_PrintToChatT(slot, "You already nominated %s.", display.c_str());
 			return;
 		}
 	}
@@ -338,7 +338,7 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 
 	PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(slot);
 	const char *pName = pi ? pi->name.c_str() : "Unknown";
-	RTV_ChatToAll("\x04%s\x01 nominated \x04%s\x01 for the next map.", pName, display.c_str());
+	RTV_ChatToAllT("%s nominated %s for the next map.", pName, display.c_str());
 }
 
 std::vector<std::string> NominateManager::GetNominations() const

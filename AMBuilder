@@ -12,6 +12,7 @@ for sdk_target in MMSPlugin.sdk_targets:
     binary.sources += [
         "src/cs2rockthevote.cpp",
         "src/config/config.cpp",
+        "src/lang/translations.cpp",
         "src/player/player_manager.cpp",
         "src/maplist/map_lister.cpp",
         "src/utils/print_utils.cpp",

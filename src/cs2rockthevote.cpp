@@ -5,6 +5,7 @@
 
 #include "admin/admin_bridge.h"
 #include "config/config.h"
+#include "lang/translations.h"
 #include "maplist/map_lister.h"
 #include "menu/chatmenu.h"
 #include "menu/menu_bridge.h"
@@ -26,6 +27,8 @@
 #include <filesystem.h>
 #include "steam/steam_gameserver.h"
 
+#include "iclientcvarvalue.h"
+
 // SourceHook declarations
 SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
 SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIActivated, SH_NOATTRIB, 0);
@@ -44,8 +47,27 @@ IGameEventManager2 *g_pGameEvents = nullptr;
 ICvar *g_pICvar = nullptr;
 IGameEventSystem *g_pGameEventSystem = nullptr;
 
+// Optional. Provides each client's cl_language for phrase translation.
+// May load after us, so it is re-acquired whenever translations reload.
+static IClientCvarValue *g_pClientCvarValue = nullptr;
+
 // Steam game-server API context used for workshop validation (ISteamUGC).
 CSteamGameServerAPIContext g_RTVSteamAPI;
+
+std::string RTV_SlotLanguage(int slot)
+{
+	const char *raw = g_pClientCvarValue ? g_pClientCvarValue->GetClientLanguage(CPlayerSlot(slot)) : nullptr;
+	return g_RTVTranslations.MapClientLanguage(raw);
+}
+
+// Re-acquire ClientCvarValue and reload phrase tables.
+// Called after each config load so phrases and the default language stay in sync with core.cfg.
+static void RTV_LoadTranslations()
+{
+	g_pClientCvarValue = static_cast<IClientCvarValue *>(g_SMAPI->MetaFactory(CLIENTCVARVALUE_INTERFACE, nullptr, nullptr));
+	g_RTVTranslations.Load(g_SMAPI->GetBaseDir());
+	g_RTVTranslations.SetDefaultLanguage(g_RTVConfig.general.defaultLanguage);
+}
 
 // Plugin globals
 CS2RTVPlugin g_ThisPlugin;
@@ -162,7 +184,7 @@ static void ShowMapChooserMenu(int slot)
 	const auto &maps = g_MapLister.GetMaps();
 	if (maps.empty())
 	{
-		RTV_PrintToChat(slot, "\x07No maps in the map list.");
+		RTV_PrintToChatT(slot, "No maps in the map list.");
 		return;
 	}
 
@@ -170,7 +192,7 @@ static void ShowMapChooserMenu(int slot)
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	ChatMenuDef def;
-	def.title = "Choose a map (immediate change)";
+	def.title = RTV_Translate(slot, "Choose a map (immediate change)");
 	def.exitButton = true;
 	def.closeOnSelect = true;
 
@@ -297,6 +319,7 @@ void CS2RTVPlugin::OnLevelInit(char const *pMapName, char const * /*pMapEntities
 	char cfgPath[512];
 	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
 	RTV_LoadConfig(cfgPath, g_RTVConfig);
+	RTV_LoadTranslations();
 
 	char mapPath[512];
 	snprintf(mapPath, sizeof(mapPath), "%s/cfg/maplist.txt", g_SMAPI->GetBaseDir());
@@ -498,7 +521,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 	{
 		if (!RTV_AdminBridge_CanUseCommand(slot, "rtv", 0))
 		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			RETURN_META(cmdReturn);
 		}
 		if (g_MapVoteManager.IsVoteActive())
@@ -525,7 +548,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		}
 		else
 		{
-			RTV_PrintToChat(slot, "\x07Nominations are disabled.");
+			RTV_PrintToChatT(slot, "Nominations are disabled.");
 		}
 		RETURN_META(cmdReturn);
 	}
@@ -536,7 +559,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
 		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			RETURN_META(cmdReturn);
 		}
 		ShowMapChooserMenu(slot);
@@ -547,7 +570,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 	{
 		if (!RTV_AdminBridge_CanUseCommand(slot, "listmaps", 0))
 		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			RETURN_META(cmdReturn);
 		}
 		g_NominateManager.CommandMaps(slot);
@@ -558,7 +581,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 	{
 		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", 0))
 		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			RETURN_META(cmdReturn);
 		}
 		g_NominateManager.CommandReloadMaps(slot);
@@ -569,7 +592,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 	{
 		if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
 		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			RETURN_META(cmdReturn);
 		}
 		g_MapVoteManager.CommandRevote(slot);
@@ -582,7 +605,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
 		{
-			RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			RETURN_META(cmdReturn);
 		}
 
@@ -590,12 +613,12 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
 		if (RTV_LoadConfig(cfgPath, g_RTVConfig))
 		{
-			RTV_PrintToChat(slot, "\x04RTV config reloaded.");
+			RTV_LoadTranslations();
+			RTV_PrintToChatT(slot, "RTV config reloaded.");
 		}
 		else
 		{
-			RTV_PrintToChat(slot, "\x07"
-								  "Failed to reload RTV config.");
+			RTV_PrintToChatT(slot, "Failed to reload RTV config.");
 		}
 		RETURN_META(cmdReturn);
 	}
@@ -608,7 +631,7 @@ CON_COMMAND_F(mm_rtv, "Rock the vote for a map change", FCVAR_RELEASE | FCVAR_CL
 	int slot = context.GetPlayerSlot().Get();
 	if (!RTV_AdminBridge_CanUseCommand(slot, "rtv", 0))
 	{
-		RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;
 	}
 	if (g_MapVoteManager.IsVoteActive())
@@ -631,7 +654,7 @@ CON_COMMAND_F(mm_nominate, "Nominate a map for the next vote", FCVAR_RELEASE | F
 	int slot = context.GetPlayerSlot().Get();
 	if (!g_RTVConfig.nominate.enabled)
 	{
-		RTV_PrintToChat(slot, "\x07Nominations are disabled.");
+		RTV_PrintToChatT(slot, "Nominations are disabled.");
 		return;
 	}
 	const char *arg = args.ArgC() > 1 ? args[1] : "";
@@ -643,7 +666,7 @@ CON_COMMAND_F(mm_listmaps, "List available maps to your console", FCVAR_RELEASE 
 	int slot = context.GetPlayerSlot().Get();
 	if (!RTV_AdminBridge_CanUseCommand(slot, "listmaps", 0))
 	{
-		RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;
 	}
 	g_NominateManager.CommandMaps(slot);
@@ -654,7 +677,7 @@ CON_COMMAND_F(mm_reloadmaps, "Reload the map list from disk", FCVAR_RELEASE | FC
 	int slot = context.GetPlayerSlot().Get();
 	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", 0))
 	{
-		RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;
 	}
 	g_NominateManager.CommandReloadMaps(slot);
@@ -665,7 +688,7 @@ CON_COMMAND_F(mm_revote, "Change your vote in an active map vote", FCVAR_RELEASE
 	int slot = context.GetPlayerSlot().Get();
 	if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
 	{
-		RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;
 	}
 	g_MapVoteManager.CommandRevote(slot);
@@ -678,7 +701,7 @@ CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE
 	uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
 	{
-		RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;
 	}
 	ShowMapChooserMenu(slot);
@@ -691,18 +714,18 @@ CON_COMMAND_F(mm_reloadrtv, "Admin: reload cs2rtv config from disk", FCVAR_RELEA
 	uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
 	{
-		RTV_PrintToChat(slot, "\x07You don't have permission to use this command.");
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;
 	}
 	char cfgPath[512];
 	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
 	if (RTV_LoadConfig(cfgPath, g_RTVConfig))
 	{
-		RTV_PrintToChat(slot, "\x04RTV config reloaded.");
+		RTV_LoadTranslations();
+		RTV_PrintToChatT(slot, "RTV config reloaded.");
 	}
 	else
 	{
-		RTV_PrintToChat(slot, "\x07"
-							  "Failed to reload RTV config.");
+		RTV_PrintToChatT(slot, "Failed to reload RTV config.");
 	}
 }

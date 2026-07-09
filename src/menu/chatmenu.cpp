@@ -1,4 +1,5 @@
 #include "chatmenu.h"
+#include "src/lang/translations.h"
 #include "src/utils/print_utils.h"
 
 #include <algorithm>
@@ -257,16 +258,17 @@ void ChatMenuHandler::RenderPage(int slot, float /*curtime*/)
 
 	if (hasMore)
 	{
-		snprintf(buf, sizeof(buf), "\x01#%d \x04-> Next Page", MENU_ITEMS_PER_PAGE + 1);
+		snprintf(buf, sizeof(buf), "\x01#%d \x04-> %s", MENU_ITEMS_PER_PAGE + 1, RTV_Translate(slot, "Next Page").c_str());
 		RTV_PrintToChat(slot, "%s", buf);
 	}
 	if (hasPrev)
 	{
-		snprintf(buf, sizeof(buf), "\x01#%d \x04-> Previous Page", MENU_ITEMS_PER_PAGE + 2);
+		snprintf(buf, sizeof(buf), "\x01#%d \x04-> %s", MENU_ITEMS_PER_PAGE + 2, RTV_Translate(slot, "Previous Page").c_str());
 		RTV_PrintToChat(slot, "%s", buf);
 	}
 	if (def.exitButton)
 	{
-		RTV_PrintToChat(slot, "\x01#0 \x04-> Exit");
+		snprintf(buf, sizeof(buf), "\x01#0 \x04-> %s", RTV_Translate(slot, "Exit").c_str());
+		RTV_PrintToChat(slot, "%s", buf);
 	}
 }

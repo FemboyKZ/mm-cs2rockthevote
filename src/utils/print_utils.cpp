@@ -1,6 +1,7 @@
 #include "print_utils.h"
 #include "src/common.h"
 #include "src/config/config.h"
+#include "src/lang/translations.h"
 #include "src/player/player_manager.h"
 
 #include <engine/igameeventsystem.h>
@@ -169,6 +170,79 @@ void RTV_ChatToAll(const char *fmt, ...)
 	char conBuf[512];
 	char *dst = conBuf;
 	for (const char *src = buf; *src && dst < conBuf + sizeof(conBuf) - 1; src++)
+	{
+		unsigned char c = (unsigned char)*src;
+		if (c < 0x01 || c > 0x10)
+		{
+			*dst++ = *src;
+		}
+	}
+	*dst = '\0';
+	META_CONPRINTF("[RTV] %s\n", conBuf);
+}
+
+void RTV_PrintToChatT(int slot, const char *phrase, ...)
+{
+	if (slot < 0 || slot > MAXPLAYERS)
+	{
+		return;
+	}
+
+	std::string tmpl = g_RTVTranslations.Translate(RTV_SlotLanguage(slot), phrase);
+
+	char buf[512];
+	va_list args;
+	va_start(args, phrase);
+	vsnprintf(buf, sizeof(buf), tmpl.c_str(), args);
+	va_end(args);
+
+	char chatBuf[600];
+	snprintf(chatBuf, sizeof(chatBuf), " %s%s", g_RTVConfig.general.chatPrefix.c_str(), buf);
+
+	CSingleRecipientFilter filter(slot);
+	SendChatToFilter(&filter, chatBuf);
+}
+
+void RTV_ChatToAllT(const char *phrase, ...)
+{
+	CGlobalVars *globals = GetGameGlobals();
+	int maxClients = globals ? globals->maxClients : 0;
+
+	for (int i = 0; i < maxClients; i++)
+	{
+		PlayerInfo *p = g_RTVPlayerManager.GetPlayer(i);
+		if (!p || !p->connected || p->fakePlayer)
+		{
+			continue;
+		}
+
+		std::string tmpl = g_RTVTranslations.Translate(RTV_SlotLanguage(i), phrase);
+
+		char buf[512];
+		va_list args;
+		va_start(args, phrase);
+		vsnprintf(buf, sizeof(buf), tmpl.c_str(), args);
+		va_end(args);
+
+		char chatBuf[600];
+		snprintf(chatBuf, sizeof(chatBuf), " %s%s", g_RTVConfig.general.chatPrefix.c_str(), buf);
+
+		CSingleRecipientFilter filter(i);
+		SendChatToFilter(&filter, chatBuf);
+	}
+
+	// Console mirror, rendered once in the server default language.
+	std::string conTmpl = g_RTVTranslations.Translate("", phrase);
+	char conFmt[512];
+	va_list conArgs;
+	va_start(conArgs, phrase);
+	vsnprintf(conFmt, sizeof(conFmt), conTmpl.c_str(), conArgs);
+	va_end(conArgs);
+
+	// Strip Source chat color codes (0x01-0x10) before console print
+	char conBuf[512];
+	char *dst = conBuf;
+	for (const char *src = conFmt; *src && dst < conBuf + sizeof(conBuf) - 1; src++)
 	{
 		unsigned char c = (unsigned char)*src;
 		if (c < 0x01 || c > 0x10)

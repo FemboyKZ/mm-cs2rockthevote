@@ -119,6 +119,9 @@ for task in MMSPlugin.binaries:
 
     packages[sdk_name].addBinary(task.binary)
 
+    # Deploy translation files to addons/cs2rockthevote/translations/.
+    packages[sdk_name].addFolder("translations", "translations")
+
     # Deploy config files to cfg/cs2rtv/
     cfg_src = os.path.join(builder.sourcePath, "configs")
     cfg_dst = "cfg/cs2rtv"

@@ -185,6 +185,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.kzTierFormat = value;
 		}
+		else if (k == "defaultlanguage")
+		{
+			cfg->general.defaultLanguage = value;
+		}
 		else if (k == "commandprefix")
 		{
 			cfg->general.commandPrefix = value;

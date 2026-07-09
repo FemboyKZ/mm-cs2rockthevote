@@ -1,0 +1,249 @@
+// RTV chat and menu phrases. Section name is the phrase key used in code.
+// To add a language, copy the "en" line and change the key, keeping the SAME format specifiers in the SAME order.
+
+"Phrases"
+{
+	// Permissions and generic
+	"You don't have permission to use this command."
+	{
+		"en"	"{red}You don't have permission to use this command."
+	}
+
+	// RTV
+	"RTV is currently disabled."
+	{
+		"en"	"{red}RTV is currently disabled."
+	}
+	"You must be whitelisted to use RTV."
+	{
+		"en"	"{red}You must be whitelisted to use RTV."
+	}
+	"A map change is already scheduled."
+	{
+		"en"	"{red}A map change is already scheduled."
+	}
+	"RTV is not available yet. Wait %d more second(s)."
+	{
+		"en"	"{red}RTV is not available yet. Wait %d more second(s)."
+	}
+	"RTV is on cooldown. Wait %d more second(s)."
+	{
+		"en"	"{red}RTV is on cooldown. Wait %d more second(s)."
+	}
+	"You already voted. (%d/%d needed)"
+	{
+		"en"	"You already voted. (%d/%d needed)"
+	}
+	"%s wants to rock the vote. (%d/%d needed - type !rtv to vote)"
+	{
+		"en"	"{green}%s{default} wants to rock the vote. (%d/%d needed - type {green}!rtv{default} to vote)"
+	}
+	"RTV threshold reached! Starting vote..."
+	{
+		"en"	"{green}RTV threshold reached! Starting vote..."
+	}
+	"Map is ending soon - starting the next-map vote..."
+	{
+		"en"	"{green}Map is ending soon {default}- starting the next-map vote..."
+	}
+	"Type !rtv to vote for a map change. (%d more vote(s) needed)"
+	{
+		"en"	"{default}Type {green}!rtv{default} to vote for a map change. (%d more vote(s) needed)"
+	}
+
+	// Nominations
+	"Nominations are disabled."
+	{
+		"en"	"{red}Nominations are disabled."
+	}
+	"Nominations are currently disabled."
+	{
+		"en"	"{red}Nominations are currently disabled."
+	}
+	"You don't have permission to nominate."
+	{
+		"en"	"{red}You don't have permission to nominate."
+	}
+	"You don't have permission to nominate workshop maps by ID."
+	{
+		"en"	"{red}You don't have permission to nominate workshop maps by ID."
+	}
+	"Looking up workshop map %s..."
+	{
+		"en"	"{default}Looking up workshop map {green}%s{default}..."
+	}
+	"Workshop map %s not found."
+	{
+		"en"	"{red}Workshop map {green}%s{red} not found."
+	}
+	"Map %s not found in map list."
+	{
+		"en"	"{red}Map {green}%s{red} not found in map list."
+	}
+	"Looking up map %s via API..."
+	{
+		"en"	"{default}Looking up map {green}%s{default} via API..."
+	}
+	"Map %s not found."
+	{
+		"en"	"{red}Map {green}%s{red} not found."
+	}
+	"You cannot nominate the current map."
+	{
+		"en"	"{red}You cannot nominate the current map."
+	}
+	"You already nominated %s."
+	{
+		"en"	"{red}You already nominated {green}%s{red}."
+	}
+	"%s nominated %s for the next map."
+	{
+		"en"	"{green}%s{default} nominated {green}%s{default} for the next map."
+	}
+	"No maps in the map list."
+	{
+		"en"	"{red}No maps in the map list."
+	}
+
+	// Map list admin
+	"Map list reloaded by admin - active vote cancelled."
+	{
+		"en"	"{red}Map list reloaded by admin - active vote cancelled."
+	}
+	"Failed to reload map list."
+	{
+		"en"	"{red}Failed to reload map list."
+	}
+	"Map list reloaded. (%d maps)"
+	{
+		"en"	"{green}Map list reloaded. {default}(%d maps)"
+	}
+
+	// Config admin
+	"RTV config reloaded."
+	{
+		"en"	"{green}RTV config reloaded."
+	}
+	"Failed to reload RTV config."
+	{
+		"en"	"{red}Failed to reload RTV config."
+	}
+
+	// Map vote
+	"Map voting is currently disabled."
+	{
+		"en"	"{red}Map voting is currently disabled."
+	}
+	"Map vote started! Type a number in chat to vote."
+	{
+		"en"	"{green}Map vote started! {default}Type a number in chat to vote."
+	}
+	"Map vote started!"
+	{
+		"en"	"{green}Map vote started!"
+	}
+	"%s removed their vote for %s"
+	{
+		"en"	"{green}%s{default} removed their vote for {green}%s"
+	}
+	"%s voted for %s"
+	{
+		"en"	"{green}%s{default} voted for {green}%s"
+	}
+	"All players voted! Vote ending in 5 second(s)."
+	{
+		"en"	"{green}All players voted! Vote ending in {green}5{default} second(s)."
+	}
+	"There is no vote in progress."
+	{
+		"en"	"{red}There is no vote in progress."
+	}
+	"Revoting is not enabled."
+	{
+		"en"	"{red}Revoting is not enabled."
+	}
+	"Map vote ends in %d second(s). Vote now!"
+	{
+		"en"	"{green}Map vote{default} ends in {green}%d{default} second(s). Vote now!"
+	}
+	"Vote ended with no options."
+	{
+		"en"	"{red}Vote ended with no options."
+	}
+	"Nobody voted. Map will not change."
+	{
+		"en"	"{red}Nobody voted. Map will not change."
+	}
+	"No map reached %d%% - starting runoff vote."
+	{
+		"en"	"{green}No map reached %d%% - starting runoff vote."
+	}
+	"Tie! Starting runoff vote with the tied maps."
+	{
+		"en"	"{green}Tie! Starting runoff vote with the tied maps."
+	}
+	"Tie! The map will NOT be changed."
+	{
+		"en"	"{red}Tie! The map will {red}NOT{green} be changed."
+	}
+	"The map will NOT be changed."
+	{
+		"en"	"{green}The map will {red}NOT{green} be changed."
+	}
+	"%s won the vote! Map changing in %d second(s)."
+	{
+		"en"	"{green}%s{default} won the vote! Map changing in {green}%d{default} second(s)."
+	}
+	"Runoff vote started!"
+	{
+		"en"	"{green}Runoff vote started!"
+	}
+
+	// Menu titles and labels
+	"Nominate a map"
+	{
+		"en"	"Nominate a map"
+	}
+	"Matching maps"
+	{
+		"en"	"Matching maps"
+	}
+	"Choose a map (immediate change)"
+	{
+		"en"	"Choose a map (immediate change)"
+	}
+	"Vote for next map"
+	{
+		"en"	"Vote for next map"
+	}
+	"Don't Change Map"
+	{
+		"en"	"Don't Change Map"
+	}
+	"[nominated]"
+	{
+		"en"	"[nominated]"
+	}
+	"[current]"
+	{
+		"en"	"[current]"
+	}
+	"[your vote]"
+	{
+		"en"	"[your vote]"
+	}
+
+	// Chat-menu
+	"Next Page"
+	{
+		"en"	"Next Page"
+	}
+	"Previous Page"
+	{
+		"en"	"Previous Page"
+	}
+	"Exit"
+	{
+		"en"	"Exit"
+	}
+}

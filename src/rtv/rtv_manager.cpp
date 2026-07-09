@@ -82,7 +82,7 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 
 	if (!cfg.enabled)
 	{
-		RTV_PrintToChat(slot, "\x07RTV is currently disabled.");
+		RTV_PrintToChatT(slot, "RTV is currently disabled.");
 		return;
 	}
 
@@ -91,14 +91,13 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	// !rtv during the brief window before the whitelist kick fires.
 	if (RTV_WhitelistBridge_Available() && !RTV_WhitelistBridge_IsPlayerAllowed(slot))
 	{
-		RTV_PrintToChat(slot, "\x07You must be whitelisted to use RTV.");
+		RTV_PrintToChatT(slot, "You must be whitelisted to use RTV.");
 		return;
 	}
 
 	if (m_mapChangeScheduled)
 	{
-		RTV_PrintToChat(slot, "\x07"
-							  "A map change is already scheduled.");
+		RTV_PrintToChatT(slot, "A map change is already scheduled.");
 		return;
 	}
 
@@ -115,14 +114,14 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	if (cfg.mapStartDelay > 0 && (curtime - m_mapStartTime) < cfg.mapStartDelay)
 	{
 		int secs = static_cast<int>(cfg.mapStartDelay - (curtime - m_mapStartTime));
-		RTV_PrintToChat(slot, "\x07RTV is not available yet. Wait %d more second(s).", secs);
+		RTV_PrintToChatT(slot, "RTV is not available yet. Wait %d more second(s).", secs);
 		return;
 	}
 
 	if (m_cooldownExpireTime > 0.0f && curtime < m_cooldownExpireTime)
 	{
 		int secs = static_cast<int>(m_cooldownExpireTime - curtime);
-		RTV_PrintToChat(slot, "\x07RTV is on cooldown. Wait %d more second(s).", secs);
+		RTV_PrintToChatT(slot, "RTV is on cooldown. Wait %d more second(s).", secs);
 		return;
 	}
 
@@ -132,7 +131,7 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	if (HasVoted(slot))
 	{
 		int count = GetVoteCount();
-		RTV_PrintToChat(slot, "You already voted. (%d/%d needed)", count, required);
+		RTV_PrintToChatT(slot, "You already voted. (%d/%d needed)", count, required);
 
 		if (IsThresholdReached(eligible))
 		{
@@ -150,13 +149,11 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(slot);
 	const char *name = pi ? pi->name.c_str() : "Unknown";
 
-	RTV_ChatToAll("\x04%s\x01 wants to rock the vote. "
-				  "(%d/%d needed - type \x04!rtv\x01 to vote)",
-				  name, count, required);
+	RTV_ChatToAllT("%s wants to rock the vote. (%d/%d needed - type !rtv to vote)", name, count, required);
 
 	if (IsThresholdReached(eligible))
 	{
-		RTV_ChatToAll("\x04RTV threshold reached! Starting vote...");
+		RTV_ChatToAllT("RTV threshold reached! Starting vote...");
 		StopReminderTimer();
 		OnVoteStarted();
 		startVote();
@@ -215,7 +212,7 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 	if (timeLeft <= static_cast<float>(cfg.endOfMapVoteTime))
 	{
 		m_endOfMapVoteTriggered = true;
-		RTV_ChatToAll("\x04Map is ending soon \x01- starting the next-map vote...");
+		RTV_ChatToAllT("Map is ending soon - starting the next-map vote...");
 		StopReminderTimer();
 		OnVoteStarted();
 		startVote();
@@ -246,9 +243,7 @@ void RTVManager::StartReminderTimer()
 			int need = (std::max)(required - count, 0);
 			if (need > 0)
 			{
-				RTV_ChatToAll("\x01Type \x04!rtv\x01 to vote for a map change. "
-							  "(%d more vote(s) needed)",
-							  need);
+				RTV_ChatToAllT("Type !rtv to vote for a map change. (%d more vote(s) needed)", need);
 			}
 			else
 			{
