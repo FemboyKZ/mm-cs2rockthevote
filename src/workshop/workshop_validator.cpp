@@ -1,4 +1,5 @@
 #include "workshop_validator.h"
+#include "mmu/log.h"
 
 #include "src/common.h"
 
@@ -101,7 +102,7 @@ bool RTV_EnsureWorkshopMapReady(const std::string &workshopId)
 	if (WorkshopFolderHasVPK(workshopId))
 		return false; // already good
 
-	META_CONPRINTF("[CS2RTV] Workshop addon %s has no .vpk on disk; pruning stale ACF entry so Steam will re-download.\n",
+	MMU_LOG_INFO("Workshop addon %s has no .vpk on disk; pruning stale ACF entry so Steam will re-download.\n",
 				   workshopId.c_str());
 	return PruneACFEntryForId(workshopId);
 }

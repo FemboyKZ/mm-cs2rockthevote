@@ -1,4 +1,5 @@
 #include "map_vote.h"
+#include "mmu/log.h"
 #include "src/config/config.h"
 #include "src/lang/translations.h"
 #include "src/menu/chatmenu.h"
@@ -610,7 +611,7 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 												// If we're still showing 'change scheduled', the map change failed
 												if (m_changeScheduled)
 												{
-													META_CONPRINTF("[CS2RTV] Map change to '%s' appears to have failed - "
+													MMU_LOG_WARN("Map change to '%s' appears to have failed - "
 																   "resetting vote state.\n",
 																   captured.mapName.c_str());
 													m_changeScheduled = false;

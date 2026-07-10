@@ -1,4 +1,5 @@
 #include "nominate.h"
+#include "mmu/log.h"
 #include "src/admin/admin_bridge.h"
 #include "src/config/config.h"
 #include "src/lang/translations.h"
@@ -133,14 +134,14 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 											{
 												if (e.mapName.empty())
 												{
-													META_CONPRINTF("[CS2RTV] Workshop lookup failed for ID %s\n", wsId.c_str());
+													MMU_LOG_WARN("Workshop lookup failed for ID %s\n", wsId.c_str());
 													RTV_PrintToChatT(slot, "Workshop map %s not found.", wsId.c_str());
 													return;
 												}
 												const MapEntry *added = g_MapLister.AddDynamicMap(e);
 												if (added)
 												{
-													META_CONPRINTF("[CS2RTV] Workshop map '%s' added dynamically from API.\n",
+													MMU_LOG_INFO("Workshop map '%s' added dynamically from API.\n",
 																   added->mapName.c_str());
 													NominateMap(slot, added);
 												}
@@ -169,7 +170,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 										  if (!e.mapName.empty())
 										  {
 											  const MapEntry *added = g_MapLister.AddDynamicMap(e);
-											  META_CONPRINTF("[CS2RTV] Map '%s' added dynamically from CS2KZ API.\n", e.mapName.c_str());
+											  MMU_LOG_INFO("Map '%s' added dynamically from CS2KZ API.\n", e.mapName.c_str());
 											  if (added)
 											  {
 												  NominateMap(slot, added);
@@ -177,7 +178,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 										  }
 										  else
 										  {
-											  META_CONPRINTF("[CS2RTV] API lookup for '%s' returned no results.\n", query.c_str());
+											  MMU_LOG_INFO("API lookup for '%s' returned no results.\n", query.c_str());
 											  RTV_PrintToChatT(slot, "Map %s not found.", query.c_str());
 										  }
 									  });

@@ -239,7 +239,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	PLUGIN_SAVEVARS();
 
 	mmu::log::Setup logSetup;
-	logSetup.channelName = "RTV";
+	logSetup.channelName = "CS2RTV";
 	logSetup.addonName = "cs2rockthevote";
 	logSetup.toFile = true;
 	mmu::log::Init(logSetup);
@@ -268,7 +268,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	g_pCVar = g_pICvar;
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE | FCVAR_GAMEDLL);
 
-	META_CONPRINTF("[CS2RTV] Plugin loaded.\n");
+	MMU_LOG_INFO("Plugin loaded.\n");
 	return true;
 }
 

@@ -1,4 +1,5 @@
 #include "whitelist_bridge.h"
+#include "mmu/log.h"
 #include "src/common.h"
 
 static ICS2Whitelist *s_pWhitelist = nullptr;
@@ -16,11 +17,11 @@ void RTV_WhitelistBridge_Init()
 	if (iface)
 	{
 		s_pWhitelist = static_cast<ICS2Whitelist *>(iface);
-		META_CONPRINTF("[CS2RTV] mm-cs2whitelist found - RTV restricted to whitelisted players.\n");
+		MMU_LOG_INFO("mm-cs2whitelist found - RTV restricted to whitelisted players.\n");
 	}
 	else
 	{
-		META_CONPRINTF("[CS2RTV] mm-cs2whitelist not found - RTV available to all players.\n");
+		MMU_LOG_WARN("mm-cs2whitelist not found - RTV available to all players.\n");
 	}
 }
 
@@ -42,12 +43,12 @@ void RTV_WhitelistBridge_Refresh()
 		s_pWhitelist = static_cast<ICS2Whitelist *>(iface);
 		if (!prev)
 		{
-			META_CONPRINTF("[CS2RTV] mm-cs2whitelist loaded - RTV restricted to whitelisted players.\n");
+			MMU_LOG_INFO("mm-cs2whitelist loaded - RTV restricted to whitelisted players.\n");
 		}
 	}
 	else if (prev)
 	{
-		META_CONPRINTF("[CS2RTV] mm-cs2whitelist unloaded - RTV available to all players.\n");
+		MMU_LOG_INFO("mm-cs2whitelist unloaded - RTV available to all players.\n");
 	}
 }
 

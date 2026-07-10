@@ -1,4 +1,5 @@
 #include "map_lister.h"
+#include "mmu/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
 #include "src/utils/http_client.h"
@@ -213,7 +214,7 @@ int MapLister::LoadFromFile(const char *path)
 	FILE *fp = fopen(path, "r");
 	if (!fp)
 	{
-		META_CONPRINTF("[CS2RTV] maplist.txt not found at '%s' - attempting "
+		MMU_LOG_WARN("maplist.txt not found at '%s' - attempting "
 					   "auto-generate from CS2KZ API.\n",
 					   path);
 		GenerateMaplistAsync(path);
@@ -610,7 +611,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 							RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
 							return;
 						}
-						META_CONPRINTF("[CS2RTV] Steam API returned no title for %s (result=9?), trying Workshop page.\n", workshopId.c_str());
+						MMU_LOG_INFO("Steam API returned no title for %s (result=9?), trying Workshop page.\n", workshopId.c_str());
 					}
 
 					// 3) Fallback: scrape the Steam Workshop page <title> tag.
@@ -646,13 +647,13 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 												fallback.displayName = title;
 												fallback.workshopId = workshopId;
 												fallback.isWorkshop = true;
-												META_CONPRINTF("[CS2RTV] Workshop page title for %s: '%s'\n", workshopId.c_str(), title.c_str());
+												MMU_LOG_INFO("Workshop page title for %s: '%s'\n", workshopId.c_str(), title.c_str());
 											}
 										}
 									}
 									if (fallback.mapName.empty())
 									{
-										META_CONPRINTF("[CS2RTV] Workshop page lookup also failed for %s.\n", workshopId.c_str());
+										MMU_LOG_WARN("Workshop page lookup also failed for %s.\n", workshopId.c_str());
 									}
 									MapEntry captured = std::move(fallback);
 									RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
@@ -755,14 +756,14 @@ void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
 		{
 			if (maps.empty())
 			{
-				META_CONPRINTF("[CS2RTV] No maps returned from CS2KZ API.\n");
+				MMU_LOG_INFO("No maps returned from CS2KZ API.\n");
 				return;
 			}
 
 			FILE *fp = fopen(out.c_str(), "w");
 			if (!fp)
 			{
-				META_CONPRINTF("[CS2RTV] Cannot write '%s'.\n", out.c_str());
+				MMU_LOG_WARN("Cannot write '%s'.\n", out.c_str());
 				return;
 			}
 
@@ -779,7 +780,7 @@ void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
 			}
 			fclose(fp);
 
-			META_CONPRINTF("[CS2RTV] Wrote %d maps to '%s'.\n", static_cast<int>(maps.size()), out.c_str());
+			MMU_LOG_INFO("Wrote %d maps to '%s'.\n", static_cast<int>(maps.size()), out.c_str());
 		});
 }
 
@@ -827,7 +828,7 @@ void MapLister::FetchTiersAsync()
 						ApplyCachedTiers(e);
 					}
 					m_tierFetchInFlight.store(false);
-					META_CONPRINTF("[CS2RTV] Loaded CS2KZ tiers for %d maps.\n", static_cast<int>(cache->size()));
+					MMU_LOG_INFO("Loaded CS2KZ tiers for %d maps.\n", static_cast<int>(cache->size()));
 				});
 		});
 }
@@ -1025,7 +1026,7 @@ void MapLister::ValidateMapsAsync() const
 								 std::string result = JsonGetString(obj, "result");
 								 if (result != "1" && result != "")
 								 {
-									 META_CONPRINTF("[CS2RTV] Dead workshop map detected: %s (id=%s, "
+									 MMU_LOG_INFO("Dead workshop map detected: %s (id=%s, "
 													"result=%s)\n",
 													e.displayName.c_str(), e.workshopId.c_str(), result.c_str());
 

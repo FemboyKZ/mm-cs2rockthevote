@@ -1,4 +1,5 @@
 #include "admin_bridge.h"
+#include "mmu/log.h"
 #include "src/common.h"
 
 static ICS2Admin *s_pAdmin = nullptr;
@@ -17,11 +18,11 @@ void RTV_AdminBridge_Init()
 	if (iface)
 	{
 		s_pAdmin = static_cast<ICS2Admin *>(iface);
-		META_CONPRINTF("[CS2RTV] mm-cs2admin found - admin bridge active.\n");
+		MMU_LOG_INFO("mm-cs2admin found - admin bridge active.\n");
 	}
 	else
 	{
-		META_CONPRINTF("[CS2RTV] mm-cs2admin not found - admin commands will be blocked.\n");
+		MMU_LOG_WARN("mm-cs2admin not found - admin commands will be blocked.\n");
 	}
 }
 
@@ -43,12 +44,12 @@ void RTV_AdminBridge_Refresh()
 		s_pAdmin = static_cast<ICS2Admin *>(iface);
 		if (!prev)
 		{
-			META_CONPRINTF("[CS2RTV] mm-cs2admin loaded - admin bridge active.\n");
+			MMU_LOG_INFO("mm-cs2admin loaded - admin bridge active.\n");
 		}
 	}
 	else if (prev)
 	{
-		META_CONPRINTF("[CS2RTV] mm-cs2admin unloaded - admin commands will be blocked.\n");
+		MMU_LOG_INFO("mm-cs2admin unloaded - admin commands will be blocked.\n");
 	}
 }
 

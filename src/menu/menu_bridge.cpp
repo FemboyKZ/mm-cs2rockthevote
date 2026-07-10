@@ -1,4 +1,5 @@
 #include "menu_bridge.h"
+#include "mmu/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
 
@@ -109,11 +110,11 @@ void RTVMenuBridge::Refresh()
 		{
 			m_extHandle[i] = kInvalidMenuHandle;
 		}
-		META_CONPRINTF("[CS2RTV] mm-cs2menus unloaded - using built-in chat menus.\n");
+		MMU_LOG_INFO("mm-cs2menus unloaded - using built-in chat menus.\n");
 	}
 	else if (!prev && now)
 	{
-		META_CONPRINTF("[CS2RTV] mm-cs2menus found - menu rendering delegated to it.\n");
+		MMU_LOG_INFO("mm-cs2menus found - menu rendering delegated to it.\n");
 	}
 
 	m_pMenus = now;
