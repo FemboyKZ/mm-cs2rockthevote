@@ -18,6 +18,8 @@
 #include "utils/http_client.h"
 #include "utils/print_utils.h"
 #include "vote/map_vote.h"
+
+#include "mmu/log.h"
 #include "whitelist/whitelist_bridge.h"
 #include "workshop/workshop_validator.h"
 
@@ -236,6 +238,12 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 {
 	PLUGIN_SAVEVARS();
 
+	mmu::log::Setup logSetup;
+	logSetup.channelName = "RTV";
+	logSetup.addonName = "cs2rockthevote";
+	logSetup.toFile = true;
+	mmu::log::Init(logSetup);
+
 	RTV_HttpResetShutdownLatch();
 
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
@@ -287,6 +295,8 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	g_RTVSteamAPI.Clear();
 
 	g_CS2RTVForwards.Shutdown();
+
+	mmu::log::Shutdown();
 
 	return true;
 }

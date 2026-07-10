@@ -28,6 +28,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/workshop/workshop_validator.cpp",
         "vendor/mm-utils/mmu/chat_colors.cpp",
         "vendor/mm-utils/mmu/log.cpp",
+        "vendor/mm-utils/mmu/print.cpp",
         "vendor/mm-utils/mmu/translations.cpp",
     ]
 
