@@ -10,7 +10,9 @@
 #include "src/timers/timer_system.h"
 #include "src/public/forwards.h"
 #include "src/utils/print_utils.h"
-#include "src/workshop/workshop_validator.h"
+#include "mmu/workshop.h"
+
+extern CSteamGameServerAPIContext g_RTVSteamAPI;
 
 #include <algorithm>
 #include <cmath>
@@ -27,7 +29,7 @@ static void DoMapChange(const MapEntry &entry)
 	char cmd[256];
 	if (entry.isWorkshop && !entry.workshopId.empty())
 	{
-		RTV_EnsureWorkshopMapReady(entry.workshopId);
+		mmu::EnsureWorkshopMapReady(entry.workshopId, g_RTVSteamAPI);
 		snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entry.workshopId.c_str());
 	}
 	else
@@ -612,8 +614,8 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 												if (m_changeScheduled)
 												{
 													MMU_LOG_WARN("Map change to '%s' appears to have failed - "
-																   "resetting vote state.\n",
-																   captured.mapName.c_str());
+																 "resetting vote state.\n",
+																 captured.mapName.c_str());
 													m_changeScheduled = false;
 													m_voteActive = false;
 													g_RTVManager.OnVoteEndedNoVotes();

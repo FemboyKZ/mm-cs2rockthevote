@@ -1,5 +1,6 @@
 #include "config.h"
 #include "mmu/kv_parser.h"
+#include "mmu/log.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -189,6 +190,14 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.defaultLanguage = value;
 		}
+		else if (k == "logtofile")
+		{
+			cfg->general.logToFile = (value != "0");
+		}
+		else if (k == "logretentiondays")
+		{
+			cfg->general.logRetentionDays = std::atoi(value.c_str());
+		}
 		else if (k == "commandprefix")
 		{
 			cfg->general.commandPrefix = value;
@@ -242,5 +251,8 @@ bool RTV_LoadConfig(const char *path, RTVPluginConfig &config)
 	}
 
 	kv::ParseSection(file, root.value, ConfigHandler, &config);
+
+	mmu::log::SetToFile(config.general.logToFile);
+	mmu::log::SetRetentionDays(config.general.logRetentionDays);
 	return true;
 }

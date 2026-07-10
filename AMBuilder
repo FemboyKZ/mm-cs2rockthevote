@@ -25,11 +25,11 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/nominate/nominate.cpp",
         "src/admin/admin_bridge.cpp",
         "src/whitelist/whitelist_bridge.cpp",
-        "src/workshop/workshop_validator.cpp",
         "vendor/mm-utils/mmu/chat_colors.cpp",
         "vendor/mm-utils/mmu/log.cpp",
         "vendor/mm-utils/mmu/print.cpp",
         "vendor/mm-utils/mmu/translations.cpp",
+        "vendor/mm-utils/mmu/workshop.cpp",
     ]
 
     binary.custom = [

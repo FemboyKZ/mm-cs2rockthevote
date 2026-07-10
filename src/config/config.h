@@ -57,6 +57,8 @@ struct GeneralCfg
 	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"
 	std::string kzTierFormat = "number"; // "number" (e.g. 3) | "text" (e.g. medium)
 	std::string defaultLanguage = "en";  // phrase-file key used when a client's language is unknown
+	bool logToFile = true;               // mirror log output to addons/cs2rockthevote/logs
+	int logRetentionDays = 30;           // delete log files older than this, 0 keeps all
 	// Menu rendering style when mm-cs2menus is loaded:
 	// "default" delegates to the menu plugin's own config; "chat"/"html" force it.
 	std::string menuType = "default";

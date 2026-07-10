@@ -19,9 +19,10 @@
 #include "utils/print_utils.h"
 #include "vote/map_vote.h"
 
+#include "mmu/chat_command.h"
 #include "mmu/log.h"
 #include "whitelist/whitelist_bridge.h"
-#include "workshop/workshop_validator.h"
+#include "mmu/workshop.h"
 
 #include <engine/igameeventsystem.h>
 #include <iserver.h>
@@ -210,7 +211,7 @@ static void ShowMapChooserMenu(int slot)
 						char cmd[256];
 						if (entryCopy.isWorkshop && !entryCopy.workshopId.empty())
 						{
-							RTV_EnsureWorkshopMapReady(entryCopy.workshopId);
+							mmu::EnsureWorkshopMapReady(entryCopy.workshopId, g_RTVSteamAPI);
 							snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entryCopy.workshopId.c_str());
 						}
 						else
@@ -438,94 +439,31 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		RETURN_META(MRES_IGNORED);
 	}
 
-	// Strip outer quotes that CS2 wraps around say message
-	char msg[512];
-	strncpy(msg, rawMsg, sizeof(msg) - 1);
-	msg[sizeof(msg) - 1] = '\0';
-
-	size_t len = strlen(msg);
-	if (len >= 2 && msg[0] == '"' && msg[len - 1] == '"')
-	{
-		memmove(msg, msg + 1, len - 2);
-		msg[len - 2] = '\0';
-		len -= 2;
-	}
+	std::string msg = mmu::StripSayQuotes(rawMsg);
 
 	CGlobalVars *globals = GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	if (g_RTVMenus.HasMenu(slot))
 	{
-		if (g_RTVMenus.ProcessInput(slot, msg, curtime))
+		if (g_RTVMenus.ProcessInput(slot, msg.c_str(), curtime))
 		{
 			RETURN_META(MRES_SUPERCEDE);
 		}
 	}
 
 	// Second pass: chat commands
-	if (len < 2)
-	{
-		RETURN_META(MRES_IGNORED);
-	}
-
-	// Each config string is treated as a set of prefix characters.
-	// CommandPrefix       = chars that trigger command but leave message visible
-	// SilentCommandPrefix = chars that trigger command and suppress the message
-	// A char in both sets is treated as silent.
-	const std::string &normalPfx = g_RTVConfig.general.commandPrefix;
-	const std::string &silentPfx = g_RTVConfig.general.silentCommandPrefix;
-
-	bool isSilent;
-	if (!silentPfx.empty() && silentPfx.find(msg[0]) != std::string::npos)
-	{
-		isSilent = true;
-	}
-	else if (!normalPfx.empty() && normalPfx.find(msg[0]) != std::string::npos)
-	{
-		isSilent = false;
-	}
-	else
+	mmu::ChatCommand chatCmd;
+	if (!mmu::ParseChatCommand(msg, g_RTVConfig.general.commandPrefix, g_RTVConfig.general.silentCommandPrefix, chatCmd))
 	{
 		RETURN_META(MRES_IGNORED);
 	}
 
 	// Normal prefix: message stays visible in chat. Silent prefix: suppress it.
-	const META_RES cmdReturn = isSilent ? MRES_SUPERCEDE : MRES_IGNORED;
+	const META_RES cmdReturn = chatCmd.silent ? MRES_SUPERCEDE : MRES_IGNORED;
 
-	// Parse command + optional argument
-	char cmdBuf[64];
-	char argBuf[256] = "";
-
-	const char *space = strchr(msg + 1, ' ');
-	if (space)
-	{
-		size_t cmdLen = static_cast<size_t>(space - (msg + 1));
-		if (cmdLen >= sizeof(cmdBuf))
-		{
-			cmdLen = sizeof(cmdBuf) - 1;
-		}
-		strncpy(cmdBuf, msg + 1, cmdLen);
-		cmdBuf[cmdLen] = '\0';
-
-		// Skip leading whitespace in arg
-		const char *argStart = space + 1;
-		while (*argStart == ' ')
-		{
-			argStart++;
-		}
-		strncpy(argBuf, argStart, sizeof(argBuf) - 1);
-		argBuf[sizeof(argBuf) - 1] = '\0';
-	}
-	else
-	{
-		strncpy(cmdBuf, msg + 1, sizeof(cmdBuf) - 1);
-		cmdBuf[sizeof(cmdBuf) - 1] = '\0';
-	}
-
-	for (char *p = cmdBuf; *p; p++)
-	{
-		*p = static_cast<char>(tolower(static_cast<unsigned char>(*p)));
-	}
+	const char *cmdBuf = chatCmd.name.c_str();
+	const char *argBuf = chatCmd.argLine.c_str();
 
 	if (strcmp(cmdBuf, "rtv") == 0)
 	{
