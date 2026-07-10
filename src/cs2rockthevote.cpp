@@ -65,7 +65,7 @@ std::string RTV_SlotLanguage(int slot)
 static void RTV_LoadTranslations()
 {
 	g_pClientCvarValue = static_cast<IClientCvarValue *>(g_SMAPI->MetaFactory(CLIENTCVARVALUE_INTERFACE, nullptr, nullptr));
-	g_RTVTranslations.Load(g_SMAPI->GetBaseDir());
+	g_RTVTranslations.Load(g_SMAPI->GetBaseDir(), "cs2rockthevote");
 	g_RTVTranslations.SetDefaultLanguage(g_RTVConfig.general.defaultLanguage);
 }
 

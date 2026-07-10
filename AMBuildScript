@@ -42,6 +42,7 @@ def additionalIncludes(context, binary, sdk):
         # 'D:/absolute/path/to/include/folder/'
         os.path.join(builder.sourcePath, "src"),
         os.path.join(builder.sourcePath, "vendor", "ClientCvarValue", "public"),
+        os.path.join(builder.sourcePath, "vendor", "mm-utils"),
     ]
 
 

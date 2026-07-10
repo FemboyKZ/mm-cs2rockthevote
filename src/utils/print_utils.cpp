@@ -4,6 +4,8 @@
 #include "src/lang/translations.h"
 #include "src/player/player_manager.h"
 
+#include "mmu/recipient_filter.h"
+
 #include <engine/igameeventsystem.h>
 #include <irecipientfilter.h>
 #include <networksystem/inetworkmessages.h>
@@ -15,40 +17,6 @@
 #include <cstdio>
 
 #define HUD_PRINTTALK 3
-
-class CSingleRecipientFilter : public IRecipientFilter
-{
-public:
-	explicit CSingleRecipientFilter(int slot)
-	{
-		m_recipients.Set(slot);
-	}
-
-	~CSingleRecipientFilter() override {}
-
-	NetChannelBufType_t GetNetworkBufType() const override
-	{
-		return BUF_RELIABLE;
-	}
-
-	bool IsInitMessage() const override
-	{
-		return false;
-	}
-
-	const CPlayerBitVec &GetRecipients() const override
-	{
-		return m_recipients;
-	}
-
-	CPlayerSlot GetPredictedPlayerSlot() const override
-	{
-		return CPlayerSlot(-1);
-	}
-
-private:
-	CPlayerBitVec m_recipients;
-};
 
 class CAllPlayersFilter : public IRecipientFilter
 {

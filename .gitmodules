@@ -8,3 +8,6 @@
 [submodule "vendor/ClientCvarValue"]
 	path = vendor/ClientCvarValue
 	url = https://github.com/komashchenko/ClientCvarValue.git
+[submodule "vendor/mm-utils"]
+	path = vendor/mm-utils
+	url = https://github.com/FemboyKZ/mm-utils
