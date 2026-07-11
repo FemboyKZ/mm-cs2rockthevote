@@ -16,7 +16,6 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/player/player_manager.cpp",
         "src/maplist/map_lister.cpp",
         "src/utils/print_utils.cpp",
-        "src/utils/http_client.cpp",
         "src/timers/timer_system.cpp",
         "src/menu/chatmenu.cpp",
         "src/menu/menu_bridge.cpp",

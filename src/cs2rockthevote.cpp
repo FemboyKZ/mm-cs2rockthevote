@@ -15,7 +15,7 @@
 #include "public/ics2rtv.h"
 #include "rtv/rtv_manager.h"
 #include "timers/timer_system.h"
-#include "utils/http_client.h"
+#include "mmu/http_client.h"
 #include "utils/print_utils.h"
 #include "vote/map_vote.h"
 
@@ -237,7 +237,8 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	logSetup.toFile = true;
 	mmu::log::Init(logSetup);
 
-	RTV_HttpResetShutdownLatch();
+	mmu::http::SetUserAgent("CS2RTV/1.0");
+	mmu::http::ResetShutdownLatch();
 
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pEngine, IVEngineServer, INTERFACEVERSION_VENGINESERVER);
 	GET_V_IFACE_CURRENT(GetEngineFactory, g_pICvar, ICvar, CVAR_INTERFACE_VERSION);
@@ -275,7 +276,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 {
-	RTV_DrainMainThread();
+	mmu::http::DrainMainThread();
 
 	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameFrame), true);
 	SH_REMOVE_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated),
@@ -286,9 +287,9 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	SH_REMOVE_HOOK(ICvar, DispatchConCommand, g_pICvar, SH_MEMBER(this, &CS2RTVPlugin::Hook_DispatchConCommand), false);
 
 	g_Timers.KillAll();
-	RTV_HttpShutdown();
+	mmu::http::Shutdown();
 
-	RTV_ClearMainQueue();
+	mmu::http::ClearMainQueue();
 
 	RTV_AdminBridge_Shutdown();
 	RTV_WhitelistBridge_Shutdown();
@@ -359,7 +360,7 @@ void CS2RTVPlugin::Hook_GameFrame(bool /*simulating*/, bool /*bFirstTick*/, bool
 	}
 
 	float curtime = globals->curtime;
-	RTV_DrainMainThread();
+	mmu::http::DrainMainThread();
 	g_Timers.Process(curtime);
 	g_RTVMenus.Tick(curtime);
 

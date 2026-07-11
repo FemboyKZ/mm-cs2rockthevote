@@ -2,7 +2,7 @@
 #include "mmu/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
-#include "src/utils/http_client.h"
+#include "mmu/http_client.h"
 
 #include <algorithm>
 #include <cctype>
@@ -555,7 +555,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 {
 	// 1) Try CS2KZ API
 	std::string cs2kzUrl = "https://api.cs2kz.org/maps?workshop_id=" + workshopId + "&state=approved";
-	RTV_HttpGet(
+	mmu::http::Get(
 		cs2kzUrl,
 		[workshopId, callback](bool ok, std::string body)
 		{
@@ -576,7 +576,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 				{
 					// Dispatch to game thread: callback touches game state.
 					MapEntry captured = std::move(found);
-					RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+					mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
 					return;
 				}
 			}
@@ -591,7 +591,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 			}
 			std::string postBody = "itemcount=1&publishedfileids[0]=" + workshopId;
 			// Steam's v1 endpoint uses POST with form-encoded data.
-			RTV_HttpPostForm(
+			mmu::http::PostForm(
 				steamUrl, postBody,
 				[workshopId, callback](bool ok2, std::string body2)
 				{
@@ -608,7 +608,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 							fallback.workshopId = workshopId;
 							fallback.isWorkshop = true;
 							MapEntry captured = std::move(fallback);
-							RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+							mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
 							return;
 						}
 						MMU_LOG_INFO("Steam API returned no title for %s (result=9?), trying Workshop page.\n", workshopId.c_str());
@@ -617,7 +617,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 					// 3) Fallback: scrape the Steam Workshop page <title> tag.
 					// The page title is "Steam Workshop::MAP NAME" for public items.
 					std::string pageUrl = "https://steamcommunity.com/sharedfiles/filedetails?id=" + workshopId;
-					RTV_HttpGet(pageUrl,
+					mmu::http::Get(pageUrl,
 								[workshopId, callback](bool ok3, std::string body3)
 								{
 									MapEntry fallback;
@@ -656,7 +656,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 										MMU_LOG_WARN("Workshop page lookup also failed for %s.\n", workshopId.c_str());
 									}
 									MapEntry captured = std::move(fallback);
-									RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+									mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
 								});
 				});
 		});
@@ -665,7 +665,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 void MapLister::LookupByNameAsync(const std::string &name, std::function<void(MapEntry)> callback) const
 {
 	std::string url = "https://api.cs2kz.org/maps?name=" + name + "&state=approved&limit=5";
-	RTV_HttpGet(url,
+	mmu::http::Get(url,
 				[callback](bool ok, std::string body)
 				{
 					MapEntry found;
@@ -682,7 +682,7 @@ void MapLister::LookupByNameAsync(const std::string &name, std::function<void(Ma
 					}
 					// Dispatch to game thread: callback touches game state.
 					MapEntry captured = std::move(found);
-					RTV_QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+					mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
 				});
 }
 
@@ -709,7 +709,7 @@ void MapLister::FetchAllApprovedMapsAsync(std::function<void(std::vector<MapEntr
 		{
 			std::string url = "https://api.cs2kz.org/maps?state=approved&limit=500&offset=" + std::to_string(st->offset);
 
-			RTV_HttpGet(url,
+			mmu::http::Get(url,
 						[this, self](bool ok, std::string body) mutable
 						{
 							if (!ok || body.empty())
@@ -816,7 +816,7 @@ void MapLister::FetchTiersAsync()
 			}
 
 			// Merge into live state on the game thread (touches m_maps / m_tierCache).
-			RTV_QueueMainThread(
+			mmu::http::QueueMainThread(
 				[this, cache]()
 				{
 					for (const auto &kv : *cache)
@@ -992,7 +992,7 @@ void MapLister::ValidateMapsAsync() const
 		std::string apiKey = g_RTVConfig.general.steamApiKey;
 		std::string webhook = g_RTVConfig.general.discordWebhook;
 
-		RTV_HttpPostForm("https://api.steampowered.com/ISteamRemoteStorage/"
+		mmu::http::PostForm("https://api.steampowered.com/ISteamRemoteStorage/"
 						 "GetPublishedFileDetails/v1/"
 						 "?key="
 							 + apiKey,
@@ -1034,7 +1034,7 @@ void MapLister::ValidateMapsAsync() const
 									 {
 										 std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
 										 std::string json = "{\"content\":\"" + msg + "\"}";
-										 RTV_HttpPost(webhook, json, nullptr);
+										 mmu::http::Post(webhook, json, nullptr);
 									 }
 								 }
 							 }
