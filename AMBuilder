@@ -26,8 +26,10 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/admin/admin_bridge.cpp",
         "src/whitelist/whitelist_bridge.cpp",
         "vendor/mm-utils/mmu/chat_colors.cpp",
+        "vendor/mm-utils/mmu/gamesystem.cpp",
         "vendor/mm-utils/mmu/log.cpp",
         "vendor/mm-utils/mmu/print.cpp",
+        "vendor/mm-utils/mmu/sigscan.cpp",
         "vendor/mm-utils/mmu/translations.cpp",
         "vendor/mm-utils/mmu/workshop.cpp",
     ]

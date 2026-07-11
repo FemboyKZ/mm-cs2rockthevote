@@ -19,10 +19,12 @@
 #include "utils/print_utils.h"
 #include "vote/map_vote.h"
 
+#include "gamedata.h"
 #include "mmu/chat_command.h"
+#include "mmu/gamesystem.h"
 #include "mmu/log.h"
-#include "whitelist/whitelist_bridge.h"
 #include "mmu/workshop.h"
+#include "whitelist/whitelist_bridge.h"
 
 #include <engine/igameeventsystem.h>
 #include <iserver.h>
@@ -255,6 +257,14 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkServerService, INetworkServerService, NETWORKSERVERSERVICE_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pGameEventSystem, IGameEventSystem, GAMEEVENTSYSTEM_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkMessages, INetworkMessages, NETWORKMESSAGES_INTERFACE_VERSION);
+
+	// Engine-native workshop map checks.
+	// On failure EnsureWorkshopMapReady silently falls back to the .vpk folder scan + ACF prune path.
+	if (!mmu::gamesystem::Resolve(reinterpret_cast<const void *>(g_pServerGameDLL), gamedata::kGameSystemFactorySig,
+								  gamedata::kGameSystemFactorySigLen))
+	{
+		MMU_LOG_WARN("Game system list unresolved; workshop map checks fall back to ACF pruning.\n");
+	}
 
 	g_SMAPI->AddListener(this, this);
 
