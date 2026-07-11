@@ -2,6 +2,7 @@
 #define _INCLUDE_RTV_COMMON_H_
 
 #include "mmu/chat_colors.h"
+#include "mmu/plugin_globals.h"
 
 #include <ISmmPlugin.h>
 #include <igameevents.h>
@@ -13,14 +14,8 @@
 #include <cstring>
 #include <string>
 
-#define MAXPLAYERS 64
-
-// Engine interface declarations
-extern IServerGameDLL *g_pServerGameDLL;
-extern IServerGameClients *g_pGameClients;
-extern IVEngineServer *g_pEngine;
+// Plugin-specific engine interfaces. Shared ones live in mmu/plugin_globals.h.
 extern IGameEventManager2 *g_pGameEvents;
-extern ICvar *g_pICvar;
 extern INetworkServerService *g_pNetworkServerService;
 
 class IFileSystem;
@@ -30,12 +25,6 @@ class INetworkMessages;
 class IGameEventSystem;
 extern INetworkMessages *g_pNetworkMessages;
 extern IGameEventSystem *g_pGameEventSystem;
-
-// Metamod globals
-extern ISmmAPI *g_SMAPI;
-extern ISmmPlugin *g_PLAPI;
-extern PluginId g_PLID;
-extern SourceHook::ISourceHook *g_SHPtr;
 
 // CGlobalVars accessor, only valid during an active game
 #include "mmu/print.h"
