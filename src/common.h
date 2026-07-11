@@ -37,7 +37,12 @@ extern ISmmPlugin *g_PLAPI;
 extern PluginId g_PLID;
 extern SourceHook::ISourceHook *g_SHPtr;
 
-// CGlobalVars accessor - only valid during an active game
-CGlobalVars *GetGameGlobals();
+// CGlobalVars accessor, only valid during an active game
+#include "mmu/print.h"
+
+inline CGlobalVars *GetGameGlobals()
+{
+	return mmu::GetGameGlobals();
+}
 
 #endif // _INCLUDE_RTV_COMMON_H_

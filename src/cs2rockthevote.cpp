@@ -227,16 +227,6 @@ static void ShowMapChooserMenu(int slot)
 	g_RTVMenus.ShowMenu(slot, def, curtime);
 }
 
-CGlobalVars *GetGameGlobals()
-{
-	INetworkGameServer *pServer = g_pNetworkServerService->GetIGameServer();
-	if (!pServer)
-	{
-		return nullptr;
-	}
-	return pServer->GetGlobals();
-}
-
 bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
 	PLUGIN_SAVEVARS();
