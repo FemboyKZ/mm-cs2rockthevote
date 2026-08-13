@@ -99,6 +99,11 @@ private:
 	void StartRunoff(const std::vector<int> &tiedIndices);
 	void ExecuteMapChange(const VoteOption &winner);
 	void ScheduleChange(const VoteOption &winner, int delaySecs);
+	void ArmChangeFailureTimer(const MapEntry &entry, float timeout);
+
+	// Total tries, so one retry before the map goes back to the players.
+	static constexpr int kMaxChangeAttempts = 2;
+	int m_changeAttempts = 0;
 
 	// Choose random maps (excluding currentMap and already-chosen ones)
 	std::vector<const MapEntry *> PickRandomMaps(int count, const std::vector<std::string> &exclude) const;

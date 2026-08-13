@@ -40,10 +40,49 @@ static void DoMapChange(const MapEntry &entry)
 	g_pEngine->ServerCommand(cmd);
 }
 
+static CConVarRef<CUtlString> &NextLevelRef()
+{
+	static CConVarRef<CUtlString> ref("nextlevel");
+	return ref;
+}
+
+static bool NextLevelUsable()
+{
+	return NextLevelRef().IsValidRef() && NextLevelRef().IsConVarDataAvailable();
+}
+
+// Backstop for a map ending on its own before our changelevel lands.
+// A workshop map is not mounted until host_workshop_map runs and the engine only resolves a bare name here,
+// so there is nothing safe to hand it for those.
+static void SetNextLevel(const MapEntry &entry)
+{
+	if (entry.isWorkshop || !NextLevelUsable())
+	{
+		return;
+	}
+	NextLevelRef().Set(entry.mapName.c_str());
+}
+
+// We change maps ourselves, so the engine never consumes nextlevel and it would still point at the map we just landed on,
+// reloading it forever.
+static void ClearConsumedNextLevel(const char *currentMap)
+{
+	if (!currentMap || !currentMap[0] || !NextLevelUsable())
+	{
+		return;
+	}
+	const char *pending = NextLevelRef().Get().Get();
+	if (pending && V_stricmp(pending, currentMap) == 0)
+	{
+		NextLevelRef().Set("");
+	}
+}
+
 void MapVoteManager::OnMapStart(const char *currentMap)
 {
 	Reset();
 	m_currentMap = currentMap ? currentMap : "";
+	ClearConsumedNextLevel(m_currentMap.c_str());
 }
 
 void MapVoteManager::Reset()
@@ -55,6 +94,7 @@ void MapVoteManager::Reset()
 	m_options.clear();
 	m_playerVotes.clear();
 	m_voteEndTime = 0.0f;
+	m_changeAttempts = 0;
 
 	g_Timers.KillTimer(m_countdownTimerId);
 	m_countdownTimerId = -1;
@@ -661,32 +701,51 @@ void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)
 void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 {
 	m_changeScheduled = true;
+	m_changeAttempts = 0;
 	g_RTVManager.OnMapChangeScheduled();
 
 	MapEntry captured = *winner.entry;
+
+	// Covers the map ending on its own before the changelevel below lands,
+	// and stops cs2kz-metamod filling nextlevel with the launch map instead of the winner.
+	SetNextLevel(captured);
 
 	g_CS2RTVForwards.FireOnMapChangeScheduled(captured.mapName.c_str(), delaySecs);
 
 	m_changeTimerId = g_Timers.CreateTimer(static_cast<float>(delaySecs), [captured]() { DoMapChange(captured); });
 
-	// Failure detection: if OnLevelInit doesn't fire within delay+30s, reset state
-	float failureTimeout = static_cast<float>(delaySecs) + 30.0f;
-	m_failureTimerId = g_Timers.CreateTimer(failureTimeout,
-											[this, captured]()
-											{
-												// If we're still showing 'change scheduled', the map change failed
-												if (m_changeScheduled)
-												{
-													MMU_LOG_WARN("Map change to '%s' appears to have failed - "
-																 "resetting vote state.\n",
-																 captured.mapName.c_str());
-													m_changeScheduled = false;
-													m_voteActive = false;
-													g_RTVManager.OnVoteEndedNoVotes();
-													g_NominateManager.Reset();
-													m_failureTimerId = -1;
-												}
-											});
+	ArmChangeFailureTimer(captured, static_cast<float>(delaySecs) + 30.0f);
+}
+
+// Fires when OnLevelInit hasn't arrived in time, meaning the change never took.
+void MapVoteManager::ArmChangeFailureTimer(const MapEntry &entry, float timeout)
+{
+	g_Timers.KillTimer(m_failureTimerId);
+	m_failureTimerId = g_Timers.CreateTimer(
+		timeout,
+		[this, entry]()
+		{
+			m_failureTimerId = -1;
+			if (!m_changeScheduled)
+			{
+				return;
+			}
+
+			// nextlevel only helps non-workshop maps, so retry the command itself before giving the map back to the players.
+			if (++m_changeAttempts < kMaxChangeAttempts)
+			{
+				MMU_LOG_WARN("Map change to '%s' did not take, retrying (%d/%d).\n", entry.mapName.c_str(), m_changeAttempts + 1, kMaxChangeAttempts);
+				DoMapChange(entry);
+				ArmChangeFailureTimer(entry, 30.0f);
+				return;
+			}
+
+			MMU_LOG_WARN("Map change to '%s' failed %d time(s) - resetting vote state.\n", entry.mapName.c_str(), kMaxChangeAttempts);
+			m_changeScheduled = false;
+			m_voteActive = false;
+			g_RTVManager.OnVoteEndedNoVotes();
+			g_NominateManager.Reset();
+		});
 }
 
 void MapVoteManager::NotifyMapChangeSucceeded()
