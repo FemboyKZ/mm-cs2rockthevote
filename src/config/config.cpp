@@ -62,10 +62,6 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->rtv.reminderInterval = std::atoi(value.c_str());
 		}
-		else if (k == "mapchangedelay")
-		{
-			cfg->rtv.mapChangeDelay = std::atoi(value.c_str());
-		}
 		else if (k == "cooldownduration")
 		{
 			cfg->rtv.cooldownDuration = std::atoi(value.c_str());
@@ -74,13 +70,29 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->rtv.mapStartDelay = std::atoi(value.c_str());
 		}
+		// Legacy keys, kept so an existing core.cfg keeps working.
+		else if (k == "mapchangedelay")
+		{
+			cfg->mapvote.mapChangeDelay = std::atoi(value.c_str());
+		}
 		else if (k == "endofmapvote")
 		{
-			cfg->rtv.endOfMapVote = (value != "0");
+			cfg->endOfMapVote.enabled = (value != "0");
 		}
 		else if (k == "endofmapvotetime")
 		{
-			cfg->rtv.endOfMapVoteTime = std::atoi(value.c_str());
+			cfg->endOfMapVote.triggerTime = std::atoi(value.c_str());
+		}
+	}
+	else if (sec == "endofmapvote")
+	{
+		if (k == "enabled")
+		{
+			cfg->endOfMapVote.enabled = (value != "0");
+		}
+		else if (k == "triggertime")
+		{
+			cfg->endOfMapVote.triggerTime = std::atoi(value.c_str());
 		}
 	}
 	else if (sec == "mapvote")
@@ -120,6 +132,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		else if (k == "enablerevote")
 		{
 			cfg->mapvote.enableRevote = (value != "0");
+		}
+		else if (k == "mapchangedelay")
+		{
+			cfg->mapvote.mapChangeDelay = std::atoi(value.c_str());
 		}
 	}
 	else if (sec == "extend")
@@ -170,11 +186,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	}
 	else if (sec == "mapchooser")
 	{
-		if (k == "commands")
-		{
-			cfg->mapchooser.commands = value;
-		}
-		else if (k == "permission")
+		if (k == "permission")
 		{
 			cfg->mapchooser.permission = value;
 		}

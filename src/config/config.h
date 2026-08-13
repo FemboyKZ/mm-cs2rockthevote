@@ -3,29 +3,36 @@
 
 #include <string>
 
+// The !rtv petition, not the vote it opens.
 struct RtvCfg
 {
 	bool enabled = true;
-	int votePercentage = 51;
-	int reminderInterval = 60;
-	int mapChangeDelay = 5;
+	int votePercentage = 51; // of eligible players
+	int reminderInterval = 120;
 	int cooldownDuration = 30;
 	int mapStartDelay = 30;
-	bool endOfMapVote = false;
-	int endOfMapVoteTime = 180;
 };
 
+// The ballot itself, whoever opened it.
 struct MapVoteCfg
 {
 	bool enabled = true;
 	int mapsToShow = 6;
 	int voteDuration = 90;
-	int minWinPercentage = 0;
+	int minWinPercentage = 0; // of cast votes, else runoff
 	bool runoffEnabled = true;
 	int countdownInterval = 15;
 	bool chatChoiceReminder = true;
 	int chatChoiceInterval = 15;
 	bool enableRevote = true;
+	int mapChangeDelay = 5;
+};
+
+// Auto-opens a ballot near the end of the map.
+struct EndOfMapVoteCfg
+{
+	bool enabled = false;
+	int triggerTime = 180; // seconds of map time left when it fires
 };
 
 struct ExtendCfg
@@ -48,8 +55,6 @@ struct NominateCfg
 
 struct MapChooserCfg
 {
-	// Comma-separated command aliases (without !/mm_ prefix): "mapmenu,mm"
-	std::string commands = "mapmenu,mm";
 	// Admin flag required to use map chooser; blank = everyone
 	std::string permission = "changemap";
 };
@@ -85,6 +90,7 @@ struct RTVPluginConfig
 {
 	RtvCfg rtv;
 	MapVoteCfg mapvote;
+	EndOfMapVoteCfg endOfMapVote;
 	ExtendCfg extend;
 	NominateCfg nominate;
 	MapChooserCfg mapchooser;

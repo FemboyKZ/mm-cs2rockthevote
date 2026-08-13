@@ -21,9 +21,8 @@ public:
 	using StartVoteCallback = std::function<void()>;
 	void CommandHandler(int slot, StartVoteCallback startVote);
 
-	// Called every frame. When the end-of-map-vote setting is on,
-	// starts the vote automatically once the map's time limit is within endOfMapVoteTime seconds of expiring and nobody has triggered !rtv yet.
-	// Cheap-throttled internally.
+	// Called every frame, throttled internally.
+	// Opens the vote once the map's time limit is within EndOfMapVote.TriggerTime of expiring.
 	void CheckEndOfMapVote(StartVoteCallback startVote);
 
 	// Re-open the current vote menu for a player (when vote is already running)
@@ -39,7 +38,7 @@ public:
 	void OnMapChangeScheduled();
 
 	// Re-arm the end-of-map vote after an extension.
-	// Stays latched when the extension was shorter than endOfMapVoteTime, which would re-fire at once.
+	// Stays latched when the extension was shorter than EndOfMapVote.TriggerTime, which would re-fire at once.
 	void OnMapExtended();
 
 	bool IsVoteStarted() const

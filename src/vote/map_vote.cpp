@@ -589,7 +589,7 @@ void MapVoteManager::FinishVote()
 
 	g_CS2RTVForwards.FireOnMapVoteEnd(winner.entry->mapName.c_str(), m_isRTV);
 
-	int delaySecs = g_RTVConfig.rtv.mapChangeDelay;
+	int delaySecs = g_RTVConfig.mapvote.mapChangeDelay;
 	RTV_ChatToAllT("%s won the vote! Map changing in %d second(s).", winner.label.c_str(), delaySecs);
 
 	ScheduleChange(winner, delaySecs);

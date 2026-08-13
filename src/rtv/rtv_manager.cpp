@@ -64,7 +64,7 @@ void RTVManager::OnMapChangeScheduled()
 void RTVManager::OnMapExtended()
 {
 	float timeLeft = 0.0f;
-	if (g_RTVTimeLimit.GetTimeLeftSeconds(timeLeft) && timeLeft > static_cast<float>(g_RTVConfig.rtv.endOfMapVoteTime))
+	if (g_RTVTimeLimit.GetTimeLeftSeconds(timeLeft) && timeLeft > static_cast<float>(g_RTVConfig.endOfMapVote.triggerTime))
 	{
 		m_endOfMapVoteTriggered = false;
 	}
@@ -177,9 +177,10 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 
 void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 {
-	const RtvCfg &cfg = g_RTVConfig.rtv;
+	// Deliberately not gated on RtvCfg::enabled, since no petition is involved.
+	const EndOfMapVoteCfg &cfg = g_RTVConfig.endOfMapVote;
 
-	if (!cfg.enabled || !cfg.endOfMapVote)
+	if (!cfg.enabled)
 	{
 		return;
 	}
@@ -208,7 +209,7 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 		return;
 	}
 
-	if (timeLeft <= static_cast<float>(cfg.endOfMapVoteTime))
+	if (timeLeft <= static_cast<float>(cfg.triggerTime))
 	{
 		m_endOfMapVoteTriggered = true;
 		RTV_ChatToAllT("Map is ending soon - starting the next-map vote...");
