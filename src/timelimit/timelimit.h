@@ -3,7 +3,7 @@
 
 // Reads and extends whichever convar family actually ends the current map.
 // Plain CS2 uses mp_timelimit. cs2kz-metamod runs the map as one long round,
-// so it mirrors mp_timelimit and the mp_roundtime to one value and caps them at 1440.
+// so it mirrors mp_timelimit and the mp_roundtime family to one value, capped at 1440.
 // Nothing here links against cs2kz. The mode comes from the convar bounds instead.
 
 enum class LimitSource
@@ -25,6 +25,13 @@ class RTVTimeLimit
 {
 public:
 	void OnMapStart(float curtime);
+
+	// Raises the mp_roundtime family max to the configured ceiling.
+	// Skipped when another plugin already raised it.
+	void ApplyRoundTimeCap();
+
+	// Must run on Unload: the engine holds a pointer to the max, and it lives here.
+	void RestoreRoundTimeCap();
 
 	LimitSource GetSource() const;
 

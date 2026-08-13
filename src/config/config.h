@@ -33,6 +33,7 @@ struct ExtendCfg
 	bool enabled = true;
 	int minutes = 60;          // added per extension
 	int maxExtends = 0;        // per map, 0 = unlimited (the convar max still applies)
+	int roundTimeCap = 1440;   // raise the mp_roundtime max to this, 0 = leave the engine's
 	std::string mode = "auto"; // "auto" | "roundtime" | "timelimit"
 	std::string permission = "changemap";
 };

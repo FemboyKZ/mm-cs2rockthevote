@@ -300,6 +300,8 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 
 	g_CS2RTVForwards.Shutdown();
 
+	g_RTVTimeLimit.RestoreRoundTimeCap();
+
 	mmu::log::Shutdown();
 
 	return true;
@@ -310,6 +312,7 @@ void CS2RTVPlugin::AllPluginsLoaded()
 	RTV_AdminBridge_Init();
 	RTV_WhitelistBridge_Init();
 	g_RTVMenus.Init();
+	g_RTVTimeLimit.ApplyRoundTimeCap();
 }
 
 void CS2RTVPlugin::OnPluginLoad(PluginId /*id*/)
@@ -578,6 +581,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (RTV_LoadConfig(cfgPath, g_RTVConfig))
 		{
 			RTV_LoadTranslations();
+			g_RTVTimeLimit.ApplyRoundTimeCap();
 			RTV_PrintToChatT(slot, "RTV config reloaded.");
 		}
 		else
@@ -699,6 +703,7 @@ CON_COMMAND_F(mm_reloadrtv, "Admin: reload cs2rtv config from disk", FCVAR_RELEA
 	if (RTV_LoadConfig(cfgPath, g_RTVConfig))
 	{
 		RTV_LoadTranslations();
+		g_RTVTimeLimit.ApplyRoundTimeCap();
 		RTV_PrintToChatT(slot, "RTV config reloaded.");
 	}
 	else

@@ -15,8 +15,7 @@ RTVTimeLimit g_RTVTimeLimit;
 // Vanilla mp_roundtime max. Above it, a plugin is running the map as one round.
 static constexpr float kVanillaRoundTimeCap = 60.0f;
 
-// Function-local so the refs resolve lazily.
-// ConVarRef binds when the game registers the convar, so call order does not matter.
+// Function-local so the refs bind whenever the game registers the convar.
 static CConVarRef<float> &TimeLimitRef()
 {
 	static CConVarRef<float> ref("mp_timelimit");
@@ -56,10 +55,27 @@ static bool ReadCap(const CConVarRef<float> &ref, float &cap)
 	return true;
 }
 
-static bool RoundTimeIsMapClock()
+using RoundTimeRefFn = CConVarRef<float> &(*)();
+static const RoundTimeRefFn kRoundTimeRefs[] = {RoundTimeRef, RoundTimeDefuseRef, RoundTimeHostageRef};
+static constexpr int kRoundTimeRefCount = static_cast<int>(sizeof(kRoundTimeRefs) / sizeof(kRoundTimeRefs[0]));
+
+// The engine stores this pointer, not a copy, so it has to outlive every read.
+static CVValue_t s_capValue(60.0f);
+static CVValue_t *s_savedMax[kRoundTimeRefCount] = {};
+static bool s_capInstalled[kRoundTimeRefCount] = {};
+
+static bool OwnsRoundTimeCap()
+{
+	CConVarRef<float> &ref = RoundTimeRef();
+	return Usable(ref) && ref.GetConVarData()->MaxValue() == &s_capValue;
+}
+
+// Only an external cap raise implies a plugin pinning the round start,
+// which is what makes the round clock readable here. Ours implies nothing.
+static bool RoundStartIsPinned()
 {
 	float cap = 0.0f;
-	return ReadCap(RoundTimeRef(), cap) && cap > kVanillaRoundTimeCap;
+	return !OwnsRoundTimeCap() && ReadCap(RoundTimeRef(), cap) && cap > kVanillaRoundTimeCap;
 }
 
 static LimitSource ResolveSource()
@@ -75,7 +91,7 @@ static LimitSource ResolveSource()
 		return Usable(TimeLimitRef()) ? LimitSource::TimeLimit : LimitSource::None;
 	}
 
-	if (RoundTimeIsMapClock() && RoundTimeRef().Get() > 0.0f)
+	if (RoundStartIsPinned() && RoundTimeRef().Get() > 0.0f)
 	{
 		return LimitSource::RoundTime;
 	}
@@ -83,6 +99,7 @@ static LimitSource ResolveSource()
 	{
 		return LimitSource::TimeLimit;
 	}
+	// A server wanting the round to bound the map without cs2kz says so with Mode "roundtime".
 	return LimitSource::None;
 }
 
@@ -124,7 +141,93 @@ void RTVTimeLimit::OnMapStart(float curtime)
 {
 	m_mapStartTime = curtime;
 	m_extendsUsed = 0;
+	ApplyRoundTimeCap();
 	LogCompetingEndConditions();
+}
+
+void RTVTimeLimit::ApplyRoundTimeCap()
+{
+	int minutes = g_RTVConfig.extend.roundTimeCap;
+
+	if (OwnsRoundTimeCap())
+	{
+		// Installed already, so a config reload only changes the value we point at.
+		if (minutes > 0)
+		{
+			s_capValue.m_fl32Value = static_cast<float>(minutes);
+		}
+		else
+		{
+			RestoreRoundTimeCap();
+		}
+		return;
+	}
+
+	if (minutes <= kVanillaRoundTimeCap)
+	{
+		return;
+	}
+
+	float existing = 0.0f;
+	if (ReadCap(RoundTimeRef(), existing) && existing > kVanillaRoundTimeCap)
+	{
+		return;
+	}
+
+	s_capValue.m_fl32Value = static_cast<float>(minutes);
+
+	for (int i = 0; i < kRoundTimeRefCount; i++)
+	{
+		CConVarRef<float> &ref = kRoundTimeRefs[i]();
+		if (!Usable(ref))
+		{
+			continue;
+		}
+		ConVarData *data = ref.GetConVarData();
+		s_savedMax[i] = data->HasMaxValue() ? data->MaxValue() : nullptr;
+		data->SetMaxValue(&s_capValue);
+		s_capInstalled[i] = true;
+	}
+
+	if (s_capInstalled[0])
+	{
+		MMU_LOG_INFO("Raised the mp_roundtime maximum to %d minutes.\n", minutes);
+	}
+}
+
+void RTVTimeLimit::RestoreRoundTimeCap()
+{
+	for (int i = 0; i < kRoundTimeRefCount; i++)
+	{
+		if (!s_capInstalled[i])
+		{
+			continue;
+		}
+		s_capInstalled[i] = false;
+
+		CConVarRef<float> &ref = kRoundTimeRefs[i]();
+		if (!Usable(ref))
+		{
+			continue;
+		}
+
+		// Reclaim only the pointer still ours.
+		// Another plugin may have layered its own cap on top since, and taking that back would clobber theirs.
+		ConVarData *data = ref.GetConVarData();
+		if (data->MaxValue() != &s_capValue)
+		{
+			continue;
+		}
+
+		if (s_savedMax[i])
+		{
+			data->SetMaxValue(s_savedMax[i]);
+		}
+		else
+		{
+			data->RemoveMaxValue();
+		}
+	}
 }
 
 LimitSource RTVTimeLimit::GetSource() const
@@ -140,35 +243,29 @@ bool RTVTimeLimit::GetTimeLeftSeconds(float &seconds) const
 		return false;
 	}
 	float curtime = globals->curtime;
-	bool found = false;
-
-	// cs2kz pins m_fRoundStartTime to 0 every round start,
-	// so the round ends at exactly mp_roundtime*60 on the global clock with no elapsed-time guess.
-	if (RoundTimeIsMapClock() && Usable(RoundTimeRef()))
+	LimitSource src = ResolveSource();
+	if (src == LimitSource::None)
 	{
-		float roundtime = RoundTimeRef().Get();
-		if (roundtime > 0.0f)
-		{
-			seconds = roundtime * 60.0f - curtime;
-			found = true;
-		}
+		return false;
 	}
 
-	if (Usable(TimeLimitRef()))
+	CConVarRef<float> &ref = SourceRef(src);
+	float limit = ref.Get();
+	if (limit <= 0.0f)
 	{
-		float limit = TimeLimitRef().Get();
-		if (limit > 0.0f)
-		{
-			float left = limit * 60.0f - (curtime - m_mapStartTime);
-			if (!found || left < seconds)
-			{
-				seconds = left;
-			}
-			found = true;
-		}
+		return false;
 	}
 
-	return found;
+	// A pinned round start puts the round end at exactly mp_roundtime*60.
+	// Everything else can only measure elapsed time from map start.
+	if (src == LimitSource::RoundTime && RoundStartIsPinned())
+	{
+		seconds = limit * 60.0f - curtime;
+		return true;
+	}
+
+	seconds = limit * 60.0f - (curtime - m_mapStartTime);
+	return true;
 }
 
 int RTVTimeLimit::GetHeadroomMinutes() const

@@ -136,6 +136,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->extend.maxExtends = std::atoi(value.c_str());
 		}
+		else if (k == "roundtimecap")
+		{
+			cfg->extend.roundTimeCap = std::atoi(value.c_str());
+		}
 		else if (k == "mode")
 		{
 			cfg->extend.mode = ToLower(value);
