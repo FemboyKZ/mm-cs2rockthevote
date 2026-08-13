@@ -10,6 +10,10 @@ for sdk_target in MMSPlugin.sdk_targets:
     )
 
     binary.sources += [
+        os.path.join(sdk["path"], "tier1", "keyvalues3.cpp"),
+        os.path.join(sdk["path"], "entity2", "entitysystem.cpp"),
+        os.path.join(sdk["path"], "entity2", "entityidentity.cpp"),
+        os.path.join(sdk["path"], "entity2", "entitykeyvalues.cpp"),
         "src/cs2rockthevote.cpp",
         "src/config/config.cpp",
         "src/lang/translations.cpp",
@@ -19,6 +23,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/timers/timer_system.cpp",
         "src/menu/chatmenu.cpp",
         "src/menu/menu_bridge.cpp",
+        "src/entity/cgamerules.cpp",
         "src/rtv/rtv_manager.cpp",
         "src/timelimit/timelimit.cpp",
         "src/vote/map_vote.cpp",
@@ -30,6 +35,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "vendor/mm-utils/mmu/http_client.cpp",
         "vendor/mm-utils/mmu/log.cpp",
         "vendor/mm-utils/mmu/print.cpp",
+        "vendor/mm-utils/mmu/schema.cpp",
         "vendor/mm-utils/mmu/sigscan.cpp",
         "vendor/mm-utils/mmu/translations.cpp",
         "vendor/mm-utils/mmu/workshop.cpp",

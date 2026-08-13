@@ -21,6 +21,7 @@
 #include "utils/print_utils.h"
 #include "vote/map_vote.h"
 
+#include "entity/cgamerules.h"
 #include "gamedata.h"
 #include "mmu/chat_command.h"
 #include "mmu/gamesystem.h"
@@ -53,6 +54,16 @@ IVEngineServer *g_pEngine = nullptr;
 IGameEventManager2 *g_pGameEvents = nullptr;
 ICvar *g_pICvar = nullptr;
 IGameEventSystem *g_pGameEventSystem = nullptr;
+CGameEntitySystem *g_pEntitySystem = nullptr;
+
+CGameEntitySystem *GameEntitySystem()
+{
+	if (!g_pGameResourceServiceServer)
+	{
+		return nullptr;
+	}
+	return *reinterpret_cast<CGameEntitySystem **>(reinterpret_cast<uintptr_t>(g_pGameResourceServiceServer) + gamedata::kGameEntitySystemOffset);
+}
 
 // Optional. Provides each client's cl_language for phrase translation.
 // May load after us, so it is re-acquired whenever translations reload.
@@ -250,6 +261,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkServerService, INetworkServerService, NETWORKSERVERSERVICE_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pGameEventSystem, IGameEventSystem, GAMEEVENTSYSTEM_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkMessages, INetworkMessages, NETWORKMESSAGES_INTERFACE_VERSION);
+	GET_V_IFACE_ANY(GetEngineFactory, g_pGameResourceServiceServer, IGameResourceService, GAMERESOURCESERVICESERVER_INTERFACE_VERSION);
 
 	// Engine-native workshop map checks.
 	// On failure EnsureWorkshopMapReady silently falls back to the .vpk folder scan + ACF prune path.
@@ -333,6 +345,9 @@ void CS2RTVPlugin::OnPluginUnload(PluginId /*id*/)
 void CS2RTVPlugin::OnLevelInit(char const *pMapName, char const * /*pMapEntities*/, char const * /*pOldLevel*/, char const * /*pLandmarkName*/,
 							   bool /*loadGame*/, bool /*background*/)
 {
+	g_pEntitySystem = GameEntitySystem();
+	RTV_ResetGameRulesCache(); // the gamerules proxy is recreated each map
+
 	char cfgPath[512];
 	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
 	RTV_LoadConfig(cfgPath, g_RTVConfig);
@@ -354,6 +369,10 @@ void CS2RTVPlugin::OnLevelShutdown()
 {
 	g_Timers.KillAll();
 	g_MapVoteManager.Reset();
+
+	// Both are freed on level end, so drop them before GameFrame can read them.
+	g_pEntitySystem = nullptr;
+	RTV_ResetGameRulesCache();
 }
 
 void CS2RTVPlugin::Hook_GameFrame(bool /*simulating*/, bool /*bFirstTick*/, bool /*bLastTick*/)

@@ -26,6 +26,12 @@ class IGameEventSystem;
 extern INetworkMessages *g_pNetworkMessages;
 extern IGameEventSystem *g_pGameEventSystem;
 
+// g_pSchemaSystem and g_pGameResourceServiceServer come from the SDK's interfaces.lib.
+class CGameEntitySystem;
+extern CGameEntitySystem *g_pEntitySystem;
+
+CGameEntitySystem *GameEntitySystem();
+
 // CGlobalVars accessor, only valid during an active game
 #include "mmu/print.h"
 

@@ -2,6 +2,7 @@
 #include "mmu/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
+#include "src/entity/cgamerules.h"
 #include "src/rtv/rtv_manager.h"
 #include "src/utils/print_utils.h"
 
@@ -262,15 +263,22 @@ bool RTVTimeLimit::GetTimeLeftSeconds(float &seconds) const
 		return false;
 	}
 
-	// A pinned round start puts the round end at exactly mp_roundtime*60.
-	// Everything else can only measure elapsed time from map start.
-	if (src == LimitSource::RoundTime && RoundStartIsPinned())
+	// The clock each limit actually counts from.
+	float anchor = 0.0f;
+	if (CCSGameRules *rules = RTV_FindGameRules())
 	{
-		seconds = limit * 60.0f - curtime;
-		return true;
+		bool ok = src == LimitSource::RoundTime ? rules->GetRoundStartTime(anchor) : rules->GetGameStartTime(anchor);
+		if (ok)
+		{
+			seconds = anchor + limit * 60.0f - curtime;
+			return true;
+		}
 	}
 
-	seconds = limit * 60.0f - (curtime - m_mapStartTime);
+	// No gamerules or unresolved schema. cs2kz pins the round start to 0,
+	// so the round clock still lands exactly, and the map clock falls back to an estimate.
+	float elapsed = src == LimitSource::RoundTime && RoundStartIsPinned() ? curtime : curtime - m_mapStartTime;
+	seconds = limit * 60.0f - elapsed;
 	return true;
 }
 

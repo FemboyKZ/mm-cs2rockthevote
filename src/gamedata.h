@@ -17,6 +17,14 @@ namespace gamedata
 	static constexpr uint8_t kGameSystemFactorySig[] = {0x4C, 0x8B, 0x35, 0x2A, 0x2A, 0x2A, 0x2A, 0x4D, 0x85, 0xF6, 0x75, 0x2A, 0xE9};
 #endif
 	static constexpr size_t kGameSystemFactorySigLen = sizeof(kGameSystemFactorySig);
+
+	// Offset from IGameResourceService to the CGameEntitySystem* pointer.
+	// gamedata key: "GameEntitySystem"
+#ifdef _WIN32
+	static constexpr int kGameEntitySystemOffset = 88;
+#else
+	static constexpr int kGameEntitySystemOffset = 80;
+#endif
 } // namespace gamedata
 
 #endif // _INCLUDE_RTV_GAMEDATA_H_
