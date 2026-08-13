@@ -1,6 +1,7 @@
 #include "cs2rockthevote.h"
 #include "common.h"
 #include <cctype>
+#include <cstdlib>
 #include <stdio.h>
 
 #include "admin/admin_bridge.h"
@@ -14,6 +15,7 @@
 #include "public/forwards.h"
 #include "public/ics2rtv.h"
 #include "rtv/rtv_manager.h"
+#include "timelimit/timelimit.h"
 #include "timers/timer_system.h"
 #include "mmu/http_client.h"
 #include "utils/print_utils.h"
@@ -537,6 +539,19 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		RETURN_META(cmdReturn);
 	}
 
+	if (strcmp(cmdBuf, "extend") == 0)
+	{
+		const std::string &permName = g_RTVConfig.extend.permission;
+		uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+		if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
+		{
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
+			RETURN_META(cmdReturn);
+		}
+		RTV_CommandExtend(slot, atoi(argBuf));
+		RETURN_META(cmdReturn);
+	}
+
 	if (strcmp(cmdBuf, "revote") == 0)
 	{
 		if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
@@ -641,6 +656,19 @@ CON_COMMAND_F(mm_revote, "Change your vote in an active map vote", FCVAR_RELEASE
 		return;
 	}
 	g_MapVoteManager.CommandRevote(slot);
+}
+
+CON_COMMAND_F(mm_extend, "Admin: extend the current map's time limit", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
+{
+	int slot = context.GetPlayerSlot().Get();
+	const std::string &permName = g_RTVConfig.extend.permission;
+	uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+	if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
+	{
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
+		return;
+	}
+	RTV_CommandExtend(slot, args.ArgC() > 1 ? atoi(args[1]) : 0);
 }
 
 CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)

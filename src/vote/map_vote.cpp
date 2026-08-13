@@ -7,6 +7,7 @@
 #include "src/nominate/nominate.h"
 #include "src/player/player_manager.h"
 #include "src/rtv/rtv_manager.h"
+#include "src/timelimit/timelimit.h"
 #include "src/timers/timer_system.h"
 #include "src/public/forwards.h"
 #include "src/utils/print_utils.h"
@@ -197,6 +198,7 @@ void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, b
 		VoteOption opt;
 		opt.entry = e;
 		opt.label = g_MapLister.GetDisplayLabel(*e);
+		opt.announce = opt.label;
 		m_options.push_back(opt);
 		usedNames.push_back(e->mapName);
 	}
@@ -210,16 +212,44 @@ void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, b
 			VoteOption opt;
 			opt.entry = e;
 			opt.label = g_MapLister.GetDisplayLabel(*e);
+			opt.announce = opt.label;
 			m_options.push_back(opt);
 		}
 	}
 
+	// Only RTV votes get "Don't Change Map".
+	// On an end-of-map vote it would win and the map would still die at the limit, so extending is the real choice.
 	if (includeNoChange)
 	{
 		VoteOption opt;
-		opt.entry = nullptr;
+		opt.kind = VoteOptionKind::NoChange;
 		opt.label = "Don't Change Map";
+		opt.announce = opt.label;
 		m_options.push_back(opt);
+	}
+
+	if (g_RTVTimeLimit.IsExtendAvailable())
+	{
+		// The convar max can leave less headroom than the configured step.
+		int minutes = g_RTVConfig.extend.minutes;
+		int headroom = g_RTVTimeLimit.GetHeadroomMinutes();
+		if (headroom >= 0)
+		{
+			minutes = (std::min)(minutes, headroom);
+		}
+
+		if (minutes > 0)
+		{
+			char announce[64];
+			snprintf(announce, sizeof(announce), "Extend Map (+%d min)", minutes);
+
+			VoteOption opt;
+			opt.kind = VoteOptionKind::Extend;
+			opt.label = "Extend Map (+%d min)";
+			opt.announce = announce;
+			opt.extendMinutes = minutes;
+			m_options.push_back(opt);
+		}
 	}
 }
 
@@ -293,9 +323,16 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 			alreadyVoted = true;
 		}
 
-		// The no-change option carries a phrase key as its label, so translate it per viewer.
+		// The no-change and extend options carry a phrase key as their label, so translate them per viewer.
 		// Real map options use their language-neutral display name.
-		std::string optLabel = opt.entry ? opt.label : RTV_Translate(slot, opt.label.c_str());
+		std::string optLabel = opt.kind == VoteOptionKind::Map ? opt.label : RTV_Translate(slot, opt.label.c_str());
+
+		if (opt.kind == VoteOptionKind::Extend)
+		{
+			char extendLabel[128];
+			snprintf(extendLabel, sizeof(extendLabel), optLabel.c_str(), opt.extendMinutes);
+			optLabel = extendLabel;
+		}
 
 		char label[128];
 		if (alreadyVoted)
@@ -326,7 +363,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 								m_playerVotes.erase(vit);
 								PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(playerSlot);
 								const char *name = pi ? pi->name.c_str() : "Unknown";
-								RTV_ChatToAllT("%s removed their vote for %s", name, m_options[capturedIndex].label.c_str());
+								RTV_ChatToAllT("%s removed their vote for %s", name, m_options[capturedIndex].announce.c_str());
 								return;
 							}
 							// Switching vote
@@ -341,7 +378,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 
 						PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(playerSlot);
 						const char *name = pi ? pi->name.c_str() : "Unknown";
-						RTV_ChatToAllT("%s voted for %s", name, m_options[capturedIndex].label.c_str());
+						RTV_ChatToAllT("%s voted for %s", name, m_options[capturedIndex].announce.c_str());
 
 						// Auto-shorten: if all eligible players voted and >5s remain, end in 5s
 						int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
@@ -497,7 +534,13 @@ void MapVoteManager::FinishVote()
 
 	const VoteOption &winner = m_options[winnerIndex];
 
-	if (!winner.entry)
+	if (winner.kind == VoteOptionKind::Extend)
+	{
+		ApplyExtendWin(winner.extendMinutes);
+		return;
+	}
+
+	if (winner.kind == VoteOptionKind::NoChange || !winner.entry)
 	{
 		RTV_ChatToAllT("The map will NOT be changed.");
 		g_RTVManager.OnVoteEndedNoVotes();
@@ -510,6 +553,27 @@ void MapVoteManager::FinishVote()
 	RTV_ChatToAllT("%s won the vote! Map changing in %d second(s).", winner.label.c_str(), delaySecs);
 
 	ScheduleChange(winner, delaySecs);
+}
+
+// By value, not by option ref: the failure path restarts the vote, clearing m_options.
+void MapVoteManager::ApplyExtendWin(int minutes)
+{
+	ExtendResult res = g_RTVTimeLimit.Extend(minutes);
+	RTV_AnnounceExtend(res);
+
+	g_RTVManager.OnVoteEndedNoVotes();
+
+	if (res.applied)
+	{
+		g_RTVManager.OnMapExtended();
+		return;
+	}
+
+	// The cap moved between building the option and the vote ending,
+	// so the map still needs somewhere to go.
+	RTV_ChatToAllT("Map is ending soon - starting the next-map vote...");
+	g_RTVManager.OnVoteStarted();
+	StartVote(false, g_NominateManager.GetNominations());
 }
 
 void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)

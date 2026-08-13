@@ -1,11 +1,10 @@
 #include "rtv_manager.h"
 #include "src/config/config.h"
 #include "src/player/player_manager.h"
+#include "src/timelimit/timelimit.h"
 #include "src/timers/timer_system.h"
 #include "src/utils/print_utils.h"
 #include "src/whitelist/whitelist_bridge.h"
-
-#include <tier1/convar.h>
 
 #include <algorithm>
 #include <cmath>
@@ -30,6 +29,8 @@ void RTVManager::OnMapStart(const char * /*mapName*/)
 
 	CGlobalVars *globals = GetGameGlobals();
 	m_mapStartTime = globals ? globals->curtime : 0.0f;
+
+	g_RTVTimeLimit.OnMapStart(m_mapStartTime);
 }
 
 void RTVManager::OnPlayerDisconnect(int slot)
@@ -58,6 +59,16 @@ void RTVManager::OnMapChangeScheduled()
 {
 	m_mapChangeScheduled = true;
 	StopReminderTimer();
+}
+
+void RTVManager::OnMapExtended()
+{
+	float timeLeft = 0.0f;
+	if (g_RTVTimeLimit.GetTimeLeftSeconds(timeLeft) && timeLeft > static_cast<float>(g_RTVConfig.rtv.endOfMapVoteTime))
+	{
+		m_endOfMapVoteTriggered = false;
+	}
+	m_nextEomCheckTime = 0.0f;
 }
 
 bool RTVManager::IsThresholdReached(int eligibleCount) const
@@ -191,23 +202,11 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 	}
 	m_nextEomCheckTime = curtime + 1.0f;
 
-	ConVarRefAbstract timelimit("mp_timelimit");
-	if (!timelimit.IsValidRef())
+	float timeLeft = 0.0f;
+	if (!g_RTVTimeLimit.GetTimeLeftSeconds(timeLeft))
 	{
 		return;
 	}
-
-	// mp_timelimit is in minutes; 0 means no limit, so nothing ends.
-	float limitMinutes = timelimit.GetFloat();
-	if (limitMinutes <= 0.0f)
-	{
-		return;
-	}
-
-	// Approximate time left from map start. Accurate when warmup is disabled
-	// a short warmup just shifts the trigger slightly early.
-	float elapsed = curtime - m_mapStartTime;
-	float timeLeft = limitMinutes * 60.0f - elapsed;
 
 	if (timeLeft <= static_cast<float>(cfg.endOfMapVoteTime))
 	{

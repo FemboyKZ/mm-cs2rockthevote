@@ -20,6 +20,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/menu/chatmenu.cpp",
         "src/menu/menu_bridge.cpp",
         "src/rtv/rtv_manager.cpp",
+        "src/timelimit/timelimit.cpp",
         "src/vote/map_vote.cpp",
         "src/nominate/nominate.cpp",
         "src/admin/admin_bridge.cpp",

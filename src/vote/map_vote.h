@@ -8,10 +8,20 @@
 #include <unordered_map>
 #include <vector>
 
+enum class VoteOptionKind
+{
+	Map,
+	NoChange,
+	Extend,
+};
+
 struct VoteOption
 {
-	const MapEntry *entry = nullptr; // nullptr = "Don't Change Map"
-	std::string label;
+	const MapEntry *entry = nullptr; // set only for Map options
+	VoteOptionKind kind = VoteOptionKind::Map;
+	std::string label;    // map display name, or a phrase key for the other kinds
+	std::string announce; // chat-safe text for the "X voted for Y" lines
+	int extendMinutes = 0;
 	int votes = 0;
 };
 
@@ -82,6 +92,7 @@ private:
 	float m_voteEndTime = 0.0f;
 
 	void BuildOptions(const std::vector<std::string> &nominations, bool includeNoChange);
+	void ApplyExtendWin(int minutes);
 	void SendVoteMenuToAll();
 	void SendCountdownReminder(int secsLeft);
 	void FinishVote();

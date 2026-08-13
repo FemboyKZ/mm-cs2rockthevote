@@ -28,6 +28,7 @@ The server console always has full access.
 | `!listmaps`         | `mm_listmaps`   | open                                  | List available maps                                       |
 | `!reloadmaps`       | `mm_reloadmaps` | open                                  | Reload the map list from disk                             |
 | `!revote`           | `mm_revote`     | open                                  | Change your vote in an active vote                        |
+| `!extend [minutes]` | `mm_extend`     | `extend.permission`                   | Admin: add time to the current map (config default)       |
 | `!reloadrtv`        | `mm_reloadrtv`  | `general.adminPermission`             | Admin: reload cs2rtv config                               |
 
 Config permissions in `cfg/cs2rtv/core.cfg` accept a flag letter (`b`), a named flag (`generic`, `changemap`, `root`, ...), or empty for open.

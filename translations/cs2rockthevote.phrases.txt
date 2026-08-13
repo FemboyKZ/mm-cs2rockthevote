@@ -190,6 +190,32 @@
 	{
 		"en"	"{green}The map will {red}NOT{green} be changed."
 	}
+
+	// Extend
+	"Map extended by %d minute(s). About %d minute(s) left."
+	{
+		"en"	"{green}Map extended by {gold}%d{green} minute(s). About {gold}%d{green} minute(s) left."
+	}
+	"Map extended by %d minute(s) - the server's %d minute time cap is now reached, so this is the last extension."
+	{
+		"en"	"{green}Map extended by {gold}%d{green} minute(s) - the server's {gold}%d{green} minute time cap is now reached, so this is the {red}last{green} extension."
+	}
+	"The map cannot be extended - the server's %d minute time cap is already reached."
+	{
+		"en"	"{red}The map cannot be extended{default} - the server's {gold}%d{default} minute time cap is already reached."
+	}
+	"The map cannot be extended."
+	{
+		"en"	"{red}The map cannot be extended."
+	}
+	"Map extending is disabled."
+	{
+		"en"	"{red}Map extending is disabled."
+	}
+	"This map has no time limit to extend."
+	{
+		"en"	"{red}This map has no time limit to extend."
+	}
 	"%s won the vote! Map changing in %d second(s)."
 	{
 		"en"	"{green}%s{default} won the vote! Map changing in {green}%d{default} second(s)."
@@ -219,6 +245,10 @@
 	"Don't Change Map"
 	{
 		"en"	"Don't Change Map"
+	}
+	"Extend Map (+%d min)"
+	{
+		"en"	"Extend Map (+%d min)"
 	}
 	"[nominated]"
 	{

@@ -122,6 +122,29 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 			cfg->mapvote.enableRevote = (value != "0");
 		}
 	}
+	else if (sec == "extend")
+	{
+		if (k == "enabled")
+		{
+			cfg->extend.enabled = (value != "0");
+		}
+		else if (k == "minutes")
+		{
+			cfg->extend.minutes = std::atoi(value.c_str());
+		}
+		else if (k == "maxextends")
+		{
+			cfg->extend.maxExtends = std::atoi(value.c_str());
+		}
+		else if (k == "mode")
+		{
+			cfg->extend.mode = ToLower(value);
+		}
+		else if (k == "permission")
+		{
+			cfg->extend.permission = value;
+		}
+	}
 	else if (sec == "nominate")
 	{
 		if (k == "enabled")

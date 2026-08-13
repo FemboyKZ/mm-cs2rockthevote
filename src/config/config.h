@@ -28,6 +28,15 @@ struct MapVoteCfg
 	bool enableRevote = true;
 };
 
+struct ExtendCfg
+{
+	bool enabled = true;
+	int minutes = 60;          // added per extension
+	int maxExtends = 0;        // per map, 0 = unlimited (the convar max still applies)
+	std::string mode = "auto"; // "auto" | "roundtime" | "timelimit"
+	std::string permission = "changemap";
+};
+
 struct NominateCfg
 {
 	bool enabled = true;
@@ -75,6 +84,7 @@ struct RTVPluginConfig
 {
 	RtvCfg rtv;
 	MapVoteCfg mapvote;
+	ExtendCfg extend;
 	NominateCfg nominate;
 	MapChooserCfg mapchooser;
 	GeneralCfg general;
