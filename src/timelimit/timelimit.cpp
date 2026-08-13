@@ -321,9 +321,19 @@ ExtendResult RTVTimeLimit::Extend(int minutes)
 		return res;
 	}
 
+	float timeLeftBefore = 0.0f;
+	GetTimeLeftSeconds(timeLeftBefore);
+
 	CConVarRef<float> &ref = SourceRef(src);
 	float before = ref.Get();
 	float target = before + static_cast<float>(minutes);
+
+	// An overdue map would swallow the extension, so rebase onto the time already spent.
+	// Otherwise a 60 minute grant buys less than 60 minutes of play.
+	if (timeLeftBefore < 0.0f)
+	{
+		target = before - timeLeftBefore / 60.0f + static_cast<float>(minutes);
+	}
 
 	float cap = 0.0f;
 	if (ReadCap(ref, cap))
@@ -345,7 +355,14 @@ ExtendResult RTVTimeLimit::Extend(int minutes)
 	// Read back rather than trusting the write.
 	// The engine clamps on set, and a mirroring plugin may land on a different value than the one we asked for.
 	float after = ref.Get();
-	res.granted = static_cast<int>(std::lround(after - before));
+
+	// Report the playable time gained from now, not the raw convar delta,
+	// so the rebase above does not announce minutes that were already spent.
+	float timeLeftAfter = 0.0f;
+	GetTimeLeftSeconds(timeLeftAfter);
+	float gained = timeLeftAfter - (std::max)(timeLeftBefore, 0.0f);
+
+	res.granted = (std::max)(0, static_cast<int>(std::lround(gained / 60.0f)));
 	res.applied = res.granted > 0;
 
 	if (!res.applied)
