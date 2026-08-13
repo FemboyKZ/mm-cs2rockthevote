@@ -59,15 +59,17 @@ using RoundTimeRefFn = CConVarRef<float> &(*)();
 static const RoundTimeRefFn kRoundTimeRefs[] = {RoundTimeRef, RoundTimeDefuseRef, RoundTimeHostageRef};
 static constexpr int kRoundTimeRefCount = static_cast<int>(sizeof(kRoundTimeRefs) / sizeof(kRoundTimeRefs[0]));
 
-// The engine stores this pointer, not a copy, so it has to outlive every read.
-static CVValue_t s_capValue(60.0f);
+// Leaked on purpose, and allocated through memoverride so it lives in tier0's heap rather than ours.
+// cs2kz-metamod saves whatever max it finds installed and restores it on its own unload,
+// so this pointer has to stay readable after we are gone.
+static CVValue_t *s_capValue = nullptr;
 static CVValue_t *s_savedMax[kRoundTimeRefCount] = {};
 static bool s_capInstalled[kRoundTimeRefCount] = {};
 
 static bool OwnsRoundTimeCap()
 {
 	CConVarRef<float> &ref = RoundTimeRef();
-	return Usable(ref) && ref.GetConVarData()->MaxValue() == &s_capValue;
+	return s_capValue && Usable(ref) && ref.GetConVarData()->MaxValue() == s_capValue;
 }
 
 // Only an external cap raise implies a plugin pinning the round start,
@@ -154,7 +156,7 @@ void RTVTimeLimit::ApplyRoundTimeCap()
 		// Installed already, so a config reload only changes the value we point at.
 		if (minutes > 0)
 		{
-			s_capValue.m_fl32Value = static_cast<float>(minutes);
+			s_capValue->m_fl32Value = static_cast<float>(minutes);
 		}
 		else
 		{
@@ -174,7 +176,11 @@ void RTVTimeLimit::ApplyRoundTimeCap()
 		return;
 	}
 
-	s_capValue.m_fl32Value = static_cast<float>(minutes);
+	if (!s_capValue)
+	{
+		s_capValue = new CVValue_t(static_cast<float>(minutes));
+	}
+	s_capValue->m_fl32Value = static_cast<float>(minutes);
 
 	for (int i = 0; i < kRoundTimeRefCount; i++)
 	{
@@ -185,7 +191,7 @@ void RTVTimeLimit::ApplyRoundTimeCap()
 		}
 		ConVarData *data = ref.GetConVarData();
 		s_savedMax[i] = data->HasMaxValue() ? data->MaxValue() : nullptr;
-		data->SetMaxValue(&s_capValue);
+		data->SetMaxValue(s_capValue);
 		s_capInstalled[i] = true;
 	}
 
@@ -214,7 +220,7 @@ void RTVTimeLimit::RestoreRoundTimeCap()
 		// Reclaim only the pointer still ours.
 		// Another plugin may have layered its own cap on top since, and taking that back would clobber theirs.
 		ConVarData *data = ref.GetConVarData();
-		if (data->MaxValue() != &s_capValue)
+		if (data->MaxValue() != s_capValue)
 		{
 			continue;
 		}
