@@ -754,6 +754,10 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 		return;
 	}
 
+	// Drops an ACF entry left behind by a deleted addon,
+	// otherwise Steam still thinks the map is installed and the download below is a no-op.
+	mmu::EnsureWorkshopMapReady(entry.workshopId, g_RTVSteamAPI);
+
 	if (!mmu::workshop::StartDownload(fileId, g_RTVSteamAPI))
 	{
 		MMU_LOG_WARN("Workshop map '%s' (%s) is not installed and no download could be started.\n", entry.mapName.c_str(), entry.workshopId.c_str());
