@@ -26,6 +26,7 @@ struct MapVoteCfg
 	int chatChoiceInterval = 15;
 	bool enableRevote = true;
 	int mapChangeDelay = 5;
+	int workshopDownloadTimeout = 120; // seconds to wait for an absent workshop map
 };
 
 // Auto-opens a ballot near the end of the map.

@@ -101,6 +101,16 @@ private:
 	void ScheduleChange(const VoteOption &winner, int delaySecs);
 	void ArmChangeFailureTimer(const MapEntry &entry, float timeout);
 
+	// host_workshop_map on an addon that isn't on disk drops the server onto the "error" map,
+	// so an absent winner is downloaded first and only then loaded.
+	void BeginMapChange(const MapEntry &entry);
+	void WaitForWorkshopMap(const MapEntry &entry);
+	void AbortChange();
+
+	int m_downloadTimerId = -1;
+	float m_downloadDeadline = 0.0f;
+	float m_nextProgressAnnounce = 0.0f;
+
 	// Total tries, so one retry before the map goes back to the players.
 	static constexpr int kMaxChangeAttempts = 2;
 	int m_changeAttempts = 0;

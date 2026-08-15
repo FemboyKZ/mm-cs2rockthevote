@@ -137,6 +137,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->mapvote.mapChangeDelay = std::atoi(value.c_str());
 		}
+		else if (k == "workshopdownloadtimeout")
+		{
+			cfg->mapvote.workshopDownloadTimeout = std::atoi(value.c_str());
+		}
 	}
 	else if (sec == "extend")
 	{

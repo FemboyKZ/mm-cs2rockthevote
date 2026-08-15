@@ -18,6 +18,7 @@ extern CSteamGameServerAPIContext g_RTVSteamAPI;
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <random>
 
@@ -106,6 +107,8 @@ void MapVoteManager::Reset()
 	m_verifyTimerId = -1;
 	g_Timers.KillTimer(m_failureTimerId);
 	m_failureTimerId = -1;
+	g_Timers.KillTimer(m_downloadTimerId);
+	m_downloadTimerId = -1;
 
 	for (int i = 0; i <= MAXPLAYERS; i++)
 	{
@@ -712,9 +715,114 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 
 	g_CS2RTVForwards.FireOnMapChangeScheduled(captured.mapName.c_str(), delaySecs);
 
-	m_changeTimerId = g_Timers.CreateTimer(static_cast<float>(delaySecs), [captured]() { DoMapChange(captured); });
+	m_changeTimerId = g_Timers.CreateTimer(static_cast<float>(delaySecs), [this, captured]() { BeginMapChange(captured); });
 
 	ArmChangeFailureTimer(captured, static_cast<float>(delaySecs) + 30.0f);
+}
+
+static const char *MapLabel(const MapEntry &entry)
+{
+	return entry.displayName.empty() ? entry.mapName.c_str() : entry.displayName.c_str();
+}
+
+void MapVoteManager::BeginMapChange(const MapEntry &entry)
+{
+	uint64_t fileId = entry.isWorkshop ? std::strtoull(entry.workshopId.c_str(), nullptr, 10) : 0;
+
+	if (fileId == 0 || mmu::workshop::IsReady(fileId, g_RTVSteamAPI))
+	{
+		DoMapChange(entry);
+		return;
+	}
+
+	WaitForWorkshopMap(entry);
+}
+
+void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
+{
+	uint64_t fileId = std::strtoull(entry.workshopId.c_str(), nullptr, 10);
+
+	// The wait is deliberate, so the failure timer must not call it a failed change.
+	g_Timers.KillTimer(m_failureTimerId);
+	m_failureTimerId = -1;
+
+	if (g_RTVConfig.mapvote.workshopDownloadTimeout <= 0)
+	{
+		MMU_LOG_WARN("Workshop map '%s' (%s) is not installed and waiting is disabled, abandoning the change.\n", entry.mapName.c_str(),
+					 entry.workshopId.c_str());
+		AbortChange();
+		return;
+	}
+
+	if (!mmu::workshop::StartDownload(fileId, g_RTVSteamAPI))
+	{
+		MMU_LOG_WARN("Workshop map '%s' (%s) is not installed and no download could be started.\n", entry.mapName.c_str(), entry.workshopId.c_str());
+		AbortChange();
+		return;
+	}
+
+	CGlobalVars *globals = GetGameGlobals();
+	float now = globals ? globals->curtime : 0.0f;
+	m_downloadDeadline = now + static_cast<float>(g_RTVConfig.mapvote.workshopDownloadTimeout);
+	m_nextProgressAnnounce = now + 10.0f;
+
+	MMU_LOG_INFO("Downloading workshop map '%s' (%s) before changing.\n", entry.mapName.c_str(), entry.workshopId.c_str());
+	RTV_ChatToAllT("Downloading %s, the map will change once it finishes.", MapLabel(entry));
+
+	MapEntry captured = entry;
+	g_Timers.KillTimer(m_downloadTimerId);
+	m_downloadTimerId = g_Timers.CreateTimer(
+		1.0f,
+		[this, captured, fileId]()
+		{
+			CGlobalVars *g = GetGameGlobals();
+			float curtime = g ? g->curtime : 0.0f;
+
+			if (mmu::workshop::IsReady(fileId, g_RTVSteamAPI))
+			{
+				g_Timers.KillTimer(m_downloadTimerId);
+				m_downloadTimerId = -1;
+				DoMapChange(captured);
+				ArmChangeFailureTimer(captured, 30.0f);
+				return;
+			}
+
+			if (curtime >= m_downloadDeadline)
+			{
+				g_Timers.KillTimer(m_downloadTimerId);
+				m_downloadTimerId = -1;
+				MMU_LOG_WARN("Workshop map '%s' (%llu) did not download in time, staying on the current map.\n", captured.mapName.c_str(),
+							 static_cast<unsigned long long>(fileId));
+				RTV_ChatToAllT("%s could not be downloaded in time. Staying on the current map.", MapLabel(captured));
+				AbortChange();
+				return;
+			}
+
+			if (curtime >= m_nextProgressAnnounce)
+			{
+				m_nextProgressAnnounce = curtime + 10.0f;
+				uint64_t done = 0, total = 0;
+				if (mmu::workshop::DownloadProgress(fileId, g_RTVSteamAPI, done, total))
+				{
+					RTV_ChatToAllT("Downloading %s... %d%%", MapLabel(captured), static_cast<int>((done * 100) / total));
+				}
+			}
+		},
+		1.0f);
+}
+
+// Hands the map back to the players rather than leaving a change half-scheduled.
+void MapVoteManager::AbortChange()
+{
+	g_Timers.KillTimer(m_downloadTimerId);
+	m_downloadTimerId = -1;
+	g_Timers.KillTimer(m_failureTimerId);
+	m_failureTimerId = -1;
+
+	m_changeScheduled = false;
+	m_voteActive = false;
+	g_RTVManager.OnVoteEndedNoVotes();
+	g_NominateManager.Reset();
 }
 
 // Fires when OnLevelInit hasn't arrived in time, meaning the change never took.
