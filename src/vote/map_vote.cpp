@@ -782,7 +782,7 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 			CGlobalVars *g = GetGameGlobals();
 			float curtime = g ? g->curtime : 0.0f;
 
-			if (mmu::workshop::IsReady(fileId, g_RTVSteamAPI))
+			if (mmu::workshop::DownloadSettled(fileId, g_RTVSteamAPI))
 			{
 				g_Timers.KillTimer(m_downloadTimerId);
 				m_downloadTimerId = -1;
