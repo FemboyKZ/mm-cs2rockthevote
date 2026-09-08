@@ -37,15 +37,6 @@
 
 #include "iclientcvarvalue.h"
 
-// SourceHook declarations
-SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
-SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIActivated, SH_NOATTRIB, 0);
-SH_DECL_HOOK6_void(IServerGameClients, OnClientConnected, SH_NOATTRIB, 0, CPlayerSlot, const char *, uint64, const char *, const char *, bool);
-SH_DECL_HOOK4_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, CPlayerSlot, char const *, int, uint64);
-SH_DECL_HOOK5_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, CPlayerSlot, ENetworkDisconnectionReason, const char *, uint64,
-				   const char *);
-SH_DECL_HOOK3_void(ICvar, DispatchConCommand, SH_NOATTRIB, 0, ConCommandRef, const CCommandContext &, const CCommand &);
-
 // Global interface pointers (defined here, declared extern in common.h)
 // g_pNetworkServerService, g_pFullFileSystem and g_pNetworkMessages are defined in interfaces.lib
 IServerGameDLL *g_pServerGameDLL = nullptr;
@@ -240,6 +231,16 @@ static void ShowMapChooserMenu(int slot)
 	g_RTVMenus.ShowMenu(slot, def, curtime);
 }
 
+CS2RTVPlugin::CS2RTVPlugin()
+	: m_GameFrame(&IServerGameDLL::GameFrame, this, nullptr, &CS2RTVPlugin::Hook_GameFrame),
+	  m_GameServerSteamAPIActivated(&IServerGameDLL::GameServerSteamAPIActivated, this, nullptr, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated),
+	  m_OnClientConnected(&IServerGameClients::OnClientConnected, this, &CS2RTVPlugin::Hook_OnClientConnected, nullptr),
+	  m_ClientPutInServer(&IServerGameClients::ClientPutInServer, this, nullptr, &CS2RTVPlugin::Hook_ClientPutInServer),
+	  m_ClientDisconnect(&IServerGameClients::ClientDisconnect, this, nullptr, &CS2RTVPlugin::Hook_ClientDisconnect),
+	  m_DispatchConCommand(&ICvar::DispatchConCommand, this, &CS2RTVPlugin::Hook_DispatchConCommand, nullptr)
+{
+}
+
 bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
 	PLUGIN_SAVEVARS();
@@ -274,13 +275,12 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 	g_SMAPI->AddListener(this, this);
 
-	SH_ADD_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameFrame), true);
-	SH_ADD_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated),
-				true);
-	SH_ADD_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_OnClientConnected), false);
-	SH_ADD_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientPutInServer), true);
-	SH_ADD_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientDisconnect), true);
-	SH_ADD_HOOK(ICvar, DispatchConCommand, g_pICvar, SH_MEMBER(this, &CS2RTVPlugin::Hook_DispatchConCommand), false);
+	m_GameFrame.Add(g_pServerGameDLL);
+	m_GameServerSteamAPIActivated.Add(g_pServerGameDLL);
+	m_OnClientConnected.Add(g_pGameClients);
+	m_ClientPutInServer.Add(g_pGameClients);
+	m_ClientDisconnect.Add(g_pGameClients);
+	m_DispatchConCommand.Add(g_pICvar);
 
 	g_pCVar = g_pICvar;
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE | FCVAR_GAMEDLL);
@@ -293,13 +293,12 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 {
 	mmu::http::DrainMainThread();
 
-	SH_REMOVE_HOOK(IServerGameDLL, GameFrame, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameFrame), true);
-	SH_REMOVE_HOOK(IServerGameDLL, GameServerSteamAPIActivated, g_pServerGameDLL, SH_MEMBER(this, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated),
-				   true);
-	SH_REMOVE_HOOK(IServerGameClients, OnClientConnected, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_OnClientConnected), false);
-	SH_REMOVE_HOOK(IServerGameClients, ClientPutInServer, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientPutInServer), true);
-	SH_REMOVE_HOOK(IServerGameClients, ClientDisconnect, g_pGameClients, SH_MEMBER(this, &CS2RTVPlugin::Hook_ClientDisconnect), true);
-	SH_REMOVE_HOOK(ICvar, DispatchConCommand, g_pICvar, SH_MEMBER(this, &CS2RTVPlugin::Hook_DispatchConCommand), false);
+	m_GameFrame.Remove(g_pServerGameDLL);
+	m_GameServerSteamAPIActivated.Remove(g_pServerGameDLL);
+	m_OnClientConnected.Remove(g_pGameClients);
+	m_ClientPutInServer.Remove(g_pGameClients);
+	m_ClientDisconnect.Remove(g_pGameClients);
+	m_DispatchConCommand.Remove(g_pICvar);
 
 	g_Timers.KillAll();
 	mmu::http::Shutdown();
@@ -376,12 +375,12 @@ void CS2RTVPlugin::OnLevelShutdown()
 	RTV_ResetGameRulesCache();
 }
 
-void CS2RTVPlugin::Hook_GameFrame(bool /*simulating*/, bool /*bFirstTick*/, bool /*bLastTick*/)
+KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simulating*/, bool /*bFirstTick*/, bool /*bLastTick*/)
 {
 	CGlobalVars *globals = GetGameGlobals();
 	if (!globals)
 	{
-		return;
+		return {KHook::Action::Ignore};
 	}
 
 	float curtime = globals->curtime;
@@ -398,37 +397,38 @@ void CS2RTVPlugin::Hook_GameFrame(bool /*simulating*/, bool /*bFirstTick*/, bool
 			g_MapVoteManager.StartVote(false, noms);
 		});
 
-	RETURN_META(MRES_IGNORED);
+	return {KHook::Action::Ignore};
 }
 
-void CS2RTVPlugin::Hook_GameServerSteamAPIActivated()
+KHook::Return<void> CS2RTVPlugin::Hook_GameServerSteamAPIActivated(IServerGameDLL *)
 {
 	if (g_RTVSteamAPI.SteamUGC())
 	{
-		RETURN_META(MRES_IGNORED);
+		return {KHook::Action::Ignore};
 	}
 	g_RTVSteamAPI.Init();
-	RETURN_META(MRES_IGNORED);
+	return {KHook::Action::Ignore};
 }
 
-void CS2RTVPlugin::Hook_OnClientConnected(CPlayerSlot slot, const char *pszName, uint64 xuid, const char * /*pszNetworkID*/,
-										  const char * /*pszAddress*/, bool bFakePlayer)
+KHook::Return<void> CS2RTVPlugin::Hook_OnClientConnected(IServerGameClients *, CPlayerSlot slot, const char *pszName, uint64 xuid,
+														 const char * /*pszNetworkID*/, const char * /*pszAddress*/, bool bFakePlayer)
 {
 	int s = slot.Get();
 	g_RTVPlayerManager.OnClientConnected(s, pszName ? pszName : "", xuid, "", bFakePlayer);
-	RETURN_META(MRES_IGNORED);
+	return {KHook::Action::Ignore};
 }
 
-void CS2RTVPlugin::Hook_ClientPutInServer(CPlayerSlot slot, char const * /*pszName*/, int /*type*/, uint64 /*xuid*/)
+KHook::Return<void> CS2RTVPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const * /*pszName*/, int /*type*/,
+														 uint64 /*xuid*/)
 {
 	// type: 0=player, 1=bot
 	int s = slot.Get();
 	g_RTVPlayerManager.OnClientPutInServer(s);
-	RETURN_META(MRES_IGNORED);
+	return {KHook::Action::Ignore};
 }
 
-void CS2RTVPlugin::Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnectionReason /*reason*/, const char * /*pszName*/, uint64 /*xuid*/,
-										 const char * /*pszNetworkID*/)
+KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason /*reason*/,
+														const char * /*pszName*/, uint64 /*xuid*/, const char * /*pszNetworkID*/)
 {
 	int s = slot.Get();
 	g_RTVManager.OnPlayerDisconnect(s);
@@ -436,33 +436,33 @@ void CS2RTVPlugin::Hook_ClientDisconnect(CPlayerSlot slot, ENetworkDisconnection
 	g_NominateManager.OnPlayerDisconnect(s);
 	g_RTVMenus.OnPlayerDisconnect(s);
 	g_RTVPlayerManager.OnClientDisconnect(s);
-	RETURN_META(MRES_IGNORED);
+	return {KHook::Action::Ignore};
 }
 
-void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args)
+KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args)
 {
 	const char *cmdName = args.Arg(0);
 	if (!cmdName)
 	{
-		RETURN_META(MRES_IGNORED);
+		return {KHook::Action::Ignore};
 	}
 
 	bool isSay = (strcmp(cmdName, "say") == 0 || strcmp(cmdName, "say_team") == 0);
 	if (!isSay)
 	{
-		RETURN_META(MRES_IGNORED);
+		return {KHook::Action::Ignore};
 	}
 
 	int slot = ctx.GetPlayerSlot().Get();
 	if (slot < 0 || slot > MAXPLAYERS)
 	{
-		RETURN_META(MRES_IGNORED);
+		return {KHook::Action::Ignore};
 	}
 
 	const char *rawMsg = args.ArgS(); // everything after the command name
 	if (!rawMsg || !rawMsg[0])
 	{
-		RETURN_META(MRES_IGNORED);
+		return {KHook::Action::Ignore};
 	}
 
 	std::string msg = mmu::StripSayQuotes(rawMsg);
@@ -474,7 +474,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 	{
 		if (g_RTVMenus.ProcessInput(slot, msg.c_str(), curtime))
 		{
-			RETURN_META(MRES_SUPERCEDE);
+			return {KHook::Action::Supersede};
 		}
 	}
 
@@ -482,11 +482,11 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 	mmu::ChatCommand chatCmd;
 	if (!mmu::ParseChatCommand(msg, g_RTVConfig.general.commandPrefix, g_RTVConfig.general.silentCommandPrefix, chatCmd))
 	{
-		RETURN_META(MRES_IGNORED);
+		return {KHook::Action::Ignore};
 	}
 
 	// Normal prefix: message stays visible in chat. Silent prefix: suppress it.
-	const META_RES cmdReturn = chatCmd.silent ? MRES_SUPERCEDE : MRES_IGNORED;
+	const KHook::Action cmdReturn = chatCmd.silent ? KHook::Action::Supersede : KHook::Action::Ignore;
 
 	const char *cmdBuf = chatCmd.name.c_str();
 	const char *argBuf = chatCmd.argLine.c_str();
@@ -496,7 +496,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (!RTV_AdminBridge_CanUseCommand(slot, "rtv", 0))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			RETURN_META(cmdReturn);
+			return {cmdReturn};
 		}
 		if (g_MapVoteManager.IsVoteActive())
 		{
@@ -511,7 +511,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 											g_MapVoteManager.StartVote(true, noms);
 										});
 		}
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
 	if (strcmp(cmdBuf, "nominate") == 0 || strcmp(cmdBuf, "nom") == 0)
@@ -524,7 +524,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		{
 			RTV_PrintToChatT(slot, "Nominations are disabled.");
 		}
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
 	if (strcmp(cmdBuf, "mapmenu") == 0 || strcmp(cmdBuf, "mm") == 0)
@@ -534,10 +534,10 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			RETURN_META(cmdReturn);
+			return {cmdReturn};
 		}
 		ShowMapChooserMenu(slot);
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
 	if (strcmp(cmdBuf, "listmaps") == 0)
@@ -545,10 +545,10 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (!RTV_AdminBridge_CanUseCommand(slot, "listmaps", 0))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			RETURN_META(cmdReturn);
+			return {cmdReturn};
 		}
 		g_NominateManager.CommandMaps(slot);
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
 	if (strcmp(cmdBuf, "reloadmaps") == 0)
@@ -556,10 +556,10 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", 0))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			RETURN_META(cmdReturn);
+			return {cmdReturn};
 		}
 		g_NominateManager.CommandReloadMaps(slot);
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
 	if (strcmp(cmdBuf, "extend") == 0)
@@ -569,10 +569,10 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			RETURN_META(cmdReturn);
+			return {cmdReturn};
 		}
 		RTV_CommandExtend(slot, atoi(argBuf));
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
 	if (strcmp(cmdBuf, "revote") == 0)
@@ -580,10 +580,10 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			RETURN_META(cmdReturn);
+			return {cmdReturn};
 		}
 		g_MapVoteManager.CommandRevote(slot);
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
 	if (strcmp(cmdBuf, "reloadrtv") == 0)
@@ -593,7 +593,7 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			RETURN_META(cmdReturn);
+			return {cmdReturn};
 		}
 
 		char cfgPath[512];
@@ -608,10 +608,10 @@ void CS2RTVPlugin::Hook_DispatchConCommand(ConCommandRef cmd, const CCommandCont
 		{
 			RTV_PrintToChatT(slot, "Failed to reload RTV config.");
 		}
-		RETURN_META(cmdReturn);
+		return {cmdReturn};
 	}
 
-	RETURN_META(MRES_IGNORED);
+	return {KHook::Action::Ignore};
 }
 
 CON_COMMAND_F(mm_rtv, "Rock the vote for a map change", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
