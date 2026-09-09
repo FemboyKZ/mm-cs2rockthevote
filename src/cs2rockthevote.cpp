@@ -24,6 +24,7 @@
 #include "entity/cgamerules.h"
 #include "gamedata.h"
 #include "mmu/chat_command.h"
+#include "mmu/cvarquery.h"
 #include "mmu/gamesystem.h"
 #include "mmu/log.h"
 #include "mmu/workshop.h"
@@ -35,7 +36,6 @@
 #include <filesystem.h>
 #include "steam/steam_gameserver.h"
 
-#include "iclientcvarvalue.h"
 
 // Global interface pointers (defined here, declared extern in common.h)
 // g_pNetworkServerService, g_pFullFileSystem and g_pNetworkMessages are defined in interfaces.lib
@@ -56,24 +56,18 @@ CGameEntitySystem *GameEntitySystem()
 	return *reinterpret_cast<CGameEntitySystem **>(reinterpret_cast<uintptr_t>(g_pGameResourceServiceServer) + gamedata::kGameEntitySystemOffset);
 }
 
-// Optional. Provides each client's cl_language for phrase translation.
-// May load after us, so it is re-acquired whenever translations reload.
-static IClientCvarValue *g_pClientCvarValue = nullptr;
-
 // Steam game-server API context used for workshop validation (ISteamUGC).
 CSteamGameServerAPIContext g_RTVSteamAPI;
 
 std::string RTV_SlotLanguage(int slot)
 {
-	const char *raw = g_pClientCvarValue ? g_pClientCvarValue->GetClientLanguage(CPlayerSlot(slot)) : nullptr;
+	const char *raw = mmu::cvarquery::GetClientLanguage(slot);
 	return g_RTVTranslations.MapClientLanguage(raw);
 }
 
-// Re-acquire ClientCvarValue and reload phrase tables.
 // Called after each config load so phrases and the default language stay in sync with core.cfg.
 static void RTV_LoadTranslations()
 {
-	g_pClientCvarValue = static_cast<IClientCvarValue *>(g_SMAPI->MetaFactory(CLIENTCVARVALUE_INTERFACE, nullptr, nullptr));
 	g_RTVTranslations.Load(g_SMAPI->GetBaseDir(), "cs2rockthevote");
 	g_RTVTranslations.SetDefaultLanguage(g_RTVConfig.general.defaultLanguage);
 }
@@ -275,6 +269,9 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 	g_SMAPI->AddListener(this, this);
 
+	// Non fatal, translations fall back to the default language.
+	mmu::cvarquery::Init(g_pEngine);
+
 	m_GameFrame.Add(g_pServerGameDLL);
 	m_GameServerSteamAPIActivated.Add(g_pServerGameDLL);
 	m_OnClientConnected.Add(g_pGameClients);
@@ -299,6 +296,9 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	m_ClientPutInServer.Remove(g_pGameClients);
 	m_ClientDisconnect.Remove(g_pGameClients);
 	m_DispatchConCommand.Remove(g_pICvar);
+
+	// Drops pending callbacks pointing into this binary.
+	mmu::cvarquery::Shutdown();
 
 	g_Timers.KillAll();
 	mmu::http::Shutdown();
@@ -415,6 +415,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_OnClientConnected(IServerGameClients *, C
 {
 	int s = slot.Get();
 	g_RTVPlayerManager.OnClientConnected(s, pszName ? pszName : "", xuid, "", bFakePlayer);
+	mmu::cvarquery::OnClientConnected(s, bFakePlayer);
 	return {KHook::Action::Ignore};
 }
 
@@ -436,6 +437,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CP
 	g_NominateManager.OnPlayerDisconnect(s);
 	g_RTVMenus.OnPlayerDisconnect(s);
 	g_RTVPlayerManager.OnClientDisconnect(s);
+	mmu::cvarquery::OnClientDisconnect(s);
 	return {KHook::Action::Ignore};
 }
 
