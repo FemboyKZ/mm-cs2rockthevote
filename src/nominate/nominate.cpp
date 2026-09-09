@@ -78,7 +78,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 
 	// flag 0 = open by default.
 	const std::string &nomPerm = g_RTVConfig.nominate.permission;
-	uint32_t nomFlag = nomPerm.empty() ? 0 : RTV_ParseFlagName(nomPerm);
+	uint32_t nomFlag = nomPerm.empty() ? 0 : ParseAdminFlagName(nomPerm);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "nominate", nomFlag))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to nominate.");
@@ -113,7 +113,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	if (LooksLikeWorkshopId(arg))
 	{
 		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
-		uint32_t extFlag = extPerm.empty() ? 0 : RTV_ParseFlagName(extPerm);
+		uint32_t extFlag = extPerm.empty() ? 0 : ParseAdminFlagName(extPerm);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to nominate workshop maps by ID.");
@@ -141,8 +141,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 												const MapEntry *added = g_MapLister.AddDynamicMap(e);
 												if (added)
 												{
-													MMU_LOG_INFO("Workshop map '%s' added dynamically from API.\n",
-																   added->mapName.c_str());
+													MMU_LOG_INFO("Workshop map '%s' added dynamically from API.\n", added->mapName.c_str());
 													NominateMap(slot, added);
 												}
 											});
@@ -155,7 +154,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	if (!entry && matches.empty())
 	{
 		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
-		uint32_t extFlag = extPerm.empty() ? 0 : RTV_ParseFlagName(extPerm);
+		uint32_t extFlag = extPerm.empty() ? 0 : ParseAdminFlagName(extPerm);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
 			RTV_PrintToChatT(slot, "Map %s not found in map list.", arg);

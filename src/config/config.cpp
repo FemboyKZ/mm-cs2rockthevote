@@ -1,4 +1,6 @@
 #include "config.h"
+#include "mmu/chat_colors.h"
+#include "mmu/str_utils.h"
 #include "mmu/kv_parser.h"
 #include "mmu/log.h"
 
@@ -10,43 +12,11 @@
 
 RTVPluginConfig g_RTVConfig;
 
-static std::string ToLower(const std::string &s)
-{
-	std::string r = s;
-	std::transform(r.begin(), r.end(), r.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-	return r;
-}
-
-static std::string ResolveColorTags(const std::string &input)
-{
-	struct ColorTag
-	{
-		const char *tag;
-		const char *code;
-	};
-
-	static const ColorTag tags[] = {
-		{"{default}", "\x01"}, {"{darkred}", "\x02"}, {"{purple}", "\x03"},   {"{green}", "\x04"},    {"{olive}", "\x05"}, {"{lime}", "\x06"},
-		{"{red}", "\x07"},     {"{grey}", "\x08"},    {"{yellow}", "\x09"},   {"{bluegrey}", "\x0A"}, {"{blue}", "\x0B"},  {"{darkblue}", "\x0C"},
-		{"{grey2}", "\x0D"},   {"{orchid}", "\x0E"},  {"{lightred}", "\x0F"}, {"{gold}", "\x10"},
-	};
-	std::string out = input;
-	for (auto &t : tags)
-	{
-		size_t pos;
-		while ((pos = out.find(t.tag)) != std::string::npos)
-		{
-			out.replace(pos, strlen(t.tag), t.code);
-		}
-	}
-	return out;
-}
-
 static void ConfigHandler(const std::string &section, const std::string &key, const std::string &value, void *userdata)
 {
 	RTVPluginConfig *cfg = static_cast<RTVPluginConfig *>(userdata);
-	std::string sec = ToLower(section);
-	std::string k = ToLower(key);
+	std::string sec = str::ToLower(section);
+	std::string k = str::ToLower(key);
 
 	if (sec == "rtv")
 	{
@@ -162,7 +132,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "mode")
 		{
-			cfg->extend.mode = ToLower(value);
+			cfg->extend.mode = str::ToLower(value);
 		}
 		else if (k == "permission")
 		{
@@ -199,7 +169,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	{
 		if (k == "chatprefix")
 		{
-			cfg->general.chatPrefix = ResolveColorTags(value);
+			cfg->general.chatPrefix = mmu::ResolveColorTags(value);
 		}
 		else if (k == "includespectator")
 		{
@@ -251,23 +221,23 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "menutype")
 		{
-			cfg->general.menuType = ToLower(value);
+			cfg->general.menuType = str::ToLower(value);
 		}
 		else if (k == "menunavup")
 		{
-			cfg->general.menuNavUp = ToLower(value);
+			cfg->general.menuNavUp = str::ToLower(value);
 		}
 		else if (k == "menunavdown")
 		{
-			cfg->general.menuNavDown = ToLower(value);
+			cfg->general.menuNavDown = str::ToLower(value);
 		}
 		else if (k == "menunavselect")
 		{
-			cfg->general.menuNavSelect = ToLower(value);
+			cfg->general.menuNavSelect = str::ToLower(value);
 		}
 		else if (k == "menunavback")
 		{
-			cfg->general.menuNavBack = ToLower(value);
+			cfg->general.menuNavBack = str::ToLower(value);
 		}
 	}
 }

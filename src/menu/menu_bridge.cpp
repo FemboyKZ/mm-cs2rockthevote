@@ -25,69 +25,6 @@ static MenuType ConfiguredMenuType()
 	return MenuType::Default;
 }
 
-// Map an RTV config key name to a MenuButton. "default" (and anything unknown)
-// returns MenuButton::Default, which tells the menu plugin to use its own binding.
-static MenuButton ParseMenuButton(const std::string &name)
-{
-	if (name == "none" || name == "off")
-	{
-		return MenuButton::None; // disable this action (single-key scroll)
-	}
-	if (name == "w" || name == "forward")
-	{
-		return MenuButton::W;
-	}
-	if (name == "s" || name == "back")
-	{
-		return MenuButton::S;
-	}
-	if (name == "a" || name == "left" || name == "moveleft")
-	{
-		return MenuButton::A;
-	}
-	if (name == "d" || name == "right" || name == "moveright")
-	{
-		return MenuButton::D;
-	}
-	if (name == "e" || name == "use" || name == "interact")
-	{
-		return MenuButton::Use;
-	}
-	if (name == "shift" || name == "speed" || name == "walk")
-	{
-		return MenuButton::Speed;
-	}
-	if (name == "ctrl" || name == "duck" || name == "crouch")
-	{
-		return MenuButton::Duck;
-	}
-	if (name == "space" || name == "jump")
-	{
-		return MenuButton::Jump;
-	}
-	if (name == "r" || name == "reload")
-	{
-		return MenuButton::Reload;
-	}
-	if (name == "mouse1" || name == "attack")
-	{
-		return MenuButton::Attack;
-	}
-	if (name == "mouse2" || name == "attack2")
-	{
-		return MenuButton::Attack2;
-	}
-	if (name == "tab" || name == "score")
-	{
-		return MenuButton::Score;
-	}
-	if (name == "f" || name == "inspect" || name == "lookatweapon")
-	{
-		return MenuButton::Inspect;
-	}
-	return MenuButton::Default; // "default" / unknown -> inherit menu plugin's key
-}
-
 void RTVMenuBridge::Init()
 {
 	Refresh();

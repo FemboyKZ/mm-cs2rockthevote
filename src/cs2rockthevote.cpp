@@ -526,7 +526,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 	if (strcmp(cmdBuf, "mapmenu") == 0 || strcmp(cmdBuf, "mm") == 0)
 	{
 		const std::string &permName = g_RTVConfig.mapchooser.permission;
-		uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -561,7 +561,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 	if (strcmp(cmdBuf, "extend") == 0)
 	{
 		const std::string &permName = g_RTVConfig.extend.permission;
-		uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -585,7 +585,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 	if (strcmp(cmdBuf, "reloadrtv") == 0)
 	{
 		const std::string &permName = g_RTVConfig.general.adminPermission;
-		uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -682,7 +682,7 @@ CON_COMMAND_F(mm_extend, "Admin: extend the current map's time limit", FCVAR_REL
 {
 	int slot = context.GetPlayerSlot().Get();
 	const std::string &permName = g_RTVConfig.extend.permission;
-	uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -695,7 +695,7 @@ CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE
 {
 	int slot = context.GetPlayerSlot().Get();
 	const std::string &permName = g_RTVConfig.mapchooser.permission;
-	uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -708,7 +708,7 @@ CON_COMMAND_F(mm_reloadrtv, "Admin: reload cs2rtv config from disk", FCVAR_RELEA
 {
 	int slot = context.GetPlayerSlot().Get();
 	const std::string &permName = g_RTVConfig.general.adminPermission;
-	uint32_t flag = permName.empty() ? 0 : RTV_ParseFlagName(permName);
+	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");

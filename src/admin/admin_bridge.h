@@ -33,9 +33,4 @@ bool RTV_AdminBridge_HasFlag(int slot, uint32_t flag);
 // If the admin plugin is not loaded, open commands (defaultFlag 0) pass and gated ones are denied.
 bool RTV_AdminBridge_CanUseCommand(int slot, const char *commandName, uint32_t defaultFlag);
 
-// Converts a flag name string to a bitmask.
-// Accepts: named strings ("changemap", "root", "reservation"),
-// single SourceMod letters ("a"-"z"), or defaults to root for unknown input.
-uint32_t RTV_ParseFlagName(const std::string &name);
-
 #endif // _INCLUDE_RTV_ADMIN_BRIDGE_H_

@@ -1,8 +1,10 @@
 #include "map_lister.h"
+#include "mmu/str_utils.h"
 #include "mmu/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
 #include "mmu/http_client.h"
+#include "mmu/json.h"
 
 #include <algorithm>
 #include <cctype>
@@ -12,29 +14,11 @@
 
 MapLister g_MapLister;
 
-static std::string TrimStr(const std::string &s)
-{
-	size_t start = s.find_first_not_of(" \t\r\n");
-	size_t end = s.find_last_not_of(" \t\r\n");
-	if (start == std::string::npos)
-	{
-		return "";
-	}
-	return s.substr(start, end - start + 1);
-}
-
-static std::string ToLowerStr(const std::string &s)
-{
-	std::string r = s;
-	std::transform(r.begin(), r.end(), r.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-	return r;
-}
-
 // Returns true if DisplayKzTiers is set to anything other than off/none.
 // outMode receives the lowercased config value.
 static bool TierDisplayEnabled(std::string &outMode)
 {
-	outMode = ToLowerStr(g_RTVConfig.general.displayKzTiers);
+	outMode = str::ToLower(g_RTVConfig.general.displayKzTiers);
 	return !(outMode.empty() || outMode == "off" || outMode == "none" || outMode == "0");
 }
 
@@ -117,7 +101,7 @@ static const char *IntToTierName(int tier)
 // Render a tier per KzTierFormat: "text" -> tier name, otherwise the number.
 static std::string FormatTier(int tier)
 {
-	if (ToLowerStr(g_RTVConfig.general.kzTierFormat) == "text")
+	if (str::ToLower(g_RTVConfig.general.kzTierFormat) == "text")
 	{
 		return IntToTierName(tier);
 	}
@@ -168,7 +152,7 @@ std::string MapLister::StripAnnotation(const std::string &displayName)
 
 bool MapLister::ParseLine(const std::string &rawLine, MapEntry &out)
 {
-	std::string line = TrimStr(rawLine);
+	std::string line = str::Trim(rawLine);
 
 	// Skip blank lines and comments
 	if (line.empty() || line[0] == '#' || line[0] == '/' || line[0] == ';')
@@ -184,13 +168,13 @@ bool MapLister::ParseLine(const std::string &rawLine, MapEntry &out)
 	size_t colonPos = line.rfind(':');
 	if (colonPos != std::string::npos)
 	{
-		std::string potentialId = TrimStr(line.substr(colonPos + 1));
+		std::string potentialId = str::Trim(line.substr(colonPos + 1));
 		// Check if everything after the colon looks like a workshop ID (all digits)
 		bool allDigits = !potentialId.empty() && std::all_of(potentialId.begin(), potentialId.end(), ::isdigit);
 
 		if (allDigits)
 		{
-			out.displayName = TrimStr(line.substr(0, colonPos));
+			out.displayName = str::Trim(line.substr(0, colonPos));
 			out.workshopId = potentialId;
 			out.mapName = StripAnnotation(out.displayName);
 			out.isWorkshop = true;
@@ -215,8 +199,8 @@ int MapLister::LoadFromFile(const char *path)
 	if (!fp)
 	{
 		MMU_LOG_WARN("maplist.txt not found at '%s' - attempting "
-					   "auto-generate from CS2KZ API.\n",
-					   path);
+					 "auto-generate from CS2KZ API.\n",
+					 path);
 		GenerateMaplistAsync(path);
 		return -1;
 	}
@@ -266,14 +250,14 @@ int MapLister::Reload()
 
 const MapEntry *MapLister::FindExact(const std::string &name) const
 {
-	std::string lower = ToLowerStr(name);
+	std::string lower = str::ToLower(name);
 	for (const auto &entry : m_maps)
 	{
-		if (ToLowerStr(entry.displayName) == lower)
+		if (str::ToLower(entry.displayName) == lower)
 		{
 			return &entry;
 		}
-		if (ToLowerStr(entry.mapName) == lower)
+		if (str::ToLower(entry.mapName) == lower)
 		{
 			return &entry;
 		}
@@ -283,11 +267,11 @@ const MapEntry *MapLister::FindExact(const std::string &name) const
 
 std::vector<const MapEntry *> MapLister::FindMatching(const std::string &query) const
 {
-	std::string lower = ToLowerStr(query);
+	std::string lower = str::ToLower(query);
 	std::vector<const MapEntry *> results;
 	for (const auto &entry : m_maps)
 	{
-		if (ToLowerStr(entry.displayName).find(lower) != std::string::npos || ToLowerStr(entry.mapName).find(lower) != std::string::npos)
+		if (str::ToLower(entry.displayName).find(lower) != std::string::npos || str::ToLower(entry.mapName).find(lower) != std::string::npos)
 		{
 			results.push_back(&entry);
 		}
@@ -351,65 +335,6 @@ const MapEntry *MapLister::AddDynamicMap(const MapEntry &entry)
 
 // Extract the value of a JSON string field named `key` from a flat object.
 // Handles only simple string values. Returns empty string if not found.
-static std::string JsonGetString(const std::string &json, const char *key)
-{
-	// Pattern:  "key": "value"
-	std::string search = "\"";
-	search += key;
-	search += "\"";
-	size_t pos = json.find(search);
-	if (pos == std::string::npos)
-	{
-		return "";
-	}
-
-	// Skip  "key"  :  whitespace
-	pos += search.size();
-	while (pos < json.size() && (json[pos] == ' ' || json[pos] == ':' || json[pos] == '\t'))
-	{
-		pos++;
-	}
-
-	if (pos >= json.size() || json[pos] != '"')
-	{
-		return "";
-	}
-
-	pos++; // skip opening quote
-	std::string result;
-	while (pos < json.size() && json[pos] != '"')
-	{
-		if (json[pos] == '\\' && pos + 1 < json.size())
-		{
-			pos++;
-			switch (json[pos])
-			{
-				case '"':
-					result += '"';
-					break;
-				case '\\':
-					result += '\\';
-					break;
-				case 'n':
-					result += '\n';
-					break;
-				case 'r':
-					result += '\r';
-					break;
-				default:
-					result += json[pos];
-					break;
-			}
-		}
-		else
-		{
-			result += json[pos];
-		}
-		pos++;
-	}
-	return result;
-}
-
 // Enumerate top-level array elements `[{...},{...}]` - calls cb for each object
 // string.
 static void JsonForEachObject(const std::string &json, std::function<void(const std::string &)> cb)
@@ -527,8 +452,8 @@ bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 {
 	// Expected fields: "name" (map name), "workshop_id" (string)
 	// We also look into courses[].filters for nub_tier (all courses)
-	std::string name = JsonGetString(jsonObj, "name");
-	std::string wsId = JsonGetString(jsonObj, "workshop_id");
+	std::string name = mmu::json::GetString(jsonObj, "name");
+	std::string wsId = mmu::json::GetString(jsonObj, "workshop_id");
 
 	if (name.empty())
 	{
@@ -555,135 +480,135 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 {
 	// 1) Try CS2KZ API
 	std::string cs2kzUrl = "https://api.cs2kz.org/maps?workshop_id=" + workshopId + "&state=approved";
-	mmu::http::Get(
-		cs2kzUrl,
-		[workshopId, callback](bool ok, std::string body)
-		{
-			if (ok && !body.empty())
-			{
-				// CS2KZ returns an array; grab first object
-				MapEntry found;
-				bool parsed = false;
-				JsonForEachObject(body,
-								  [&](const std::string &obj)
-								  {
-									  if (!parsed && MapLister::ParseCS2KZMapJson(obj, found))
-									  {
-										  parsed = true;
-									  }
-								  });
-				if (parsed)
-				{
-					// Dispatch to game thread: callback touches game state.
-					MapEntry captured = std::move(found);
-					mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
-					return;
-				}
-			}
+	mmu::http::Get(cs2kzUrl,
+				   [workshopId, callback](bool ok, std::string body)
+				   {
+					   if (ok && !body.empty())
+					   {
+						   // CS2KZ returns an array; grab first object
+						   MapEntry found;
+						   bool parsed = false;
+						   JsonForEachObject(body,
+											 [&](const std::string &obj)
+											 {
+												 if (!parsed && MapLister::ParseCS2KZMapJson(obj, found))
+												 {
+													 parsed = true;
+												 }
+											 });
+						   if (parsed)
+						   {
+							   // Dispatch to game thread: callback touches game state.
+							   MapEntry captured = std::move(found);
+							   mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+							   return;
+						   }
+					   }
 
-			// 2) Fallback: Steam GetPublishedFileDetails
-			std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
-								   "GetPublishedFileDetails/v1/";
-			const std::string &steamKey = g_RTVConfig.general.steamApiKey;
-			if (!steamKey.empty())
-			{
-				steamUrl += "?key=" + steamKey;
-			}
-			std::string postBody = "itemcount=1&publishedfileids[0]=" + workshopId;
-			// Steam's v1 endpoint uses POST with form-encoded data.
-			mmu::http::PostForm(
-				steamUrl, postBody,
-				[workshopId, callback](bool ok2, std::string body2)
-				{
-					if (ok2 && !body2.empty())
-					{
-						// Response:
-						// {"response":{"publishedfiledetails":[{"publishedfileid":"...","title":"...","result":1}]}}
-						std::string title = JsonGetString(body2, "title");
-						if (!title.empty())
-						{
-							MapEntry fallback;
-							fallback.mapName = title;
-							fallback.displayName = title;
-							fallback.workshopId = workshopId;
-							fallback.isWorkshop = true;
-							MapEntry captured = std::move(fallback);
-							mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
-							return;
-						}
-						MMU_LOG_INFO("Steam API returned no title for %s (result=9?), trying Workshop page.\n", workshopId.c_str());
-					}
+					   // 2) Fallback: Steam GetPublishedFileDetails
+					   std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
+											  "GetPublishedFileDetails/v1/";
+					   const std::string &steamKey = g_RTVConfig.general.steamApiKey;
+					   if (!steamKey.empty())
+					   {
+						   steamUrl += "?key=" + steamKey;
+					   }
+					   std::string postBody = "itemcount=1&publishedfileids[0]=" + workshopId;
+					   // Steam's v1 endpoint uses POST with form-encoded data.
+					   mmu::http::PostForm(
+						   steamUrl, postBody,
+						   [workshopId, callback](bool ok2, std::string body2)
+						   {
+							   if (ok2 && !body2.empty())
+							   {
+								   // Response:
+								   // {"response":{"publishedfiledetails":[{"publishedfileid":"...","title":"...","result":1}]}}
+								   std::string title = mmu::json::GetString(body2, "title");
+								   if (!title.empty())
+								   {
+									   MapEntry fallback;
+									   fallback.mapName = title;
+									   fallback.displayName = title;
+									   fallback.workshopId = workshopId;
+									   fallback.isWorkshop = true;
+									   MapEntry captured = std::move(fallback);
+									   mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+									   return;
+								   }
+								   MMU_LOG_INFO("Steam API returned no title for %s (result=9?), trying Workshop page.\n", workshopId.c_str());
+							   }
 
-					// 3) Fallback: scrape the Steam Workshop page <title> tag.
-					// The page title is "Steam Workshop::MAP NAME" for public items.
-					std::string pageUrl = "https://steamcommunity.com/sharedfiles/filedetails?id=" + workshopId;
-					mmu::http::Get(pageUrl,
-								[workshopId, callback](bool ok3, std::string body3)
-								{
-									MapEntry fallback;
-									if (ok3 && !body3.empty())
-									{
-										// Look for <title>Steam Workshop::MAP NAME</title>
-										const std::string prefix = "Steam Workshop::";
-										size_t p = body3.find(prefix);
-										if (p != std::string::npos)
-										{
-											p += prefix.size();
-											size_t end = body3.find('<', p);
-											if (end == std::string::npos)
-											{
-												end = body3.size();
-											}
-											std::string title = body3.substr(p, end - p);
-											// Trim trailing whitespace
-											while (!title.empty()
-												   && (title.back() == ' ' || title.back() == '\r' || title.back() == '\n' || title.back() == '\t'))
-											{
-												title.pop_back();
-											}
-											if (!title.empty())
-											{
-												fallback.mapName = title;
-												fallback.displayName = title;
-												fallback.workshopId = workshopId;
-												fallback.isWorkshop = true;
-												MMU_LOG_INFO("Workshop page title for %s: '%s'\n", workshopId.c_str(), title.c_str());
-											}
-										}
-									}
-									if (fallback.mapName.empty())
-									{
-										MMU_LOG_WARN("Workshop page lookup also failed for %s.\n", workshopId.c_str());
-									}
-									MapEntry captured = std::move(fallback);
-									mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
-								});
-				});
-		});
+							   // 3) Fallback: scrape the Steam Workshop page <title> tag.
+							   // The page title is "Steam Workshop::MAP NAME" for public items.
+							   std::string pageUrl = "https://steamcommunity.com/sharedfiles/filedetails?id=" + workshopId;
+							   mmu::http::Get(pageUrl,
+											  [workshopId, callback](bool ok3, std::string body3)
+											  {
+												  MapEntry fallback;
+												  if (ok3 && !body3.empty())
+												  {
+													  // Look for <title>Steam Workshop::MAP NAME</title>
+													  const std::string prefix = "Steam Workshop::";
+													  size_t p = body3.find(prefix);
+													  if (p != std::string::npos)
+													  {
+														  p += prefix.size();
+														  size_t end = body3.find('<', p);
+														  if (end == std::string::npos)
+														  {
+															  end = body3.size();
+														  }
+														  std::string title = body3.substr(p, end - p);
+														  // Trim trailing whitespace
+														  while (!title.empty()
+																 && (title.back() == ' ' || title.back() == '\r' || title.back() == '\n'
+																	 || title.back() == '\t'))
+														  {
+															  title.pop_back();
+														  }
+														  if (!title.empty())
+														  {
+															  fallback.mapName = title;
+															  fallback.displayName = title;
+															  fallback.workshopId = workshopId;
+															  fallback.isWorkshop = true;
+															  MMU_LOG_INFO("Workshop page title for %s: '%s'\n", workshopId.c_str(), title.c_str());
+														  }
+													  }
+												  }
+												  if (fallback.mapName.empty())
+												  {
+													  MMU_LOG_WARN("Workshop page lookup also failed for %s.\n", workshopId.c_str());
+												  }
+												  MapEntry captured = std::move(fallback);
+												  mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+											  });
+						   });
+				   });
 }
 
 void MapLister::LookupByNameAsync(const std::string &name, std::function<void(MapEntry)> callback) const
 {
 	std::string url = "https://api.cs2kz.org/maps?name=" + name + "&state=approved&limit=5";
 	mmu::http::Get(url,
-				[callback](bool ok, std::string body)
-				{
-					MapEntry found;
-					if (ok && !body.empty())
-					{
-						JsonForEachObject(body,
-										  [&](const std::string &obj)
-										  {
-											  if (found.mapName.empty())
-											  {
-												  MapLister::ParseCS2KZMapJson(obj, found);
-											  }
-										  });
-					}
-					// Dispatch to game thread: callback touches game state.
-					MapEntry captured = std::move(found);
-					mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
-				});
+				   [callback](bool ok, std::string body)
+				   {
+					   MapEntry found;
+					   if (ok && !body.empty())
+					   {
+						   JsonForEachObject(body,
+											 [&](const std::string &obj)
+											 {
+												 if (found.mapName.empty())
+												 {
+													 MapLister::ParseCS2KZMapJson(obj, found);
+												 }
+											 });
+					   }
+					   // Dispatch to game thread: callback touches game state.
+					   MapEntry captured = std::move(found);
+					   mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+				   });
 }
 
 void MapLister::FetchAllApprovedMapsAsync(std::function<void(std::vector<MapEntry>)> onComplete)
@@ -710,36 +635,36 @@ void MapLister::FetchAllApprovedMapsAsync(std::function<void(std::vector<MapEntr
 			std::string url = "https://api.cs2kz.org/maps?state=approved&limit=500&offset=" + std::to_string(st->offset);
 
 			mmu::http::Get(url,
-						[this, self](bool ok, std::string body) mutable
-						{
-							if (!ok || body.empty())
-							{
-								st->done(std::move(st->collected));
-								return;
-							}
+						   [this, self](bool ok, std::string body) mutable
+						   {
+							   if (!ok || body.empty())
+							   {
+								   st->done(std::move(st->collected));
+								   return;
+							   }
 
-							int countBefore = static_cast<int>(st->collected.size());
-							JsonForEachObject(body,
-											  [&](const std::string &obj)
-											  {
-												  MapEntry e;
-												  if (MapLister::ParseCS2KZMapJson(obj, e))
-												  {
-													  st->collected.push_back(std::move(e));
-												  }
-											  });
+							   int countBefore = static_cast<int>(st->collected.size());
+							   JsonForEachObject(body,
+												 [&](const std::string &obj)
+												 {
+													 MapEntry e;
+													 if (MapLister::ParseCS2KZMapJson(obj, e))
+													 {
+														 st->collected.push_back(std::move(e));
+													 }
+												 });
 
-							int added = static_cast<int>(st->collected.size()) - countBefore;
-							if (added > 0)
-							{
-								st->offset += 500;
-								Fetch(self);
-							}
-							else
-							{
-								st->done(std::move(st->collected));
-							}
-						});
+							   int added = static_cast<int>(st->collected.size()) - countBefore;
+							   if (added > 0)
+							   {
+								   st->offset += 500;
+								   Fetch(self);
+							   }
+							   else
+							   {
+								   st->done(std::move(st->collected));
+							   }
+						   });
 		}
 	};
 
@@ -812,7 +737,7 @@ void MapLister::FetchTiersAsync()
 				{
 					continue;
 				}
-				(*cache)[ToLowerStr(e.mapName)] = {e.classicTiers, e.vanillaTiers};
+				(*cache)[str::ToLower(e.mapName)] = {e.classicTiers, e.vanillaTiers};
 			}
 
 			// Merge into live state on the game thread (touches m_maps / m_tierCache).
@@ -839,7 +764,7 @@ void MapLister::ApplyCachedTiers(MapEntry &e) const
 	{
 		return;
 	}
-	auto it = m_tierCache.find(ToLowerStr(e.mapName));
+	auto it = m_tierCache.find(str::ToLower(e.mapName));
 	if (it != m_tierCache.end())
 	{
 		e.classicTiers = it->second.classic;
@@ -993,51 +918,51 @@ void MapLister::ValidateMapsAsync() const
 		std::string webhook = g_RTVConfig.general.discordWebhook;
 
 		mmu::http::PostForm("https://api.steampowered.com/ISteamRemoteStorage/"
-						 "GetPublishedFileDetails/v1/"
-						 "?key="
-							 + apiKey,
-						 postBody,
-						 [batch, webhook](bool ok, std::string body)
-						 {
-							 if (!ok)
-							 {
-								 return;
-							 }
+							"GetPublishedFileDetails/v1/"
+							"?key="
+								+ apiKey,
+							postBody,
+							[batch, webhook](bool ok, std::string body)
+							{
+								if (!ok)
+								{
+									return;
+								}
 
-							 // Check each map; result != 1 means it's dead/removed
-							 for (const auto &e : batch)
-							 {
-								 // Find the entry for this ID
-								 size_t idPos = body.find("\"" + e.workshopId + "\"");
-								 if (idPos == std::string::npos)
-								 {
-									 continue;
-								 }
+								// Check each map; result != 1 means it's dead/removed
+								for (const auto &e : batch)
+								{
+									// Find the entry for this ID
+									size_t idPos = body.find("\"" + e.workshopId + "\"");
+									if (idPos == std::string::npos)
+									{
+										continue;
+									}
 
-								 // Extract result field in the object containing this ID
-								 size_t objStart = body.rfind('{', idPos);
-								 size_t objEnd = body.find('}', idPos);
-								 if (objStart == std::string::npos || objEnd == std::string::npos)
-								 {
-									 continue;
-								 }
+									// Extract result field in the object containing this ID
+									size_t objStart = body.rfind('{', idPos);
+									size_t objEnd = body.find('}', idPos);
+									if (objStart == std::string::npos || objEnd == std::string::npos)
+									{
+										continue;
+									}
 
-								 std::string obj = body.substr(objStart, objEnd - objStart + 1);
-								 std::string result = JsonGetString(obj, "result");
-								 if (result != "1" && result != "")
-								 {
-									 MMU_LOG_INFO("Dead workshop map detected: %s (id=%s, "
-													"result=%s)\n",
-													e.displayName.c_str(), e.workshopId.c_str(), result.c_str());
+									std::string obj = body.substr(objStart, objEnd - objStart + 1);
+									std::string result = mmu::json::GetString(obj, "result");
+									if (result != "1" && result != "")
+									{
+										MMU_LOG_INFO("Dead workshop map detected: %s (id=%s, "
+													 "result=%s)\n",
+													 e.displayName.c_str(), e.workshopId.c_str(), result.c_str());
 
-									 if (!webhook.empty())
-									 {
-										 std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
-										 std::string json = "{\"content\":\"" + msg + "\"}";
-										 mmu::http::Post(webhook, json, nullptr);
-									 }
-								 }
-							 }
-						 });
+										if (!webhook.empty())
+										{
+											std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
+											std::string json = "{\"content\":\"" + msg + "\"}";
+											mmu::http::Post(webhook, json, nullptr);
+										}
+									}
+								}
+							});
 	}
 }

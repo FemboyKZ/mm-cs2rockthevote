@@ -1,22 +1,14 @@
 #include "whitelist_bridge.h"
+#include "mmu/interface_bridge.h"
 #include "mmu/log.h"
 #include "src/common.h"
 
-static ICS2Whitelist *s_pWhitelist = nullptr;
+static mmu::InterfaceBridge<ICS2Whitelist> s_whitelist(CS2WHITELIST_INTERFACE);
 
 void RTV_WhitelistBridge_Init()
 {
-	s_pWhitelist = nullptr;
-
-	if (!g_SMAPI)
+	if (s_whitelist.Refresh() == mmu::BridgeChange::Loaded)
 	{
-		return;
-	}
-
-	void *iface = g_SMAPI->MetaFactory(CS2WHITELIST_INTERFACE, nullptr, nullptr);
-	if (iface)
-	{
-		s_pWhitelist = static_cast<ICS2Whitelist *>(iface);
 		MMU_LOG_INFO("mm-cs2whitelist found - RTV restricted to whitelisted players.\n");
 	}
 	else
@@ -27,39 +19,27 @@ void RTV_WhitelistBridge_Init()
 
 void RTV_WhitelistBridge_Refresh()
 {
-	// Called when any sibling plugin loads or unloads.
-	// Drop the cached pointer unconditionally and re-resolve.
-	ICS2Whitelist *prev = s_pWhitelist;
-	s_pWhitelist = nullptr;
-
-	if (!g_SMAPI)
+	switch (s_whitelist.Refresh())
 	{
-		return;
-	}
-
-	void *iface = g_SMAPI->MetaFactory(CS2WHITELIST_INTERFACE, nullptr, nullptr);
-	if (iface)
-	{
-		s_pWhitelist = static_cast<ICS2Whitelist *>(iface);
-		if (!prev)
-		{
+		case mmu::BridgeChange::Loaded:
 			MMU_LOG_INFO("mm-cs2whitelist loaded - RTV restricted to whitelisted players.\n");
-		}
-	}
-	else if (prev)
-	{
-		MMU_LOG_INFO("mm-cs2whitelist unloaded - RTV available to all players.\n");
+			break;
+		case mmu::BridgeChange::Unloaded:
+			MMU_LOG_INFO("mm-cs2whitelist unloaded - RTV available to all players.\n");
+			break;
+		case mmu::BridgeChange::Unchanged:
+			break;
 	}
 }
 
 void RTV_WhitelistBridge_Shutdown()
 {
-	s_pWhitelist = nullptr;
+	s_whitelist.Shutdown();
 }
 
 bool RTV_WhitelistBridge_Available()
 {
-	return s_pWhitelist != nullptr;
+	return s_whitelist.Available();
 }
 
 bool RTV_WhitelistBridge_IsPlayerAllowed(int slot)
@@ -71,22 +51,22 @@ bool RTV_WhitelistBridge_IsPlayerAllowed(int slot)
 	}
 
 	// No whitelist plugin loaded -> permissive (RTV stays open to all players).
-	if (!s_pWhitelist)
+	if (!s_whitelist)
 	{
 		return true;
 	}
 
 	// Confirmed-allowed cache short-circuits the full check.
-	if (s_pWhitelist->IsPlayerWhitelistCached(slot))
+	if (s_whitelist->IsPlayerWhitelistCached(slot))
 	{
 		return true;
 	}
 
 	// Confirmed-rejected players are about to be kicked.
-	if (s_pWhitelist->IsPlayerBlacklisted(slot))
+	if (s_whitelist->IsPlayerBlacklisted(slot))
 	{
 		return false;
 	}
 
-	return s_pWhitelist->IsPlayerWhitelisted(slot);
+	return s_whitelist->IsPlayerWhitelisted(slot);
 }
