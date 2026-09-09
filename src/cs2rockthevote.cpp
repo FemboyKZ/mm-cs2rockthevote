@@ -22,7 +22,7 @@
 #include "vote/map_vote.h"
 
 #include "entity/cgamerules.h"
-#include "gamedata.h"
+#include "mmu/entity/entity_system.h"
 #include "mmu/chat_command.h"
 #include "mmu/cvarquery.h"
 #include "mmu/gamesystem.h"
@@ -36,7 +36,6 @@
 #include <filesystem.h>
 #include "steam/steam_gameserver.h"
 
-
 // Global interface pointers (defined here, declared extern in common.h)
 // g_pNetworkServerService, g_pFullFileSystem and g_pNetworkMessages are defined in interfaces.lib
 IServerGameDLL *g_pServerGameDLL = nullptr;
@@ -49,11 +48,7 @@ CGameEntitySystem *g_pEntitySystem = nullptr;
 
 CGameEntitySystem *GameEntitySystem()
 {
-	if (!g_pGameResourceServiceServer)
-	{
-		return nullptr;
-	}
-	return *reinterpret_cast<CGameEntitySystem **>(reinterpret_cast<uintptr_t>(g_pGameResourceServiceServer) + gamedata::kGameEntitySystemOffset);
+	return mmu::EntitySystem();
 }
 
 // Steam game-server API context used for workshop validation (ISteamUGC).
@@ -261,8 +256,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 	// Engine-native workshop map checks.
 	// On failure EnsureWorkshopMapReady silently falls back to the .vpk folder scan + ACF prune path.
-	if (!mmu::gamesystem::Resolve(reinterpret_cast<const void *>(g_pServerGameDLL), gamedata::kGameSystemFactorySig,
-								  gamedata::kGameSystemFactorySigLen))
+	if (!mmu::gamesystem::Resolve(reinterpret_cast<const void *>(g_pServerGameDLL)))
 	{
 		MMU_LOG_WARN("Game system list unresolved; workshop map checks fall back to ACF pruning.\n");
 	}
