@@ -958,7 +958,9 @@ void MapLister::ValidateMapsAsync() const
 										if (!webhook.empty())
 										{
 											std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
-											std::string json = "{\"content\":\"" + msg + "\"}";
+											// A map display name is operator-supplied text and reaches us from the maplist,
+											// so a quote in it would otherwise break the payload.
+											std::string json = "{\"content\":\"" + mmu::json::Escape(msg) + "\"}";
 											mmu::http::Post(webhook, json, nullptr);
 										}
 									}
