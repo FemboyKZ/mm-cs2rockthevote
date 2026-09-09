@@ -25,6 +25,8 @@ static MenuType ConfiguredMenuType()
 	return MenuType::Default;
 }
 
+RTVMenuBridge::RTVMenuBridge() : m_menus(CS2MENUS_INTERFACE) {}
+
 void RTVMenuBridge::Init()
 {
 	Refresh();
@@ -32,48 +34,40 @@ void RTVMenuBridge::Init()
 
 void RTVMenuBridge::Refresh()
 {
-	ICS2Menus *prev = m_pMenus;
-	ICS2Menus *now = nullptr;
-
-	if (g_SMAPI)
+	switch (m_menus.Refresh())
 	{
-		now = static_cast<ICS2Menus *>(g_SMAPI->MetaFactory(CS2MENUS_INTERFACE, nullptr, nullptr));
+		case mmu::BridgeChange::Unloaded:
+			// The handles we were holding belong to a now-dead instance.
+			for (int i = 0; i <= MAXPLAYERS; i++)
+			{
+				m_extHandle[i] = kInvalidMenuHandle;
+			}
+			MMU_LOG_INFO("mm-cs2menus unloaded - using built-in chat menus.\n");
+			break;
+		case mmu::BridgeChange::Loaded:
+			MMU_LOG_INFO("mm-cs2menus found - menu rendering delegated to it.\n");
+			break;
+		case mmu::BridgeChange::Unchanged:
+			break;
 	}
-
-	// If the menu plugin unloaded, our handles belong to a now-dead instance.
-	if (prev && !now)
-	{
-		for (int i = 0; i <= MAXPLAYERS; i++)
-		{
-			m_extHandle[i] = kInvalidMenuHandle;
-		}
-		MMU_LOG_INFO("mm-cs2menus unloaded - using built-in chat menus.\n");
-	}
-	else if (!prev && now)
-	{
-		MMU_LOG_INFO("mm-cs2menus found - menu rendering delegated to it.\n");
-	}
-
-	m_pMenus = now;
 }
 
 void RTVMenuBridge::Shutdown()
 {
-	if (m_pMenus)
+	if (m_menus)
 	{
-		// Cancel everything we displayed so the menu plugin doesn't keep lambdas
-		// that capture our (about-to-unload) code.
+		// Cancel everything we displayed so the menu plugin doesn't keep lambdas that capture our (about-to-unload) code.
 		// CancelMenu fires the end callback, which clears the handle and destroys the menu.
 		for (int i = 0; i <= MAXPLAYERS; i++)
 		{
 			if (m_extHandle[i] != kInvalidMenuHandle)
 			{
-				m_pMenus->CancelMenu(i);
+				m_menus->CancelMenu(i);
 			}
 		}
 	}
 
-	m_pMenus = nullptr;
+	m_menus.Shutdown();
 	for (int i = 0; i <= MAXPLAYERS; i++)
 	{
 		m_extHandle[i] = kInvalidMenuHandle;
@@ -82,13 +76,13 @@ void RTVMenuBridge::Shutdown()
 
 bool RTVMenuBridge::Available() const
 {
-	return m_pMenus != nullptr;
+	return m_menus.Available();
 }
 
 bool RTVMenuBridge::UsesChatInput() const
 {
 	// The fallback in-plugin menu is always a chat menu.
-	if (!m_pMenus)
+	if (!m_menus)
 	{
 		return true;
 	}
@@ -99,7 +93,7 @@ bool RTVMenuBridge::UsesChatInput() const
 
 void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 {
-	if (!m_pMenus)
+	if (!m_menus)
 	{
 		g_ChatMenus.ShowMenu(slot, def, curtime);
 		return;
@@ -118,14 +112,14 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 		callbacks.push_back(item.callback);
 	}
 
-	MenuHandle h = m_pMenus->CreateMenu(ConfiguredMenuType(), def.title.c_str(),
-										[callbacks](MenuHandle, int s, int item)
-										{
-											if (item >= 0 && item < static_cast<int>(callbacks.size()) && callbacks[item])
-											{
-												callbacks[item](s);
-											}
-										});
+	MenuHandle h = m_menus->CreateMenu(ConfiguredMenuType(), def.title.c_str(),
+									   [callbacks](MenuHandle, int s, int item)
+									   {
+										   if (item >= 0 && item < static_cast<int>(callbacks.size()) && callbacks[item])
+										   {
+											   callbacks[item](s);
+										   }
+									   });
 	if (h == kInvalidMenuHandle)
 	{
 		return;
@@ -133,43 +127,43 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 
 	for (const auto &item : def.items)
 	{
-		m_pMenus->AddItem(h, item.text.c_str(), "", item.disabled);
+		m_menus->AddItem(h, item.text.c_str(), "", item.disabled);
 	}
-	m_pMenus->SetExitButton(h, def.exitButton);
-	m_pMenus->SetCloseOnSelect(h, def.closeOnSelect);
+	m_menus->SetExitButton(h, def.exitButton);
+	m_menus->SetCloseOnSelect(h, def.closeOnSelect);
 
 	// Apply RTV's configured HTML nav-key overrides.
 	// MenuButton::Default delegates back to the menu plugin's own binding.
-	m_pMenus->SetMenuKey(h, MenuNavAction::Up, ParseMenuButton(g_RTVConfig.general.menuNavUp));
-	m_pMenus->SetMenuKey(h, MenuNavAction::Down, ParseMenuButton(g_RTVConfig.general.menuNavDown));
-	m_pMenus->SetMenuKey(h, MenuNavAction::Select, ParseMenuButton(g_RTVConfig.general.menuNavSelect));
-	m_pMenus->SetMenuKey(h, MenuNavAction::Back, ParseMenuButton(g_RTVConfig.general.menuNavBack));
+	m_menus->SetMenuKey(h, MenuNavAction::Up, ParseMenuButton(g_RTVConfig.general.menuNavUp));
+	m_menus->SetMenuKey(h, MenuNavAction::Down, ParseMenuButton(g_RTVConfig.general.menuNavDown));
+	m_menus->SetMenuKey(h, MenuNavAction::Select, ParseMenuButton(g_RTVConfig.general.menuNavSelect));
+	m_menus->SetMenuKey(h, MenuNavAction::Back, ParseMenuButton(g_RTVConfig.general.menuNavBack));
 
 	// One-shot: free the menu when the display ends, and forget the handle.
-	m_pMenus->SetMenuEndCallback(h,
-								 [this](MenuHandle menu, int s, MenuEndReason)
-								 {
-									 if (s >= 0 && s <= MAXPLAYERS && m_extHandle[s] == menu)
-									 {
-										 m_extHandle[s] = kInvalidMenuHandle;
-									 }
-									 if (m_pMenus)
-									 {
-										 m_pMenus->DestroyMenu(menu);
-									 }
-								 });
+	m_menus->SetMenuEndCallback(h,
+								[this](MenuHandle menu, int s, MenuEndReason)
+								{
+									if (s >= 0 && s <= MAXPLAYERS && m_extHandle[s] == menu)
+									{
+										m_extHandle[s] = kInvalidMenuHandle;
+									}
+									if (m_menus)
+									{
+										m_menus->DestroyMenu(menu);
+									}
+								});
 
-	// Record before DisplayMenu: displaying replaces any current menu for the slot
-	// and fires its end callback, which must not clear the handle we just set.
+	// Record before DisplayMenu:
+	// displaying replaces any current menu for the slot and fires its end callback, which must not clear the handle we just set.
 	m_extHandle[slot] = h;
-	m_pMenus->DisplayMenu(h, slot, def.duration);
+	m_menus->DisplayMenu(h, slot, def.duration);
 }
 
 void RTVMenuBridge::CloseMenu(int slot)
 {
-	if (m_pMenus)
+	if (m_menus)
 	{
-		m_pMenus->CancelMenu(slot);
+		m_menus->CancelMenu(slot);
 		return;
 	}
 	g_ChatMenus.CloseMenu(slot);
@@ -177,9 +171,9 @@ void RTVMenuBridge::CloseMenu(int slot)
 
 bool RTVMenuBridge::HasMenu(int slot)
 {
-	if (m_pMenus)
+	if (m_menus)
 	{
-		return m_pMenus->HasMenu(slot);
+		return m_menus->HasMenu(slot);
 	}
 	return g_ChatMenus.HasMenu(slot);
 }
@@ -188,7 +182,7 @@ bool RTVMenuBridge::ProcessInput(int slot, const char *text, float curtime)
 {
 	// The external plugin drives its own input (it hooks "say" itself),
 	// so there's nothing for us to consume in that case.
-	if (m_pMenus)
+	if (m_menus)
 	{
 		return false;
 	}

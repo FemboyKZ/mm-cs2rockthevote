@@ -1,9 +1,8 @@
 #include "admin_bridge.h"
-#include "mmu/interface_bridge.h"
 #include "mmu/log.h"
 #include "src/common.h"
 
-static mmu::InterfaceBridge<ICS2Admin> s_admin(CS2ADMIN_INTERFACE);
+static mmu::AdminAccess s_admin("cs2rtv");
 
 void RTV_AdminBridge_Init()
 {
@@ -44,35 +43,10 @@ bool RTV_AdminBridge_Available()
 
 bool RTV_AdminBridge_HasFlag(int slot, uint32_t flag)
 {
-	// Console always passes
-	if (slot < 0)
-	{
-		return true;
-	}
-
-	// Admin plugin not loaded - deny access (restrictive fallback)
-	if (!s_admin)
-	{
-		return false;
-	}
-
-	return s_admin->HasFlag(slot, flag);
+	return s_admin.HasFlag(slot, flag);
 }
 
 bool RTV_AdminBridge_CanUseCommand(int slot, const char *commandName, uint32_t defaultFlag)
 {
-	// Console always passes
-	if (slot < 0)
-	{
-		return true;
-	}
-
-	// Admin plugin not loaded. Open commands (defaultFlag 0) stay open,
-	// commands with a configured flag stay blocked (restrictive fallback).
-	if (!s_admin)
-	{
-		return defaultFlag == 0;
-	}
-
-	return s_admin->CanUseCommand(slot, commandName, "cs2rtv", defaultFlag);
+	return s_admin.CanUseCommand(slot, commandName, defaultFlag);
 }

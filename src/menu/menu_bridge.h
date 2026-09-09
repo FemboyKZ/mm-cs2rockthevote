@@ -9,6 +9,8 @@
 
 #include "chatmenu.h"
 
+#include "mmu/interface_bridge.h"
+
 #include <cstdint>
 
 class ICS2Menus;
@@ -16,6 +18,9 @@ class ICS2Menus;
 class RTVMenuBridge
 {
 public:
+	// Defined in the .cpp so this header stays free of the cs2menus API.
+	RTVMenuBridge();
+
 	// Try to acquire the ICS2Menus interface. Call from AllPluginsLoaded().
 	void Init();
 	// Re-resolve the interface. Call from OnPluginLoad / OnPluginUnload.
@@ -42,7 +47,7 @@ public:
 	void OnPlayerDisconnect(int slot);
 
 private:
-	ICS2Menus *m_pMenus = nullptr;
+	mmu::InterfaceBridge<ICS2Menus> m_menus;
 	// External menu handle currently displayed to each slot (0 = none).
 	uint32_t m_extHandle[MAXPLAYERS + 1] = {};
 };
