@@ -3,7 +3,7 @@
 #include "src/common.h"
 #include "src/config/config.h"
 
-#include "vendor/interfaces/ics2menus.h"
+#include "interfaces/cs2menus/ics2menus.h"
 
 #include <vector>
 

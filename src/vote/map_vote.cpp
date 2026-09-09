@@ -9,7 +9,7 @@
 #include "src/rtv/rtv_manager.h"
 #include "src/timelimit/timelimit.h"
 #include "src/timers/timer_system.h"
-#include "src/public/forwards.h"
+#include "interfaces/cs2rockthevote/forwards.h"
 #include "src/utils/print_utils.h"
 #include "mmu/workshop.h"
 
