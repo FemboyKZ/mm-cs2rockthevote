@@ -2,6 +2,7 @@
 #define _INCLUDE_RTV_PLAYER_MANAGER_H_
 
 #include "src/common.h"
+#include "mmu/player_table.h"
 #include <string>
 
 struct PlayerInfo
@@ -41,7 +42,7 @@ public:
 	int GetEligiblePlayerCount() const;
 
 private:
-	PlayerInfo m_players[MAXPLAYERS + 1];
+	mmu::PlayerTable<PlayerInfo> m_players;
 };
 
 extern RTVPlayerManager g_RTVPlayerManager;

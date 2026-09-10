@@ -1,6 +1,9 @@
 #ifndef _INCLUDE_RTV_CONFIG_H_
 #define _INCLUDE_RTV_CONFIG_H_
 
+#include "interfaces/cs2menus/menu_style.h"
+#include "mmu/config_blocks.h"
+
 #include <string>
 
 // The !rtv petition, not the vote it opens.
@@ -73,18 +76,6 @@ struct GeneralCfg
 	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"
 	std::string kzTierFormat = "number"; // "number" (e.g. 3) | "text" (e.g. medium)
 	std::string defaultLanguage = "en";  // phrase-file key used when a client's language is unknown
-	bool logToFile = true;               // mirror log output to addons/cs2rockthevote/logs
-	int logRetentionDays = 30;           // delete log files older than this, 0 keeps all
-	// Menu rendering style when mm-cs2menus is loaded:
-	// "default" delegates to the menu plugin's own config; "chat"/"html" force it.
-	std::string menuType = "default";
-	// Per-menu HTML nav-key overrides for RTV menus (only used with mm-cs2menus).
-	// "default" delegates to the menu plugin's configured key, otherwise a key name
-	// (w/s/a/d, e/use, shift/speed, ctrl/duck, space/jump, r/reload, mouse1, mouse2, tab).
-	std::string menuNavUp = "default";
-	std::string menuNavDown = "default";
-	std::string menuNavSelect = "default";
-	std::string menuNavBack = "default";
 };
 
 struct RTVPluginConfig
@@ -96,6 +87,10 @@ struct RTVPluginConfig
 	NominateCfg nominate;
 	MapChooserCfg mapchooser;
 	GeneralCfg general;
+
+	MenuStyleBlock menu;
+
+	mmu::config::LogBlock log;
 };
 
 // Load/parse cfg/cs2rtv/core.cfg. Returns true on success.

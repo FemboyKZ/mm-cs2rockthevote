@@ -205,11 +205,11 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "logtofile")
 		{
-			cfg->general.logToFile = (value != "0");
+			cfg->log.toFile = (value != "0");
 		}
 		else if (k == "logretentiondays")
 		{
-			cfg->general.logRetentionDays = std::atoi(value.c_str());
+			cfg->log.retentionDays = std::atoi(value.c_str());
 		}
 		else if (k == "commandprefix")
 		{
@@ -219,25 +219,9 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.silentCommandPrefix = value;
 		}
-		else if (k == "menutype")
+		else if (cfg->menu.ApplyKey(k, value))
 		{
-			cfg->general.menuType = str::ToLower(value);
-		}
-		else if (k == "menunavup")
-		{
-			cfg->general.menuNavUp = str::ToLower(value);
-		}
-		else if (k == "menunavdown")
-		{
-			cfg->general.menuNavDown = str::ToLower(value);
-		}
-		else if (k == "menunavselect")
-		{
-			cfg->general.menuNavSelect = str::ToLower(value);
-		}
-		else if (k == "menunavback")
-		{
-			cfg->general.menuNavBack = str::ToLower(value);
+			// consumed
 		}
 	}
 }
@@ -265,7 +249,6 @@ bool RTV_LoadConfig(const char *path, RTVPluginConfig &config)
 
 	kv::ParseSection(file, root.value, ConfigHandler, &config);
 
-	mmu::log::SetToFile(config.general.logToFile);
-	mmu::log::SetRetentionDays(config.general.logRetentionDays);
+	mmu::config::ApplyLogBlock(config.log);
 	return true;
 }

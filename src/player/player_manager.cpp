@@ -5,77 +5,55 @@ RTVPlayerManager g_RTVPlayerManager;
 
 void RTVPlayerManager::OnClientConnected(int slot, const char *name, uint64_t xuid, const char *address, bool fakePlayer)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
+	PlayerInfo *p = m_players.Get(slot);
+	if (!p)
 	{
 		return;
 	}
 
-	PlayerInfo &p = m_players[slot];
-	p.Reset();
-	p.connected = true;
-	p.steamid64 = xuid;
-	p.name = name ? name : "";
-	p.fakePlayer = fakePlayer;
+	p->Reset();
+	p->connected = true;
+	p->steamid64 = xuid;
+	p->name = name ? name : "";
+	p->fakePlayer = fakePlayer;
 }
 
 void RTVPlayerManager::OnClientDisconnect(int slot)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
+	if (PlayerInfo *p = m_players.Get(slot))
 	{
-		return;
+		p->Reset();
 	}
-
-	m_players[slot].Reset();
 }
 
 void RTVPlayerManager::OnClientPutInServer(int slot)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
+	if (PlayerInfo *p = m_players.Get(slot))
 	{
-		return;
+		p->inGame = true;
 	}
-
-	m_players[slot].inGame = true;
 }
 
 PlayerInfo *RTVPlayerManager::GetPlayer(int slot)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
-	{
-		return nullptr;
-	}
-	return &m_players[slot];
+	return m_players.Get(slot);
 }
 
 int RTVPlayerManager::GetHumanPlayerCount() const
 {
-	int count = 0;
-	for (int i = 0; i <= MAXPLAYERS; i++)
-	{
-		const PlayerInfo &p = m_players[i];
-		if (p.connected && p.inGame && !p.fakePlayer)
-		{
-			count++;
-		}
-	}
-	return count;
+	return m_players.Count([](const PlayerInfo &p) { return p.connected && p.inGame && !p.fakePlayer; });
 }
 
 int RTVPlayerManager::GetEligiblePlayerCount() const
 {
-	int count = 0;
-	for (int i = 0; i <= MAXPLAYERS; i++)
-	{
-		const PlayerInfo &p = m_players[i];
-		if (!p.connected || !p.inGame || p.fakePlayer)
+	const bool includeSpec = g_RTVConfig.general.includeSpectator;
+	return m_players.Count(
+		[includeSpec](const PlayerInfo &p)
 		{
-			continue;
-		}
-		if (!g_RTVConfig.general.includeSpectator && p.teamNum == 1)
-		{
-			continue;
-		}
-		count++;
-	}
-	return count;
+			if (!p.connected || !p.inGame || p.fakePlayer)
+			{
+				return false;
+			}
+			return includeSpec || p.teamNum != 1;
+		});
 }

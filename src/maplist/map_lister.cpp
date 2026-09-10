@@ -1,8 +1,10 @@
 #include "map_lister.h"
 #include "mmu/str_utils.h"
 #include "mmu/log.h"
+#include "mmu/maplist.h"
 #include "src/common.h"
 #include "src/config/config.h"
+#include "mmu/discord.h"
 #include "mmu/http_client.h"
 #include "mmu/json.h"
 
@@ -141,52 +143,22 @@ static const char *TierColorCode(int tier)
 
 std::string MapLister::StripAnnotation(const std::string &displayName)
 {
-	// "kz_grotto (T3, Linear)" -> "kz_grotto"
-	size_t pos = displayName.find(" (");
-	if (pos != std::string::npos)
-	{
-		return displayName.substr(0, pos);
-	}
-	return displayName;
+	return mmu::StripMapAnnotation(displayName);
 }
 
 bool MapLister::ParseLine(const std::string &rawLine, MapEntry &out)
 {
-	std::string line = str::Trim(rawLine);
-
-	// Skip blank lines and comments
-	if (line.empty() || line[0] == '#' || line[0] == '/' || line[0] == ';')
+	mmu::MapListEntry parsed;
+	if (!mmu::ParseMapListLine(rawLine, parsed))
 	{
 		return false;
 	}
 
-	// Format: "displayname:workshopid" or just "mapname"
-	// The colon is used as the separator, but map names don't contain colons,
-	// while workshop IDs are pure digits (e.g. "3070321829").
-	// Edge-case: "kz_grotto (T3, Linear):3129698096"
-
-	size_t colonPos = line.rfind(':');
-	if (colonPos != std::string::npos)
-	{
-		std::string potentialId = str::Trim(line.substr(colonPos + 1));
-		// Check if everything after the colon looks like a workshop ID (all digits)
-		bool allDigits = !potentialId.empty() && std::all_of(potentialId.begin(), potentialId.end(), ::isdigit);
-
-		if (allDigits)
-		{
-			out.displayName = str::Trim(line.substr(0, colonPos));
-			out.workshopId = potentialId;
-			out.mapName = StripAnnotation(out.displayName);
-			out.isWorkshop = true;
-			return true;
-		}
-	}
-
-	// No workshop ID - plain map name
-	out.displayName = line;
-	out.workshopId = "";
-	out.mapName = StripAnnotation(line);
-	out.isWorkshop = false;
+	// Tiers are filled in later by ApplyCachedTiers.
+	out.displayName = parsed.displayName;
+	out.mapName = parsed.mapName;
+	out.workshopId = parsed.workshopId;
+	out.isWorkshop = parsed.isWorkshop;
 	return true;
 }
 
@@ -958,10 +930,7 @@ void MapLister::ValidateMapsAsync() const
 										if (!webhook.empty())
 										{
 											std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
-											// A map display name is operator-supplied text and reaches us from the maplist,
-											// so a quote in it would otherwise break the payload.
-											std::string json = "{\"content\":\"" + mmu::json::Escape(msg) + "\"}";
-											mmu::http::Post(webhook, json, nullptr);
+											mmu::discord::SendText(webhook, msg.c_str());
 										}
 									}
 								}

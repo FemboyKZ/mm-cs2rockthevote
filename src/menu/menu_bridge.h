@@ -18,7 +18,7 @@ class ICS2Menus;
 class RTVMenuBridge
 {
 public:
-	// Defined in the .cpp so this header stays free of the cs2menus API.
+	// In the .cpp to keep ics2menus.h out of this header.
 	RTVMenuBridge();
 
 	// Try to acquire the ICS2Menus interface. Call from AllPluginsLoaded().

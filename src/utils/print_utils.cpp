@@ -33,45 +33,11 @@ static mmu::ChatPrinter &Printer()
 	return printer;
 }
 
-void RTV_PrintToChat(int slot, const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	Printer().ChatToSlotV(slot, fmt, args);
-	va_end(args);
-}
-
-void RTV_ChatToAll(const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	Printer().ChatToAllV(fmt, args);
-	va_end(args);
-}
-
-void RTV_PrintToChatT(int slot, const char *phrase, ...)
-{
-	va_list args;
-	va_start(args, phrase);
-	Printer().ChatToSlotTV(slot, phrase, args);
-	va_end(args);
-}
-
-void RTV_ChatToAllT(const char *phrase, ...)
-{
-	va_list args;
-	va_start(args, phrase);
-	Printer().ChatToAllTV(phrase, args);
-	va_end(args);
-}
-
-void RTV_PrintToClient(int slot, const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	Printer().ClientConsoleV(slot, fmt, args);
-	va_end(args);
-}
+MMU_PRINT_SLOT_FN(RTV_PrintToChat, Printer().ChatToSlotV(slot, fmt, args))
+MMU_PRINT_GLOBAL_FN(RTV_ChatToAll, Printer().ChatToAllV(fmt, args))
+MMU_PRINT_SLOT_FN(RTV_PrintToChatT, Printer().ChatToSlotTV(slot, fmt, args))
+MMU_PRINT_GLOBAL_FN(RTV_ChatToAllT, Printer().ChatToAllTV(fmt, args))
+MMU_PRINT_SLOT_FN(RTV_PrintToClient, Printer().ClientConsoleV(slot, fmt, args))
 
 void RTV_ConPrint(const char *fmt, ...)
 {

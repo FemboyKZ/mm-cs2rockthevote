@@ -1,6 +1,8 @@
 #ifndef _INCLUDE_RTV_MAP_VOTE_H_
 #define _INCLUDE_RTV_MAP_VOTE_H_
 
+#include "mmu/workshop.h"
+
 #include "src/common.h"
 #include "src/maplist/map_lister.h"
 
@@ -108,8 +110,7 @@ private:
 	void AbortChange();
 
 	int m_downloadTimerId = -1;
-	float m_downloadDeadline = 0.0f;
-	float m_nextProgressAnnounce = 0.0f;
+	mmu::workshop::PendingDownload m_pendingDownload;
 
 	// Total tries, so one retry before the map goes back to the players.
 	static constexpr int kMaxChangeAttempts = 2;

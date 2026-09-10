@@ -9,22 +9,6 @@
 
 RTVMenuBridge g_RTVMenus;
 
-// Map the RTV config's MenuType to the plugin enum.
-// "default" (and anything unknown) delegates the style choice to mm-cs2menus' own config.
-static MenuType ConfiguredMenuType()
-{
-	const std::string &type = g_RTVConfig.general.menuType;
-	if (type == "chat")
-	{
-		return MenuType::Chat;
-	}
-	if (type == "html")
-	{
-		return MenuType::Html;
-	}
-	return MenuType::Default;
-}
-
 RTVMenuBridge::RTVMenuBridge() : m_menus(CS2MENUS_INTERFACE) {}
 
 void RTVMenuBridge::Init()
@@ -37,7 +21,7 @@ void RTVMenuBridge::Refresh()
 	switch (m_menus.Refresh())
 	{
 		case mmu::BridgeChange::Unloaded:
-			// The handles we were holding belong to a now-dead instance.
+			// Handles belonged to the unloaded instance.
 			for (int i = 0; i <= MAXPLAYERS; i++)
 			{
 				m_extHandle[i] = kInvalidMenuHandle;
@@ -88,7 +72,7 @@ bool RTVMenuBridge::UsesChatInput() const
 	}
 	// Default delegates to the menu plugin's own config, which may resolve to chat per viewer,
 	// so only suppress the hint when HTML is forced.
-	return ConfiguredMenuType() != MenuType::Html;
+	return g_RTVConfig.menu.Type() != MenuType::Html;
 }
 
 void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
@@ -112,7 +96,7 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 		callbacks.push_back(item.callback);
 	}
 
-	MenuHandle h = m_menus->CreateMenu(ConfiguredMenuType(), def.title.c_str(),
+	MenuHandle h = m_menus->CreateMenu(g_RTVConfig.menu.Type(), def.title.c_str(),
 									   [callbacks](MenuHandle, int s, int item)
 									   {
 										   if (item >= 0 && item < static_cast<int>(callbacks.size()) && callbacks[item])
@@ -132,12 +116,7 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 	m_menus->SetExitButton(h, def.exitButton);
 	m_menus->SetCloseOnSelect(h, def.closeOnSelect);
 
-	// Apply RTV's configured HTML nav-key overrides.
-	// MenuButton::Default delegates back to the menu plugin's own binding.
-	m_menus->SetMenuKey(h, MenuNavAction::Up, ParseMenuButton(g_RTVConfig.general.menuNavUp));
-	m_menus->SetMenuKey(h, MenuNavAction::Down, ParseMenuButton(g_RTVConfig.general.menuNavDown));
-	m_menus->SetMenuKey(h, MenuNavAction::Select, ParseMenuButton(g_RTVConfig.general.menuNavSelect));
-	m_menus->SetMenuKey(h, MenuNavAction::Back, ParseMenuButton(g_RTVConfig.general.menuNavBack));
+	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
 
 	// One-shot: free the menu when the display ends, and forget the handle.
 	m_menus->SetMenuEndCallback(h,

@@ -767,8 +767,7 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 
 	CGlobalVars *globals = GetGameGlobals();
 	float now = globals ? globals->curtime : 0.0f;
-	m_downloadDeadline = now + static_cast<float>(g_RTVConfig.mapvote.workshopDownloadTimeout);
-	m_nextProgressAnnounce = now + 10.0f;
+	m_pendingDownload.Begin(fileId, static_cast<float>(g_RTVConfig.mapvote.workshopDownloadTimeout), now);
 
 	MMU_LOG_INFO("Downloading workshop map '%s' (%s) before changing.\n", entry.mapName.c_str(), entry.workshopId.c_str());
 	RTV_ChatToAllT("Downloading %s, the map will change once it finishes.", MapLabel(entry));
@@ -781,35 +780,33 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 		{
 			CGlobalVars *g = GetGameGlobals();
 			float curtime = g ? g->curtime : 0.0f;
+			int percent = 0;
 
-			if (mmu::workshop::DownloadSettled(fileId, g_RTVSteamAPI))
+			switch (m_pendingDownload.Poll(curtime, g_RTVSteamAPI))
 			{
-				g_Timers.KillTimer(m_downloadTimerId);
-				m_downloadTimerId = -1;
-				DoMapChange(captured);
-				ArmChangeFailureTimer(captured, 30.0f);
-				return;
-			}
-
-			if (curtime >= m_downloadDeadline)
-			{
-				g_Timers.KillTimer(m_downloadTimerId);
-				m_downloadTimerId = -1;
-				MMU_LOG_WARN("Workshop map '%s' (%llu) did not download in time, staying on the current map.\n", captured.mapName.c_str(),
-							 static_cast<unsigned long long>(fileId));
-				RTV_ChatToAllT("%s could not be downloaded in time. Staying on the current map.", MapLabel(captured));
-				AbortChange();
-				return;
-			}
-
-			if (curtime >= m_nextProgressAnnounce)
-			{
-				m_nextProgressAnnounce = curtime + 10.0f;
-				uint64_t done = 0, total = 0;
-				if (mmu::workshop::DownloadProgress(fileId, g_RTVSteamAPI, done, total))
-				{
-					RTV_ChatToAllT("Downloading %s... %d%%", MapLabel(captured), static_cast<int>((done * 100) / total));
-				}
+				case mmu::workshop::PendingDownload::Status::Settled:
+					g_Timers.KillTimer(m_downloadTimerId);
+					m_downloadTimerId = -1;
+					DoMapChange(captured);
+					ArmChangeFailureTimer(captured, 30.0f);
+					break;
+				case mmu::workshop::PendingDownload::Status::TimedOut:
+					g_Timers.KillTimer(m_downloadTimerId);
+					m_downloadTimerId = -1;
+					MMU_LOG_WARN("Workshop map '%s' (%llu) did not download in time, staying on the current map.\n", captured.mapName.c_str(),
+								 static_cast<unsigned long long>(fileId));
+					RTV_ChatToAllT("%s could not be downloaded in time. Staying on the current map.", MapLabel(captured));
+					AbortChange();
+					break;
+				case mmu::workshop::PendingDownload::Status::Announce:
+					if (m_pendingDownload.Percent(g_RTVSteamAPI, percent))
+					{
+						RTV_ChatToAllT("Downloading %s... %d%%", MapLabel(captured), percent);
+					}
+					break;
+				case mmu::workshop::PendingDownload::Status::Waiting:
+				case mmu::workshop::PendingDownload::Status::Idle:
+					break;
 			}
 		},
 		1.0f);
@@ -820,6 +817,7 @@ void MapVoteManager::AbortChange()
 {
 	g_Timers.KillTimer(m_downloadTimerId);
 	m_downloadTimerId = -1;
+	m_pendingDownload.Clear();
 	g_Timers.KillTimer(m_failureTimerId);
 	m_failureTimerId = -1;
 
