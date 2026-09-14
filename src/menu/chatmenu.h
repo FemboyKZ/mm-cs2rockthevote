@@ -26,6 +26,8 @@ struct ChatMenuDef
 	bool exitButton = true;
 	bool closeOnSelect = true;
 	MenuItemCallback onExit; // closed with the exit option
+	// mm-cs2menus panorama page labels skip map prefixes like "kz_", matching SortByName in nominate.cpp.
+	bool mapList = false;
 
 	void AddItem(const std::string &text, MenuItemCallback cb, bool disabled = false)
 	{

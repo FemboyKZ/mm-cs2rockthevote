@@ -114,6 +114,10 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 	}
 	m_menus->SetExitButton(h, def.exitButton);
 	m_menus->SetCloseOnSelect(h, def.closeOnSelect);
+	if (def.mapList)
+	{
+		m_menus->SetMenuStyle(h, MenuStyle::PagePrefixDelimiter, "_");
+	}
 
 	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
 

@@ -34,7 +34,7 @@ static bool LooksLikeWorkshopId(const char *s)
 }
 
 // Length of a leading map prefix like "kz_", "bkz_" or "surf_", 0 without one.
-// Matches cs2menus' panorama page letters, which skip the same prefix.
+// Same rule as mm-cs2menus' MenuStyle::PagePrefixDelimiter, which ChatMenuDef::mapList turns on.
 static size_t MapPrefixLength(const std::string &name)
 {
 	for (size_t i = 0; i < name.size() && i <= 5; i++)
@@ -239,6 +239,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		def.title = RTV_Translate(slot, "Matching maps");
 		def.exitButton = true;
 		def.closeOnSelect = true;
+		def.mapList = true;
 
 		SortByName(matches);
 		for (auto *m : matches)
@@ -302,6 +303,7 @@ void NominateManager::ShowNominateMenu(int slot)
 	def.title = RTV_Translate(slot, "Nominate a map");
 	def.exitButton = true;
 	def.closeOnSelect = true;
+	def.mapList = true;
 
 	std::vector<const MapEntry *> sorted;
 	sorted.reserve(maps.size());
