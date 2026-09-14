@@ -438,13 +438,14 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CP
 
 KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args)
 {
-	const char *cmdName = args.Arg(0);
+	// The registered name, since the typed Arg(0) can be "SAY", which still dispatches to say.
+	const char *cmdName = cmd.IsValidRef() ? cmd.GetName() : nullptr;
 	if (!cmdName)
 	{
 		return {KHook::Action::Ignore};
 	}
 
-	bool isSay = (strcmp(cmdName, "say") == 0 || strcmp(cmdName, "say_team") == 0);
+	bool isSay = (V_stricmp(cmdName, "say") == 0 || V_stricmp(cmdName, "say_team") == 0);
 	if (!isSay)
 	{
 		return {KHook::Action::Ignore};
