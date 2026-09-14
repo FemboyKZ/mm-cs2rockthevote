@@ -125,7 +125,13 @@ bool ChatMenuHandler::ProcessInput(int slot, const char *text, float curtime)
 	if (num == 0 && pm.def.exitButton)
 	{
 		pm.active = false;
-		return true; // consume but no callback
+		// Copied first, the callback may show another menu over this one.
+		MenuItemCallback onExit = pm.def.onExit;
+		if (onExit)
+		{
+			onExit(slot);
+		}
+		return true;
 	}
 
 	if (num == MENU_ITEMS_PER_PAGE + 1 && hasMore)

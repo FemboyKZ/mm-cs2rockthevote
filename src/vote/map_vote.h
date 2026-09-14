@@ -8,6 +8,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 enum class VoteOptionKind
@@ -84,6 +85,7 @@ private:
 	std::string m_currentMap;
 	std::vector<VoteOption> m_options;
 	std::unordered_map<int, int> m_playerVotes; // slot -> option index
+	std::unordered_set<int> m_dismissed;        // closed the vote menu without voting
 
 	// Timers
 	int m_countdownTimerId = -1;
@@ -97,6 +99,7 @@ private:
 	void ApplyExtendWin(int minutes);
 	void SendVoteMenuToAll();
 	void SendCountdownReminder(int secsLeft);
+	void SendChoiceReminders();
 	void FinishVote();
 	void StartRunoff(const std::vector<int> &tiedIndices);
 	void ExecuteMapChange(const VoteOption &winner);

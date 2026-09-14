@@ -166,6 +166,10 @@
 	{
 		"en"	"{green}Map vote{default} ends in {green}%d{default} second(s). Vote now!"
 	}
+	"You haven't voted yet. Type !revote or !rtv to vote."
+	{
+		"en"	"{default}You haven't voted yet. Type {green}!revote{default} or {green}!rtv{default} to vote."
+	}
 	"Vote ended with no options."
 	{
 		"en"	"{red}Vote ended with no options."

@@ -94,6 +94,7 @@ void MapVoteManager::Reset()
 	m_runoffActive = false;
 	m_options.clear();
 	m_playerVotes.clear();
+	m_dismissed.clear();
 	m_voteEndTime = 0.0f;
 	m_changeAttempts = 0;
 
@@ -141,6 +142,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	m_isRTV = isRTV;
 	m_voteActive = true;
 	m_playerVotes.clear();
+	m_dismissed.clear();
 	m_runoffActive = false;
 
 	BuildOptions(nominations, isRTV);
@@ -150,15 +152,16 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	float duration = static_cast<float>(cfg.voteDuration);
 	m_voteEndTime = curtime + duration;
 
-	if (g_RTVMenus.UsesChatInput())
-	{
-		RTV_ChatToAllT("Map vote started! Type a number in chat to vote.");
-	}
-	else
-	{
-		RTV_ChatToAllT("Map vote started!");
-	}
 	SendVoteMenuToAll();
+	// Per viewer, only chat menus take typed numbers.
+	for (int i = 0; i <= MAXPLAYERS; i++)
+	{
+		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
+		if (pi && pi->connected && !pi->fakePlayer)
+		{
+			RTV_PrintToChatT(i, g_RTVMenus.UsesChatInput(i) ? "Map vote started! Type a number in chat to vote." : "Map vote started!");
+		}
+	}
 
 	if (cfg.countdownInterval > 0)
 	{
@@ -187,31 +190,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 		float iv = static_cast<float>(cfg.chatChoiceInterval);
 		m_reminderTimerId = g_Timers.CreateTimer(
 			iv,
-			[this]()
-			{
-				if (!m_voteActive)
-				{
-					return;
-				}
-				CGlobalVars *g = GetGameGlobals();
-				float curtime2 = g ? g->curtime : 0.0f;
-				for (int i = 0; i <= MAXPLAYERS; i++)
-				{
-					PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
-					if (!pi || !pi->connected || pi->fakePlayer)
-					{
-						continue;
-					}
-					if (m_playerVotes.count(i))
-					{
-						continue;
-					}
-					if (!g_RTVMenus.HasMenu(i))
-					{
-						ShowVoteMenuToPlayer(i);
-					}
-				}
-			},
+			[this]() { SendChoiceReminders(); },
 			iv);
 	}
 
@@ -355,6 +334,8 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 	def.duration = (std::max)(m_voteEndTime - curtime, 5.0f);
 	def.exitButton = true;
 	def.closeOnSelect = true;
+	def.onExit = [this](int s) { m_dismissed.insert(s); };
+	m_dismissed.erase(slot);
 
 	for (int i = 0; i < static_cast<int>(m_options.size()); i++)
 	{
@@ -459,7 +440,8 @@ void MapVoteManager::CommandRevote(int slot)
 		RTV_PrintToChatT(slot, "There is no vote in progress.");
 		return;
 	}
-	if (!g_RTVConfig.mapvote.enableRevote)
+	// Only changing a vote is gated. Non-voters can always reopen the menu.
+	if (!g_RTVConfig.mapvote.enableRevote && m_playerVotes.count(slot))
 	{
 		RTV_PrintToChatT(slot, "Revoting is not enabled.");
 		return;
@@ -477,6 +459,7 @@ void MapVoteManager::CommandRevote(int slot)
 
 void MapVoteManager::OnPlayerDisconnect(int slot)
 {
+	m_dismissed.erase(slot);
 	auto it = m_playerVotes.find(slot);
 	if (it != m_playerVotes.end())
 	{
@@ -492,6 +475,31 @@ void MapVoteManager::OnPlayerDisconnect(int slot)
 void MapVoteManager::SendCountdownReminder(int secsLeft)
 {
 	RTV_ChatToAllT("Map vote ends in %d second(s). Vote now!", secsLeft);
+}
+
+void MapVoteManager::SendChoiceReminders()
+{
+	if (!m_voteActive)
+	{
+		return;
+	}
+	for (int i = 0; i <= MAXPLAYERS; i++)
+	{
+		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
+		if (!pi || !pi->connected || pi->fakePlayer || m_playerVotes.count(i))
+		{
+			continue;
+		}
+		// Closed on purpose, so nudge instead of forcing the menu back open.
+		if (m_dismissed.count(i))
+		{
+			RTV_PrintToChatT(i, "You haven't voted yet. Type !revote or !rtv to vote.");
+		}
+		else if (!g_RTVMenus.HasMenu(i))
+		{
+			ShowVoteMenuToPlayer(i);
+		}
+	}
 }
 
 void MapVoteManager::FinishVote()
@@ -630,6 +638,7 @@ void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)
 	}
 	m_options = runoffOpts;
 	m_playerVotes.clear();
+	m_dismissed.clear();
 	m_runoffActive = true;
 	m_voteActive = true;
 
@@ -670,31 +679,7 @@ void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)
 		float iv = static_cast<float>(cfg.chatChoiceInterval);
 		m_reminderTimerId = g_Timers.CreateTimer(
 			iv,
-			[this]()
-			{
-				if (!m_voteActive)
-				{
-					return;
-				}
-				CGlobalVars *g = GetGameGlobals();
-				float curtime2 = g ? g->curtime : 0.0f;
-				for (int i = 0; i <= MAXPLAYERS; i++)
-				{
-					PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
-					if (!pi || !pi->connected || pi->fakePlayer)
-					{
-						continue;
-					}
-					if (m_playerVotes.count(i))
-					{
-						continue;
-					}
-					if (!g_RTVMenus.HasMenu(i))
-					{
-						ShowVoteMenuToPlayer(i);
-					}
-				}
-			},
+			[this]() { SendChoiceReminders(); },
 			iv);
 	}
 

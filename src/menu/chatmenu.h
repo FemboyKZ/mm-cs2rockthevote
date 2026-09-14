@@ -25,6 +25,7 @@ struct ChatMenuDef
 	float duration = 0.0f; // 0 = no timeout
 	bool exitButton = true;
 	bool closeOnSelect = true;
+	MenuItemCallback onExit; // closed with the exit option
 
 	void AddItem(const std::string &text, MenuItemCallback cb, bool disabled = false)
 	{

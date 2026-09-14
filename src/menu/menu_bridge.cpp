@@ -63,16 +63,15 @@ bool RTVMenuBridge::Available() const
 	return m_menus.Available();
 }
 
-bool RTVMenuBridge::UsesChatInput() const
+bool RTVMenuBridge::UsesChatInput(int slot)
 {
 	// The fallback in-plugin menu is always a chat menu.
 	if (!m_menus)
 	{
 		return true;
 	}
-	// Default delegates to the menu plugin's own config, which may resolve to chat per viewer,
-	// so only suppress the hint when HTML is forced.
-	return g_RTVConfig.menu.Type() != MenuType::Html;
+	// "default" resolves per viewer, so ask what actually rendered.
+	return m_menus->HasMenu(slot) && m_menus->GetActiveMenuType(slot) == MenuType::Chat;
 }
 
 void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
@@ -120,7 +119,7 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 
 	// One-shot: free the menu when the display ends, and forget the handle.
 	m_menus->SetMenuEndCallback(h,
-								[this](MenuHandle menu, int s, MenuEndReason)
+								[this, onExit = def.onExit](MenuHandle menu, int s, MenuEndReason reason)
 								{
 									if (s >= 0 && s <= MAXPLAYERS && m_extHandle[s] == menu)
 									{
@@ -129,6 +128,10 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 									if (m_menus)
 									{
 										m_menus->DestroyMenu(menu);
+									}
+									if (reason == MenuEndReason::Exit && onExit)
+									{
+										onExit(s);
 									}
 								});
 
