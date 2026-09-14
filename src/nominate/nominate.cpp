@@ -33,6 +33,20 @@ static bool LooksLikeWorkshopId(const char *s)
 	return len >= 6;
 }
 
+// Menus list maps alphabetically by the name their label starts with, the maplist is in file order.
+static void SortByName(std::vector<const MapEntry *> &maps)
+{
+	auto key = [](const MapEntry *e) -> const std::string & { return e->displayName.empty() ? e->mapName : e->displayName; };
+	std::stable_sort(maps.begin(), maps.end(),
+					 [&key](const MapEntry *a, const MapEntry *b)
+					 {
+						 const std::string &x = key(a);
+						 const std::string &y = key(b);
+						 return std::lexicographical_compare(x.begin(), x.end(), y.begin(), y.end(),
+															 [](char c, char d) { return tolower((unsigned char)c) < tolower((unsigned char)d); });
+					 });
+}
+
 void NominateManager::OnMapStart(const char *currentMap)
 {
 	Reset();
@@ -194,6 +208,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		def.exitButton = true;
 		def.closeOnSelect = true;
 
+		SortByName(matches);
 		for (auto *m : matches)
 		{
 			def.AddItem(g_MapLister.GetDisplayLabel(*m), [this, m](int playerSlot) { NominateMap(playerSlot, m); });
@@ -256,8 +271,17 @@ void NominateManager::ShowNominateMenu(int slot)
 	def.exitButton = true;
 	def.closeOnSelect = true;
 
+	std::vector<const MapEntry *> sorted;
+	sorted.reserve(maps.size());
 	for (const auto &e : maps)
 	{
+		sorted.push_back(&e);
+	}
+	SortByName(sorted);
+
+	for (const MapEntry *entry : sorted)
+	{
+		const MapEntry &e = *entry;
 		bool disabled = (e.mapName == m_currentMap);
 
 		bool alreadyNom = m_nomCounts.count(e.mapName) > 0;
