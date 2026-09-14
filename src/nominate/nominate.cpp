@@ -33,52 +33,6 @@ static bool LooksLikeWorkshopId(const char *s)
 	return len >= 6;
 }
 
-// Length of a leading map prefix like "kz_", "bkz_" or "surf_", 0 without one.
-// Same rule as mm-cs2menus' MenuStyle::PagePrefixDelimiter, which ChatMenuDef::mapList turns on.
-static size_t MapPrefixLength(const std::string &name)
-{
-	for (size_t i = 0; i < name.size() && i <= 5; i++)
-	{
-		if (name[i] == '_')
-		{
-			return i > 0 ? i + 1 : 0;
-		}
-		if (!isalnum(static_cast<unsigned char>(name[i])))
-		{
-			return 0;
-		}
-	}
-	return 0;
-}
-
-// Menus list maps alphabetically ignoring the prefix, the maplist is in file order.
-static void SortByName(std::vector<const MapEntry *> &maps)
-{
-	auto name = [](const MapEntry *e) -> const std::string & { return e->displayName.empty() ? e->mapName : e->displayName; };
-	auto less = [](const char *x, const char *xEnd, const char *y, const char *yEnd)
-	{ return std::lexicographical_compare(x, xEnd, y, yEnd, [](char c, char d) { return tolower((unsigned char)c) < tolower((unsigned char)d); }); };
-	std::stable_sort(maps.begin(), maps.end(),
-					 [&](const MapEntry *a, const MapEntry *b)
-					 {
-						 const std::string &x = name(a);
-						 const std::string &y = name(b);
-						 const char *xKey = x.c_str() + MapPrefixLength(x);
-						 const char *yKey = y.c_str() + MapPrefixLength(y);
-						 const char *xEnd = x.c_str() + x.size();
-						 const char *yEnd = y.c_str() + y.size();
-						 if (less(xKey, xEnd, yKey, yEnd))
-						 {
-							 return true;
-						 }
-						 if (less(yKey, yEnd, xKey, xEnd))
-						 {
-							 return false;
-						 }
-						 // Same name under different prefixes, like kz_grotto and bkz_grotto.
-						 return less(x.c_str(), xEnd, y.c_str(), yEnd);
-					 });
-}
-
 void NominateManager::OnMapStart(const char *currentMap)
 {
 	Reset();
@@ -241,7 +195,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		def.closeOnSelect = true;
 		def.mapList = true;
 
-		SortByName(matches);
+		SortMapsByName(matches);
 		for (auto *m : matches)
 		{
 			def.AddItem(g_MapLister.GetDisplayLabel(*m), [this, m](int playerSlot) { NominateMap(playerSlot, m); });
@@ -262,9 +216,16 @@ void NominateManager::CommandMaps(int slot) const
 		return;
 	}
 	RTV_PrintToClient(slot, "Available maps (%d):", static_cast<int>(maps.size()));
+	std::vector<const MapEntry *> sorted;
+	sorted.reserve(maps.size());
 	for (const auto &e : maps)
 	{
-		RTV_PrintToClient(slot, "  %s", g_MapLister.GetDisplayLabel(e, false).c_str());
+		sorted.push_back(&e);
+	}
+	SortMapsByName(sorted);
+	for (const MapEntry *e : sorted)
+	{
+		RTV_PrintToClient(slot, "  %s", g_MapLister.GetDisplayLabel(*e, false).c_str());
 	}
 }
 
@@ -311,7 +272,7 @@ void NominateManager::ShowNominateMenu(int slot)
 	{
 		sorted.push_back(&e);
 	}
-	SortByName(sorted);
+	SortMapsByName(sorted);
 
 	for (const MapEntry *entry : sorted)
 	{

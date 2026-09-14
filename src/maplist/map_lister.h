@@ -128,4 +128,7 @@ private:
 
 extern MapLister g_MapLister;
 
+// Sorts map menus by mmu::MapNameLess, which ChatMenuDef::mapList's page labels match.
+void SortMapsByName(std::vector<const MapEntry *> &maps);
+
 #endif // _INCLUDE_RTV_MAP_LISTER_H_

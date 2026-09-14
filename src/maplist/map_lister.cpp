@@ -744,6 +744,12 @@ void MapLister::ApplyCachedTiers(MapEntry &e) const
 	}
 }
 
+void SortMapsByName(std::vector<const MapEntry *> &maps)
+{
+	auto name = [](const MapEntry *e) -> const std::string & { return e->displayName.empty() ? e->mapName : e->displayName; };
+	std::stable_sort(maps.begin(), maps.end(), [&](const MapEntry *a, const MapEntry *b) { return mmu::MapNameLess(name(a), name(b)); });
+}
+
 std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const char *resetColor) const
 {
 	std::string base = e.displayName.empty() ? e.mapName : e.displayName;

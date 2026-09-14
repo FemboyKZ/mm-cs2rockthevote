@@ -193,9 +193,19 @@ static void ShowMapChooserMenu(int slot)
 	def.title = RTV_Translate(slot, "Choose a map (immediate change)");
 	def.exitButton = true;
 	def.closeOnSelect = true;
+	def.mapList = true;
 
+	std::vector<const MapEntry *> sorted;
+	sorted.reserve(maps.size());
 	for (const auto &e : maps)
 	{
+		sorted.push_back(&e);
+	}
+	SortMapsByName(sorted);
+
+	for (const MapEntry *entry : sorted)
+	{
+		const MapEntry &e = *entry;
 		std::string display = g_MapLister.GetDisplayLabel(e);
 		// Capture a value copy of the entry so we're not holding a pointer into
 		// m_maps, which can reallocate (AddDynamicMap) or be cleared (Reload).
