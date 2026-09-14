@@ -175,6 +175,26 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	}
 }
 
+void RTVManager::RecheckThreshold(StartVoteCallback startVote)
+{
+	// Votes only exist once the delay, cooldown and whitelist gates let them in, so those need no second look.
+	if (!g_RTVConfig.rtv.enabled || m_votes.empty() || m_voteStarted || m_mapChangeScheduled)
+	{
+		return;
+	}
+
+	int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
+	if (!IsThresholdReached(eligible))
+	{
+		return;
+	}
+
+	RTV_ChatToAllT("RTV threshold reached! Starting vote...");
+	StopReminderTimer();
+	OnVoteStarted();
+	startVote();
+}
+
 void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 {
 	// Deliberately not gated on RtvCfg::enabled, since no petition is involved.

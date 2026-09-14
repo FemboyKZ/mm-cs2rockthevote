@@ -423,7 +423,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientPutInServer(IServerGameClients *, C
 	return {KHook::Action::Ignore};
 }
 
-KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason /*reason*/,
+KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason reason,
 														const char * /*pszName*/, uint64 /*xuid*/, const char * /*pszNetworkID*/)
 {
 	int s = slot.Get();
@@ -433,6 +433,20 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CP
 	g_RTVMenus.OnPlayerDisconnect(s);
 	g_RTVPlayerManager.OnClientDisconnect(s);
 	mmu::cvarquery::OnClientDisconnect(s);
+
+	// A map change or shutdown drops everyone at once, and each departure would otherwise count toward starting a vote.
+	bool serverLeaving = reason == NETWORK_DISCONNECT_SHUTDOWN || reason == NETWORK_DISCONNECT_LOOPSHUTDOWN || reason == NETWORK_DISCONNECT_EXITING
+						 || reason == NETWORK_DISCONNECT_RECONNECTION || reason == NETWORK_DISCONNECT_LOOP_LEVELLOAD_ACTIVATE;
+	if (serverLeaving)
+	{
+		return {KHook::Action::Ignore};
+	}
+	g_RTVManager.RecheckThreshold(
+		[]()
+		{
+			auto noms = g_NominateManager.GetNominations();
+			g_MapVoteManager.StartVote(true, noms);
+		});
 	return {KHook::Action::Ignore};
 }
 
@@ -453,6 +467,13 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 
 	int slot = ctx.GetPlayerSlot().Get();
 	if (slot < 0 || slot > MAXPLAYERS)
+	{
+		return {KHook::Action::Ignore};
+	}
+
+	// A client not put in server yet can't legitimately chat, so its commands don't count either.
+	const PlayerInfo *player = g_RTVPlayerManager.GetPlayer(slot);
+	if (!player || !player->connected || !player->inGame)
 	{
 		return {KHook::Action::Ignore};
 	}

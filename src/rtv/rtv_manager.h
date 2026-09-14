@@ -25,6 +25,10 @@ public:
 	// Opens the vote once the map's time limit is within EndOfMapVote.TriggerTime of expiring.
 	void CheckEndOfMapVote(StartVoteCallback startVote);
 
+	// A leaving player lowers the required count, which can complete a petition nobody else will push over the line.
+	// Call after the player manager has dropped the leaving player.
+	void RecheckThreshold(StartVoteCallback startVote);
+
 	// Re-open the current vote menu for a player (when vote is already running)
 	// The caller owns calling this through the map-vote manager.
 
