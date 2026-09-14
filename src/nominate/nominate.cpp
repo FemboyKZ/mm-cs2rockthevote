@@ -33,17 +33,49 @@ static bool LooksLikeWorkshopId(const char *s)
 	return len >= 6;
 }
 
-// Menus list maps alphabetically by the name their label starts with, the maplist is in file order.
+// Length of a leading map prefix like "kz_", "bkz_" or "surf_", 0 without one.
+// Matches cs2menus' panorama page letters, which skip the same prefix.
+static size_t MapPrefixLength(const std::string &name)
+{
+	for (size_t i = 0; i < name.size() && i <= 5; i++)
+	{
+		if (name[i] == '_')
+		{
+			return i > 0 ? i + 1 : 0;
+		}
+		if (!isalnum(static_cast<unsigned char>(name[i])))
+		{
+			return 0;
+		}
+	}
+	return 0;
+}
+
+// Menus list maps alphabetically ignoring the prefix, the maplist is in file order.
 static void SortByName(std::vector<const MapEntry *> &maps)
 {
-	auto key = [](const MapEntry *e) -> const std::string & { return e->displayName.empty() ? e->mapName : e->displayName; };
+	auto name = [](const MapEntry *e) -> const std::string & { return e->displayName.empty() ? e->mapName : e->displayName; };
+	auto less = [](const char *x, const char *xEnd, const char *y, const char *yEnd)
+	{ return std::lexicographical_compare(x, xEnd, y, yEnd, [](char c, char d) { return tolower((unsigned char)c) < tolower((unsigned char)d); }); };
 	std::stable_sort(maps.begin(), maps.end(),
-					 [&key](const MapEntry *a, const MapEntry *b)
+					 [&](const MapEntry *a, const MapEntry *b)
 					 {
-						 const std::string &x = key(a);
-						 const std::string &y = key(b);
-						 return std::lexicographical_compare(x.begin(), x.end(), y.begin(), y.end(),
-															 [](char c, char d) { return tolower((unsigned char)c) < tolower((unsigned char)d); });
+						 const std::string &x = name(a);
+						 const std::string &y = name(b);
+						 const char *xKey = x.c_str() + MapPrefixLength(x);
+						 const char *yKey = y.c_str() + MapPrefixLength(y);
+						 const char *xEnd = x.c_str() + x.size();
+						 const char *yEnd = y.c_str() + y.size();
+						 if (less(xKey, xEnd, yKey, yEnd))
+						 {
+							 return true;
+						 }
+						 if (less(yKey, yEnd, xKey, xEnd))
+						 {
+							 return false;
+						 }
+						 // Same name under different prefixes, like kz_grotto and bkz_grotto.
+						 return less(x.c_str(), xEnd, y.c_str(), yEnd);
 					 });
 }
 
