@@ -198,7 +198,10 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		SortMapsByName(matches);
 		for (auto *m : matches)
 		{
-			def.AddItem(g_MapLister.GetDisplayLabel(*m), [this, m](int playerSlot) { NominateMap(playerSlot, m); });
+			// By name, since a dynamic add or reload while the menu is open would leave a pointer dangling.
+			std::string capturedMapName = m->mapName;
+			def.AddItem(g_MapLister.GetDisplayLabel(*m),
+						[this, capturedMapName](int playerSlot) { NominateMap(playerSlot, g_MapLister.FindExact(capturedMapName)); });
 		}
 		g_RTVMenus.ShowMenu(slot, def, curtime);
 		return;

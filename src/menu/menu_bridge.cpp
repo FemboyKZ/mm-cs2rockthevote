@@ -142,7 +142,13 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 	// Record before DisplayMenu:
 	// displaying replaces any current menu for the slot and fires its end callback, which must not clear the handle we just set.
 	m_extHandle[slot] = h;
-	m_menus->DisplayMenu(h, slot, def.duration);
+	if (!m_menus->DisplayMenu(h, slot, def.duration))
+	{
+		// Refused (a host menu owns the slot), so no end callback will ever free it
+		// and its lambdas would outlive this plugin.
+		m_extHandle[slot] = kInvalidMenuHandle;
+		m_menus->DestroyMenu(h);
+	}
 }
 
 void RTVMenuBridge::CloseMenu(int slot)
