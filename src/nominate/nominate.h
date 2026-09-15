@@ -40,6 +40,11 @@ private:
 	std::unordered_map<int, std::vector<std::string>> m_playerNoms;
 	// mapName -> total nomination count
 	std::unordered_map<std::string, int> m_nomCounts;
+	// Bumped each map, so a lookup started on the previous one is recognisable.
+	uint32_t m_mapSerial = 0;
+
+	// True if the slot still holds the player who asked and the map has not changed since.
+	bool CallerStillPresent(int slot, uint64_t steamid64, uint32_t mapSerial) const;
 
 	void NominateMap(int slot, const MapEntry *entry);
 	void ShowNominateMenu(int slot);

@@ -78,12 +78,22 @@ public:
 	// Force end any in-progress vote and reset (map end)
 	void Reset();
 
+	// Admin cancel of a running vote or scheduled change.
+	// Unlike Reset the map keeps running, so the RTV gates have to reopen with it.
+	void CancelVote();
+
+	// Immediate admin change to one map, through the same workshop download wait as the vote path.
+	// Change to this map right away, as !mapmenu does. False when it is a workshop map the server does not have.
+	bool ChangeMapNow(const MapEntry &entry);
+
 private:
 	bool m_voteActive = false;
 	bool m_isRTV = false;
 	bool m_changeScheduled = false;
 	bool m_runoffActive = false;
 	std::string m_currentMap;
+	// Clean name of the scheduled winner, so a cancel can take the nextlevel backstop back down.
+	std::string m_scheduledMap;
 	std::vector<VoteOption> m_options;
 	std::unordered_map<int, int> m_playerVotes; // slot -> option index
 	std::unordered_set<int> m_dismissed;        // closed the vote menu without voting
@@ -110,7 +120,7 @@ private:
 	// host_workshop_map on an addon that isn't on disk drops the server onto the "error" map,
 	// so an absent winner is downloaded first and only then loaded.
 	void BeginMapChange(const MapEntry &entry);
-	void WaitForWorkshopMap(const MapEntry &entry);
+	bool WaitForWorkshopMap(const MapEntry &entry, bool fromVote);
 	void AbortChange();
 
 	int m_downloadTimerId = -1;

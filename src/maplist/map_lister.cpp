@@ -305,6 +305,62 @@ const MapEntry *MapLister::AddDynamicMap(const MapEntry &entry)
 
 // Minimal JSON helpers (no third-party deps)
 
+// Scalar value of the first `"key"` in `doc`, as text. "" when absent or null.
+// mmu::json::GetString only reads quoted values, and the APIs here send some numeric fields bare.
+static std::string JsonGetScalar(const std::string &doc, const char *key)
+{
+	std::string search = "\"";
+	search += key;
+	search += "\"";
+
+	size_t pos = doc.find(search);
+	if (pos == std::string::npos)
+	{
+		return "";
+	}
+
+	pos += search.size();
+	while (pos < doc.size() && (doc[pos] == ' ' || doc[pos] == ':' || doc[pos] == '\t'))
+	{
+		pos++;
+	}
+	if (pos >= doc.size())
+	{
+		return "";
+	}
+	if (doc[pos] == '\"')
+	{
+		return mmu::json::GetString(doc, key);
+	}
+
+	size_t start = pos;
+	while (pos < doc.size() && (isdigit(static_cast<unsigned char>(doc[pos])) || doc[pos] == '-' || doc[pos] == '+' || doc[pos] == '.'))
+	{
+		pos++;
+	}
+	return doc.substr(start, pos - start);
+}
+
+// Percent-encode a query parameter value, so a space, '#' or '&' in a map name cannot break or extend the URL.
+static std::string UrlEncodeQuery(const std::string &value)
+{
+	static const char *kHex = "0123456789ABCDEF";
+	std::string out;
+	out.reserve(value.size() + 8);
+	for (unsigned char c : value)
+	{
+		if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+		{
+			out += static_cast<char>(c);
+			continue;
+		}
+		out += '%';
+		out += kHex[c >> 4];
+		out += kHex[c & 0x0F];
+	}
+	return out;
+}
+
 // Extract the value of a JSON string field named `key` from a flat object.
 // Handles only simple string values. Returns empty string if not found.
 // Enumerate top-level array elements `[{...},{...}]` - calls cb for each object
@@ -422,10 +478,10 @@ static void ParseTierListForMode(const std::string &jsonObj, const char *modeKey
 // CS2KZ API parsing
 bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 {
-	// Expected fields: "name" (map name), "workshop_id" (string)
+	// Expected fields: "name" (map name), "workshop_id" (number)
 	// We also look into courses[].filters for nub_tier (all courses)
 	std::string name = mmu::json::GetString(jsonObj, "name");
-	std::string wsId = mmu::json::GetString(jsonObj, "workshop_id");
+	std::string wsId = JsonGetScalar(jsonObj, "workshop_id");
 
 	if (name.empty())
 	{
@@ -561,7 +617,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 
 void MapLister::LookupByNameAsync(const std::string &name, std::function<void(MapEntry)> callback) const
 {
-	std::string url = "https://api.cs2kz.org/maps?name=" + name + "&state=approved&limit=5";
+	std::string url = "https://api.cs2kz.org/maps?name=" + UrlEncodeQuery(name) + "&state=approved&limit=5";
 	mmu::http::Get(url,
 				   [callback](bool ok, std::string body)
 				   {
@@ -611,6 +667,11 @@ void MapLister::FetchAllApprovedMapsAsync(std::function<void(std::vector<MapEntr
 						   {
 							   if (!ok || body.empty())
 							   {
+								   // A half-finished sweep is not a map list,
+								   // so hand back nothing rather than let a caller cache or write it.
+								   MMU_LOG_WARN("CS2KZ map fetch failed at offset %d, discarding %d partial result(s).\n", st->offset,
+												static_cast<int>(st->collected.size()));
+								   st->collected.clear();
 								   st->done(std::move(st->collected));
 								   return;
 							   }
@@ -678,6 +739,9 @@ void MapLister::GenerateMaplistAsync(const std::string &outputPath) const
 			fclose(fp);
 
 			MMU_LOG_INFO("Wrote %d maps to '%s'.\n", static_cast<int>(maps.size()), out.c_str());
+
+			// The load that triggered this found no file, so nothing is in memory yet.
+			mmu::http::QueueMainThread([out]() { g_MapLister.LoadFromFile(out.c_str()); });
 		});
 }
 
@@ -926,7 +990,7 @@ void MapLister::ValidateMapsAsync() const
 									}
 
 									std::string obj = body.substr(objStart, objEnd - objStart + 1);
-									std::string result = mmu::json::GetString(obj, "result");
+									std::string result = JsonGetScalar(obj, "result");
 									if (result != "1" && result != "")
 									{
 										MMU_LOG_INFO("Dead workshop map detected: %s (id=%s, "

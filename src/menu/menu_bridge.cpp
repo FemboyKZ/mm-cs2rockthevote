@@ -38,7 +38,8 @@ void RTVMenuBridge::Refresh()
 
 void RTVMenuBridge::Shutdown()
 {
-	if (m_menus)
+	// meta clear unloads plugins without firing OnPluginUnload, so the cached pointer can already be a freed library.
+	if (m_menus.Revalidate())
 	{
 		// Cancel everything we displayed so the menu plugin doesn't keep lambdas that capture our (about-to-unload) code.
 		// CancelMenu fires the end callback, which clears the handle and destroys the menu.

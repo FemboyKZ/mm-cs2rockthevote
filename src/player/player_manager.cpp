@@ -1,5 +1,6 @@
 #include "player_manager.h"
 #include "src/config/config.h"
+#include "mmu/entity/ccsplayercontroller.h"
 
 RTVPlayerManager g_RTVPlayerManager;
 
@@ -44,16 +45,31 @@ int RTVPlayerManager::GetHumanPlayerCount() const
 	return m_players.Count([](const PlayerInfo &p) { return p.connected && p.inGame && !p.fakePlayer; });
 }
 
-int RTVPlayerManager::GetEligiblePlayerCount() const
+int RTVPlayerManager::GetEligiblePlayerCount()
 {
 	const bool includeSpec = g_RTVConfig.general.includeSpectator;
-	return m_players.Count(
-		[includeSpec](const PlayerInfo &p)
+	int count = 0;
+
+	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	{
+		PlayerInfo *p = m_players.Get(slot);
+		if (!p->connected || !p->inGame || p->fakePlayer)
 		{
-			if (!p.connected || !p.inGame || p.fakePlayer)
-			{
-				return false;
-			}
-			return includeSpec || p.teamNum != 1;
-		});
+			continue;
+		}
+
+		// Read live rather than tracking team changes, the controller is the only source that cannot go stale.
+		if (CCSPlayerController *controller = CCSPlayerController::FromSlot(slot))
+		{
+			p->teamNum = controller->m_iTeamNum();
+		}
+
+		if (!includeSpec && p->teamNum == CS_TEAM_SPECTATOR)
+		{
+			continue;
+		}
+		count++;
+	}
+
+	return count;
 }

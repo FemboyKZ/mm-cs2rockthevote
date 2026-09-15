@@ -37,6 +37,17 @@ void NominateManager::OnMapStart(const char *currentMap)
 {
 	Reset();
 	m_currentMap = currentMap ? currentMap : "";
+	m_mapSerial++;
+}
+
+bool NominateManager::CallerStillPresent(int slot, uint64_t steamid64, uint32_t mapSerial) const
+{
+	if (mapSerial != m_mapSerial)
+	{
+		return false;
+	}
+	const PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(slot);
+	return pi && pi->connected && pi->steamid64 == steamid64;
 }
 
 void NominateManager::Reset()
@@ -110,6 +121,11 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		return;
 	}
 
+	// An API lookup outlives the request: the slot can empty, be reused, or be on the next map by the time it lands.
+	PlayerInfo *caller = g_RTVPlayerManager.GetPlayer(slot);
+	uint64_t callerId = caller ? caller->steamid64 : 0;
+	uint32_t callerSerial = m_mapSerial;
+
 	if (LooksLikeWorkshopId(arg))
 	{
 		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
@@ -130,8 +146,12 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		std::string wsId(arg);
 		RTV_PrintToChatT(slot, "Looking up workshop map %s...", wsId.c_str());
 		g_MapLister.LookupByWorkshopIdAsync(wsId,
-											[this, slot, wsId](MapEntry e)
+											[this, slot, callerId, callerSerial, wsId](MapEntry e)
 											{
+												if (!CallerStillPresent(slot, callerId, callerSerial))
+												{
+													return;
+												}
 												if (e.mapName.empty())
 												{
 													MMU_LOG_WARN("Workshop lookup failed for ID %s\n", wsId.c_str());
@@ -164,8 +184,12 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		std::string query(arg);
 		RTV_PrintToChatT(slot, "Looking up map %s via API...", query.c_str());
 		g_MapLister.LookupByNameAsync(query,
-									  [this, slot, query](MapEntry e)
+									  [this, slot, callerId, callerSerial, query](MapEntry e)
 									  {
+										  if (!CallerStillPresent(slot, callerId, callerSerial))
+										  {
+											  return;
+										  }
 										  if (!e.mapName.empty())
 										  {
 											  const MapEntry *added = g_MapLister.AddDynamicMap(e);
@@ -236,7 +260,7 @@ void NominateManager::CommandReloadMaps(int slot)
 {
 	if (g_MapVoteManager.IsVoteActive() || g_MapVoteManager.IsChangeScheduled())
 	{
-		g_MapVoteManager.Reset();
+		g_MapVoteManager.CancelVote();
 		RTV_ChatToAllT("Map list reloaded by admin - active vote cancelled.");
 	}
 

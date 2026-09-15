@@ -22,12 +22,12 @@
 #include "vote/map_vote.h"
 
 #include "entity/cgamerules.h"
+#include "mmu/entity/ccsplayercontroller.h"
 #include "mmu/entity/entity_system.h"
 #include "mmu/chat_command.h"
 #include "mmu/cvarquery.h"
 #include "mmu/gamesystem.h"
 #include "mmu/log.h"
-#include "mmu/workshop.h"
 #include "whitelist/whitelist_bridge.h"
 
 #include <engine/igameeventsystem.h>
@@ -211,19 +211,12 @@ static void ShowMapChooserMenu(int slot)
 		// m_maps, which can reallocate (AddDynamicMap) or be cleared (Reload).
 		MapEntry entryCopy = e;
 		def.AddItem(display,
-					[entryCopy](int /*playerSlot*/)
+					[entryCopy](int playerSlot)
 					{
-						char cmd[256];
-						if (entryCopy.isWorkshop && !entryCopy.workshopId.empty())
+						if (!g_MapVoteManager.ChangeMapNow(entryCopy))
 						{
-							mmu::EnsureWorkshopMapReady(entryCopy.workshopId, g_RTVSteamAPI);
-							snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entryCopy.workshopId.c_str());
+							RTV_PrintToChatT(playerSlot, "%s is not installed on this server.", entryCopy.mapName.c_str());
 						}
-						else
-						{
-							snprintf(cmd, sizeof(cmd), "changelevel %s\n", entryCopy.mapName.c_str());
-						}
-						g_pEngine->ServerCommand(cmd);
 					});
 	}
 
@@ -277,8 +270,46 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	g_pCVar = g_pICvar;
 	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE | FCVAR_GAMEDLL);
 
+	if (late)
+	{
+		OnLateLoad();
+	}
+
 	MMU_LOG_INFO("Plugin loaded.\n");
 	return true;
+}
+
+void CS2RTVPlugin::OnLateLoad()
+{
+	if (!g_RTVSteamAPI.SteamUGC())
+	{
+		g_RTVSteamAPI.Init();
+	}
+
+	INetworkGameServer *server = g_pNetworkServerService ? g_pNetworkServerService->GetIGameServer() : nullptr;
+	const char *mapName = server ? server->GetMapName() : "";
+	OnLevelInit(mapName ? mapName : "", "", "", "", false, false);
+
+	CGlobalVars *globals = GetGameGlobals();
+	int maxClients = globals ? globals->maxClients : MAXPLAYERS;
+
+	for (int slot = 0; slot < maxClients; slot++)
+	{
+		CPlayerSlot playerSlot(slot);
+		uint64 xuid = g_pEngine->GetClientXUID(playerSlot);
+		if (xuid == 0 || !g_pEngine->GetPlayerNetInfo(playerSlot))
+		{
+			continue;
+		}
+
+		// A slot with a SteamID is past ClientPutInServer already, which fired before we were here to see it.
+		CCSPlayerController *controller = CCSPlayerController::FromSlot(slot);
+		g_RTVPlayerManager.OnClientConnected(slot, controller ? controller->GetPlayerName() : "", xuid, "", false);
+		g_RTVPlayerManager.OnClientPutInServer(slot);
+		mmu::cvarquery::OnClientConnected(slot, false);
+	}
+
+	MMU_LOG_INFO("Late load on '%s', restored %d player(s).\n", mapName ? mapName : "", g_RTVPlayerManager.GetHumanPlayerCount());
 }
 
 bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
@@ -572,7 +603,10 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 
 	if (strcmp(cmdBuf, "reloadmaps") == 0)
 	{
-		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", 0))
+		// Cancels a running vote or a scheduled change, so it is admin-only.
+		const std::string &permName = g_RTVConfig.general.adminPermission;
+		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
+		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", flag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			return {cmdReturn};
@@ -709,7 +743,9 @@ CON_COMMAND_F(mm_reloadmaps, "Reload the map list from disk", FCVAR_RELEASE | FC
 	{
 		return;
 	}
-	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", 0))
+	const std::string &permName = g_RTVConfig.general.adminPermission;
+	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
+	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", flag))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;

@@ -12,7 +12,7 @@ struct PlayerInfo
 	uint64_t steamid64 = 0;
 	std::string name;
 	bool fakePlayer = false;
-	int teamNum = 0; // 1=spec, 2=T, 3=CT (updated on ClientCommand/GameEvents)
+	int teamNum = 0; // 1=spec, 2=T, 3=CT (refreshed from the controller in GetEligiblePlayerCount)
 
 	void Reset()
 	{
@@ -38,8 +38,9 @@ public:
 	int GetHumanPlayerCount() const;
 
 	// Number of connected non-fake players eligible to vote
-	// (spec excluded if general.includeSpectator = false)
-	int GetEligiblePlayerCount() const;
+	// (spec excluded if general.includeSpectator = false).
+	// Refreshes each counted player's teamNum from their controller.
+	int GetEligiblePlayerCount();
 
 private:
 	mmu::PlayerTable<PlayerInfo> m_players;

@@ -64,16 +64,16 @@ static void SetNextLevel(const MapEntry &entry)
 	NextLevelRef().Set(entry.mapName.c_str());
 }
 
-// We change maps ourselves, so the engine never consumes nextlevel and it would still point at the map we just landed on,
-// reloading it forever.
-static void ClearConsumedNextLevel(const char *currentMap)
+// Drops the backstop once it can only do harm:
+// the map we just landed on, since we change maps ourselves and the engine never consumes it, or a map the server has stopped going to.
+static void ClearNextLevelIfNamed(const char *mapName)
 {
-	if (!currentMap || !currentMap[0] || !NextLevelUsable())
+	if (!mapName || !mapName[0] || !NextLevelUsable())
 	{
 		return;
 	}
 	const char *pending = NextLevelRef().Get().Get();
-	if (pending && V_stricmp(pending, currentMap) == 0)
+	if (pending && V_stricmp(pending, mapName) == 0)
 	{
 		NextLevelRef().Set("");
 	}
@@ -83,7 +83,7 @@ void MapVoteManager::OnMapStart(const char *currentMap)
 {
 	Reset();
 	m_currentMap = currentMap ? currentMap : "";
-	ClearConsumedNextLevel(m_currentMap.c_str());
+	ClearNextLevelIfNamed(m_currentMap.c_str());
 }
 
 void MapVoteManager::Reset()
@@ -92,6 +92,7 @@ void MapVoteManager::Reset()
 	m_isRTV = false;
 	m_changeScheduled = false;
 	m_runoffActive = false;
+	m_scheduledMap.clear();
 	m_options.clear();
 	m_playerVotes.clear();
 	m_dismissed.clear();
@@ -115,6 +116,29 @@ void MapVoteManager::Reset()
 	{
 		g_RTVMenus.CloseMenu(i);
 	}
+}
+
+void MapVoteManager::CancelVote()
+{
+	if (m_changeScheduled)
+	{
+		ClearNextLevelIfNamed(m_scheduledMap.c_str());
+	}
+	Reset();
+	g_RTVManager.OnVoteCancelled();
+}
+
+// A workshop map the server does not have is downloaded first.
+bool MapVoteManager::ChangeMapNow(const MapEntry &entry)
+{
+	uint64_t fileId = entry.isWorkshop ? std::strtoull(entry.workshopId.c_str(), nullptr, 10) : 0;
+	if (fileId == 0 || mmu::workshop::IsReady(fileId, g_RTVSteamAPI))
+	{
+		DoMapChange(entry);
+		return true;
+	}
+
+	return WaitForWorkshopMap(entry, false);
 }
 
 void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nominations)
@@ -377,6 +401,12 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 						auto vit = m_playerVotes.find(playerSlot);
 						if (vit != m_playerVotes.end())
 						{
+							// Reopening the menu with !rtv would otherwise let a voter change their pick freely.
+							if (!g_RTVConfig.mapvote.enableRevote)
+							{
+								RTV_PrintToChatT(playerSlot, "Revoting is not enabled.");
+								return;
+							}
 							// Toggle: clicking the same option removes the vote
 							if (vit->second == capturedIndex)
 							{
@@ -705,6 +735,7 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 	g_RTVManager.OnMapChangeScheduled();
 
 	MapEntry captured = winner.entry;
+	m_scheduledMap = captured.mapName;
 
 	// Covers the map ending on its own before the changelevel below lands,
 	// and stops cs2kz-metamod filling nextlevel with the launch map instead of the winner.
@@ -732,10 +763,12 @@ void MapVoteManager::BeginMapChange(const MapEntry &entry)
 		return;
 	}
 
-	WaitForWorkshopMap(entry);
+	WaitForWorkshopMap(entry, true);
 }
 
-void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
+// fromVote says what surrounds the download: a vote's change keeps its failure timer and vote state,
+// an admin's immediate change has neither and only waits for the map to arrive.
+bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry, bool fromVote)
 {
 	uint64_t fileId = std::strtoull(entry.workshopId.c_str(), nullptr, 10);
 
@@ -747,8 +780,11 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 	{
 		MMU_LOG_WARN("Workshop map '%s' (%s) is not installed and waiting is disabled, abandoning the change.\n", entry.mapName.c_str(),
 					 entry.workshopId.c_str());
-		AbortChange();
-		return;
+		if (fromVote)
+		{
+			AbortChange();
+		}
+		return false;
 	}
 
 	// Drops an ACF entry left behind by a deleted addon,
@@ -758,8 +794,11 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 	if (!mmu::workshop::StartDownload(fileId, g_RTVSteamAPI))
 	{
 		MMU_LOG_WARN("Workshop map '%s' (%s) is not installed and no download could be started.\n", entry.mapName.c_str(), entry.workshopId.c_str());
-		AbortChange();
-		return;
+		if (fromVote)
+		{
+			AbortChange();
+		}
+		return false;
 	}
 
 	CGlobalVars *globals = GetGameGlobals();
@@ -773,7 +812,7 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 	g_Timers.KillTimer(m_downloadTimerId);
 	m_downloadTimerId = g_Timers.CreateTimer(
 		1.0f,
-		[this, captured, fileId]()
+		[this, captured, fileId, fromVote]()
 		{
 			CGlobalVars *g = GetGameGlobals();
 			float curtime = g ? g->curtime : 0.0f;
@@ -785,7 +824,10 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 					g_Timers.KillTimer(m_downloadTimerId);
 					m_downloadTimerId = -1;
 					DoMapChange(captured);
-					ArmChangeFailureTimer(captured, 30.0f);
+					if (fromVote)
+					{
+						ArmChangeFailureTimer(captured, 30.0f);
+					}
 					break;
 				case mmu::workshop::PendingDownload::Status::TimedOut:
 					g_Timers.KillTimer(m_downloadTimerId);
@@ -793,7 +835,14 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 					MMU_LOG_WARN("Workshop map '%s' (%llu) did not download in time, staying on the current map.\n", captured.mapName.c_str(),
 								 static_cast<unsigned long long>(fileId));
 					RTV_ChatToAllT("%s could not be downloaded in time. Staying on the current map.", MapLabel(captured));
-					AbortChange();
+					if (fromVote)
+					{
+						AbortChange();
+					}
+					else
+					{
+						m_pendingDownload.Clear();
+					}
 					break;
 				case mmu::workshop::PendingDownload::Status::Announce:
 					if (m_pendingDownload.Percent(g_RTVSteamAPI, percent))
@@ -807,6 +856,7 @@ void MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 			}
 		},
 		1.0f);
+	return true;
 }
 
 // Hands the map back to the players rather than leaving a change half-scheduled.
@@ -848,6 +898,7 @@ void MapVoteManager::ArmChangeFailureTimer(const MapEntry &entry, float timeout)
 			}
 
 			MMU_LOG_WARN("Map change to '%s' failed %d time(s) - resetting vote state.\n", entry.mapName.c_str(), kMaxChangeAttempts);
+			ClearNextLevelIfNamed(entry.mapName.c_str());
 			m_changeScheduled = false;
 			m_voteActive = false;
 			g_RTVManager.OnVoteEndedNoVotes();

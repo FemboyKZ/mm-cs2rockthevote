@@ -221,6 +221,10 @@
 		"en"	"{red}This map has no time limit to extend."
 	}
 	// Workshop downloads
+	"%s is not installed on this server."
+	{
+		"en"	"{red}%s is not installed on this server."
+	}
 	"Downloading %s, the map will change once it finishes."
 	{
 		"en"	"{green}Downloading {gold}%s{green}, the map will change once it finishes."

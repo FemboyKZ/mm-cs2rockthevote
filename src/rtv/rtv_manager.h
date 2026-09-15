@@ -41,6 +41,11 @@ public:
 	// Notify the RTV system that a map change has been scheduled
 	void OnMapChangeScheduled();
 
+	// An admin cancelled a running vote or a scheduled change.
+	// Every gate goes back to where it was before the vote, including the end-of-map latch,
+	// otherwise the map has no way left to end.
+	void OnVoteCancelled();
+
 	// Re-arm the end-of-map vote after an extension.
 	// Stays latched when the extension was shorter than EndOfMapVote.TriggerTime, which would re-fire at once.
 	void OnMapExtended();

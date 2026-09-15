@@ -61,6 +61,13 @@ void RTVManager::OnMapChangeScheduled()
 	StopReminderTimer();
 }
 
+void RTVManager::OnVoteCancelled()
+{
+	OnVoteEndedNoVotes();
+	m_endOfMapVoteTriggered = false;
+	m_nextEomCheckTime = 0.0f;
+}
+
 void RTVManager::OnMapExtended()
 {
 	float timeLeft = 0.0f;
@@ -208,6 +215,12 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 	// Nothing to do if a vote already started, a change is queued, or we already
 	// fired the end-of-map vote this map.
 	if (m_endOfMapVoteTriggered || m_voteStarted || m_mapChangeScheduled)
+	{
+		return;
+	}
+
+	// On an empty server the vote would end with "Nobody voted" and never fire again this map.
+	if (g_RTVPlayerManager.GetHumanPlayerCount() <= 0)
 	{
 		return;
 	}

@@ -35,6 +35,9 @@ public: // KHook hook handlers
 	KHook::Return<void> Hook_GameServerSteamAPIActivated(IServerGameDLL *);
 
 private:
+	// A late load misses OnLevelInit and every client's connect, so both are replayed from the running server.
+	void OnLateLoad();
+
 	KHook::Virtual<IServerGameDLL, void, bool, bool, bool> m_GameFrame;
 	KHook::Virtual<IServerGameDLL, void> m_GameServerSteamAPIActivated;
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, const char *, uint64, const char *, const char *, bool> m_OnClientConnected;

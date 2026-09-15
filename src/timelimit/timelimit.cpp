@@ -155,7 +155,8 @@ void RTVTimeLimit::ApplyRoundTimeCap()
 	if (OwnsRoundTimeCap())
 	{
 		// Installed already, so a config reload only changes the value we point at.
-		if (minutes > 0)
+		// Below the vanilla cap the install path would not have raised anything, so give the engine's max back instead.
+		if (minutes > kVanillaRoundTimeCap)
 		{
 			s_capValue->m_fl32Value = static_cast<float>(minutes);
 		}
