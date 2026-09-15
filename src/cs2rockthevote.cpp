@@ -633,9 +633,24 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 	return {KHook::Action::Ignore};
 }
 
+// Client-executable, so a client that isn't put in server yet can reach these the same way it could reach chat.
+static bool RTV_ConsoleCallerReady(int slot)
+{
+	if (slot < 0)
+	{
+		return true;
+	}
+	const PlayerInfo *player = g_RTVPlayerManager.GetPlayer(slot);
+	return player && player->connected && player->inGame;
+}
+
 CON_COMMAND_F(mm_rtv, "Rock the vote for a map change", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	if (!RTV_AdminBridge_CanUseCommand(slot, "rtv", 0))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -659,6 +674,10 @@ CON_COMMAND_F(mm_rtv, "Rock the vote for a map change", FCVAR_RELEASE | FCVAR_CL
 CON_COMMAND_F(mm_nominate, "Nominate a map for the next vote", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	if (!g_RTVConfig.nominate.enabled)
 	{
 		RTV_PrintToChatT(slot, "Nominations are disabled.");
@@ -671,6 +690,10 @@ CON_COMMAND_F(mm_nominate, "Nominate a map for the next vote", FCVAR_RELEASE | F
 CON_COMMAND_F(mm_listmaps, "List available maps to your console", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	if (!RTV_AdminBridge_CanUseCommand(slot, "listmaps", 0))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -682,6 +705,10 @@ CON_COMMAND_F(mm_listmaps, "List available maps to your console", FCVAR_RELEASE 
 CON_COMMAND_F(mm_reloadmaps, "Reload the map list from disk", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", 0))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -693,6 +720,10 @@ CON_COMMAND_F(mm_reloadmaps, "Reload the map list from disk", FCVAR_RELEASE | FC
 CON_COMMAND_F(mm_revote, "Change your vote in an active map vote", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
@@ -704,6 +735,10 @@ CON_COMMAND_F(mm_revote, "Change your vote in an active map vote", FCVAR_RELEASE
 CON_COMMAND_F(mm_extend, "Admin: extend the current map's time limit", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	const std::string &permName = g_RTVConfig.extend.permission;
 	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
@@ -717,6 +752,10 @@ CON_COMMAND_F(mm_extend, "Admin: extend the current map's time limit", FCVAR_REL
 CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	const std::string &permName = g_RTVConfig.mapchooser.permission;
 	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
@@ -730,6 +769,10 @@ CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE
 CON_COMMAND_F(mm_reloadrtv, "Admin: reload cs2rtv config from disk", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
 	const std::string &permName = g_RTVConfig.general.adminPermission;
 	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
