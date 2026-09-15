@@ -188,10 +188,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	if (cfg.chatChoiceReminder && cfg.chatChoiceInterval > 0)
 	{
 		float iv = static_cast<float>(cfg.chatChoiceInterval);
-		m_reminderTimerId = g_Timers.CreateTimer(
-			iv,
-			[this]() { SendChoiceReminders(); },
-			iv);
+		m_reminderTimerId = g_Timers.CreateTimer(iv, [this]() { SendChoiceReminders(); }, iv);
 	}
 
 	m_verifyTimerId = g_Timers.CreateTimer(duration, [this]() { FinishVote(); });
@@ -218,7 +215,7 @@ void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, b
 		}
 
 		VoteOption opt;
-		opt.entry = e;
+		opt.entry = *e;
 		opt.label = g_MapLister.GetDisplayLabel(*e);
 		opt.announce = opt.label;
 		m_options.push_back(opt);
@@ -232,7 +229,7 @@ void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, b
 		for (auto *e : randoms)
 		{
 			VoteOption opt;
-			opt.entry = e;
+			opt.entry = *e;
 			opt.label = g_MapLister.GetDisplayLabel(*e);
 			opt.announce = opt.label;
 			m_options.push_back(opt);
@@ -561,8 +558,26 @@ void MapVoteManager::FinishVote()
 			int pct = (maxVotes * 100) / total;
 			if (pct < minPct && g_RTVConfig.mapvote.runoffEnabled)
 			{
+				// The leader alone would make a one-option runoff, so the runner-up joins it.
+				// Below 100% some other option has votes, so a runner-up always exists.
+				int secondVotes = 0;
+				for (const auto &opt : m_options)
+				{
+					if (opt.votes < maxVotes)
+					{
+						secondVotes = (std::max)(secondVotes, opt.votes);
+					}
+				}
+				std::vector<int> runoffIndices = topIndices;
+				for (int i = 0; i < static_cast<int>(m_options.size()); i++)
+				{
+					if (secondVotes > 0 && m_options[i].votes == secondVotes)
+					{
+						runoffIndices.push_back(i);
+					}
+				}
 				RTV_ChatToAllT("No map reached %d%% - starting runoff vote.", minPct);
-				StartRunoff(topIndices);
+				StartRunoff(runoffIndices);
 				return;
 			}
 		}
@@ -591,14 +606,14 @@ void MapVoteManager::FinishVote()
 		return;
 	}
 
-	if (winner.kind == VoteOptionKind::NoChange || !winner.entry)
+	if (winner.kind == VoteOptionKind::NoChange || winner.entry.mapName.empty())
 	{
 		RTV_ChatToAllT("The map will NOT be changed.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
 
-	g_CS2RTVForwards.FireOnMapVoteEnd(winner.entry->mapName.c_str(), m_isRTV);
+	g_CS2RTVForwards.FireOnMapVoteEnd(winner.entry.mapName.c_str(), m_isRTV);
 
 	int delaySecs = g_RTVConfig.mapvote.mapChangeDelay;
 	RTV_ChatToAllT("%s won the vote! Map changing in %d second(s).", winner.label.c_str(), delaySecs);
@@ -677,10 +692,7 @@ void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)
 	if (cfg.chatChoiceReminder && cfg.chatChoiceInterval > 0)
 	{
 		float iv = static_cast<float>(cfg.chatChoiceInterval);
-		m_reminderTimerId = g_Timers.CreateTimer(
-			iv,
-			[this]() { SendChoiceReminders(); },
-			iv);
+		m_reminderTimerId = g_Timers.CreateTimer(iv, [this]() { SendChoiceReminders(); }, iv);
 	}
 
 	m_verifyTimerId = g_Timers.CreateTimer(duration, [this]() { FinishVote(); });
@@ -692,7 +704,7 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 	m_changeAttempts = 0;
 	g_RTVManager.OnMapChangeScheduled();
 
-	MapEntry captured = *winner.entry;
+	MapEntry captured = winner.entry;
 
 	// Covers the map ending on its own before the changelevel below lands,
 	// and stops cs2kz-metamod filling nextlevel with the launch map instead of the winner.
@@ -851,8 +863,8 @@ void MapVoteManager::NotifyMapChangeSucceeded()
 
 void MapVoteManager::ExecuteMapChange(const VoteOption &winner)
 {
-	if (winner.entry)
+	if (!winner.entry.mapName.empty())
 	{
-		DoMapChange(*winner.entry);
+		DoMapChange(winner.entry);
 	}
 }
