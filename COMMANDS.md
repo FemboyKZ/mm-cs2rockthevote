@@ -19,21 +19,23 @@ The server console always has full access.
 
 ## Commands
 
-| Chat                | Console         | Default flag                          | Description                                               |
-| ------------------- | --------------- | ------------------------------------- | --------------------------------------------------------- |
-| `!rtv`              | `mm_rtv`        | open                                  | Rock the vote for a map change                            |
-| `!nominate`, `!nom` | `mm_nominate`   | `nominate.permission`                 | Nominate a map                                            |
-| -                   | -               | `nominate.externalNominatePermission` | Sub-permission for nominating off-list / workshop-ID maps |
-| `!mapmenu`, `!mm`   | `mm_mapmenu`    | `mapchooser.permission`               | Admin: open immediate map-change menu                     |
-| `!listmaps`         | `mm_listmaps`   | open                                  | List available maps                                       |
-| `!reloadmaps`       | `mm_reloadmaps` | open                                  | Reload the map list from disk                             |
-| `!revote`           | `mm_revote`     | open                                  | Change your vote in an active vote                        |
-| `!extend [minutes]` | `mm_extend`     | `extend.permission`                   | Admin: add time to the current map (config default)       |
-| `!reloadrtv`        | `mm_reloadrtv`  | `general.adminPermission`             | Admin: reload cs2rtv config                               |
+| Chat                | Console         | Default flag                          | Description                                            |
+| ------------------- | --------------- | ------------------------------------- | ------------------------------------------------------ |
+| `!rtv`              | `mm_rtv`        | open                                  | Rock the vote for a map change                         |
+| `!nominate`, `!nom` | `mm_nominate`   | `nominate.permission`                 | Nominate a map                                         |
+| -                   | -               | `nominate.externalNominatePermission` | `nominate_ext`: nominating off-list / workshop-ID maps |
+| `!mapmenu`, `!mm`   | `mm_mapmenu`    | `mapchooser.permission`               | Admin: open immediate map-change menu                  |
+| `!listmaps`         | `mm_listmaps`   | open                                  | List available maps                                    |
+| `!reloadmaps`       | `mm_reloadmaps` | `general.adminPermission`             | Admin: reload the map list from disk                   |
+| `!revote`           | `mm_revote`     | open                                  | Change your vote in an active vote                     |
+| `!extend [minutes]` | `mm_extend`     | `extend.permission`                   | Admin: add time to the current map (config default)    |
+| `!reloadrtv`        | `mm_reloadrtv`  | `general.adminPermission`             | Admin: reload cs2rtv config                            |
 
 Config permissions in `cfg/cs2rtv/core.cfg` accept a flag letter (`b`), a named flag (`generic`, `changemap`, `root`, ...), or empty for open.
 
 That value becomes the command's default flag; an `admin_overrides.cfg` entry overrides it.
+
+Override keys are the chat names without `!`. `nom` and `mm` use `nominate` and `mapmenu`. The command group is `@cs2rtv`.
 
 ## admin_overrides.cfg examples
 
