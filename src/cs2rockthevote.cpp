@@ -239,7 +239,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 	mmu::log::Init("CS2RTV", "cs2rockthevote");
 
-	mmu::http::SetUserAgent("CS2RTV/1.0");
+	mmu::http::SetUserAgent((std::string("CS2RTV/") + PLUGIN_FULL_VERSION).c_str());
 	mmu::http::ResetShutdownLatch();
 
 	MMU_GET_CORE_INTERFACES();
