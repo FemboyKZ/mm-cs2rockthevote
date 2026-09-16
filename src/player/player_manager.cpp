@@ -40,6 +40,19 @@ PlayerInfo *RTVPlayerManager::GetPlayer(int slot)
 	return m_players.Get(slot);
 }
 
+const char *RTVPlayerManager::DisplayName(int slot)
+{
+	// Live from the controller, the stored connect-time name misses a rename.
+	CCSPlayerController *controller = CCSPlayerController::FromSlot(slot);
+	const char *live = controller ? controller->GetPlayerName() : nullptr;
+	if (live && *live)
+	{
+		return live;
+	}
+	PlayerInfo *p = m_players.Get(slot);
+	return (p && !p->name.empty()) ? p->name.c_str() : "Unknown";
+}
+
 int RTVPlayerManager::GetHumanPlayerCount() const
 {
 	return m_players.Count([](const PlayerInfo &p) { return p.connected && p.inGame && !p.fakePlayer; });

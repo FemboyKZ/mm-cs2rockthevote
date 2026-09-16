@@ -164,8 +164,7 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	m_votes.insert(slot);
 	int count = GetVoteCount();
 
-	PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(slot);
-	const char *name = pi ? pi->name.c_str() : "Unknown";
+	const char *name = g_RTVPlayerManager.DisplayName(slot);
 
 	RTV_ChatToAllT("%s wants to rock the vote. (%d/%d needed - type !rtv to vote)", name, count, required);
 

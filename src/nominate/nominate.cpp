@@ -382,8 +382,7 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 	playerList.push_back(mapName);
 	m_nomCounts[mapName]++;
 
-	PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(slot);
-	const char *pName = pi ? pi->name.c_str() : "Unknown";
+	const char *pName = g_RTVPlayerManager.DisplayName(slot);
 	RTV_ChatToAllT("%s nominated %s for the next map.", pName, display.c_str());
 }
 

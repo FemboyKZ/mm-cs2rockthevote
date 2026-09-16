@@ -34,6 +34,9 @@ public:
 
 	PlayerInfo *GetPlayer(int slot);
 
+	// Name for announcements. Never null.
+	const char *DisplayName(int slot);
+
 	// Number of connected, non-fake human players
 	int GetHumanPlayerCount() const;
 

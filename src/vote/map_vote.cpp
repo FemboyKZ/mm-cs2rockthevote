@@ -412,8 +412,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 							{
 								m_options[capturedIndex].votes = (std::max)(0, m_options[capturedIndex].votes - 1);
 								m_playerVotes.erase(vit);
-								PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(playerSlot);
-								const char *name = pi ? pi->name.c_str() : "Unknown";
+								const char *name = g_RTVPlayerManager.DisplayName(playerSlot);
 								RTV_ChatToAllT("%s removed their vote for %s", name, m_options[capturedIndex].announce.c_str());
 								return;
 							}
@@ -427,8 +426,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 						}
 						m_options[capturedIndex].votes++;
 
-						PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(playerSlot);
-						const char *name = pi ? pi->name.c_str() : "Unknown";
+						const char *name = g_RTVPlayerManager.DisplayName(playerSlot);
 						RTV_ChatToAllT("%s voted for %s", name, m_options[capturedIndex].announce.c_str());
 
 						// Auto-shorten: if all eligible players voted and >5s remain, end in 5s
