@@ -155,7 +155,7 @@ class CS2RTVAPI : public ICS2RTV
 		{
 			return "";
 		}
-		// Built per call, so one buffer backs the returned pointer. The reset colors match NominateManager's list.
+		// Reset colors as in NominateManager's list.
 		static std::string label;
 		label = g_MapLister.GetDisplayLabel(maps[index], true, disabled ? "\x08" : "\x01");
 		return label.c_str();
