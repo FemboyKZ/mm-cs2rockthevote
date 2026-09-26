@@ -147,6 +147,19 @@ class CS2RTVAPI : public ICS2RTV
 	{
 		return g_MapVoteManager.GetCurrentMap();
 	}
+
+	const char *GetMapMenuLabel(int index, bool disabled) override
+	{
+		const auto &maps = g_MapLister.GetMaps();
+		if (index < 0 || index >= static_cast<int>(maps.size()))
+		{
+			return "";
+		}
+		// Built per call, so one buffer backs the returned pointer. The reset colors match NominateManager's list.
+		static std::string label;
+		label = g_MapLister.GetDisplayLabel(maps[index], true, disabled ? "\x08" : "\x01");
+		return label.c_str();
+	}
 };
 
 static CS2RTVAPI g_CS2RTVAPI;
