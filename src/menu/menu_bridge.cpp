@@ -3,13 +3,9 @@
 #include "src/common.h"
 #include "src/config/config.h"
 
-#include "interfaces/cs2menus/ics2menus.h"
-
 #include <vector>
 
 RTVMenuBridge g_RTVMenus;
-
-RTVMenuBridge::RTVMenuBridge() : m_menus(CS2MENUS_INTERFACE) {}
 
 void RTVMenuBridge::Init()
 {
@@ -21,11 +17,6 @@ void RTVMenuBridge::Refresh()
 	switch (m_menus.Refresh())
 	{
 		case mmu::BridgeChange::Unloaded:
-			// Handles belonged to the unloaded instance.
-			for (int i = 0; i <= MAXPLAYERS; i++)
-			{
-				m_extHandle[i] = kInvalidMenuHandle;
-			}
 			MMU_LOG_INFO("mm-cs2menus unloaded - using built-in chat menus.\n");
 			break;
 		case mmu::BridgeChange::Loaded:
@@ -38,25 +29,7 @@ void RTVMenuBridge::Refresh()
 
 void RTVMenuBridge::Shutdown()
 {
-	// meta clear unloads plugins without firing OnPluginUnload, so the cached pointer can already be a freed library.
-	if (m_menus.Revalidate())
-	{
-		// Cancel everything we displayed so the menu plugin doesn't keep lambdas that capture our (about-to-unload) code.
-		// CancelMenu fires the end callback, which clears the handle and destroys the menu.
-		for (int i = 0; i <= MAXPLAYERS; i++)
-		{
-			if (m_extHandle[i] != kInvalidMenuHandle)
-			{
-				m_menus->CancelMenu(i);
-			}
-		}
-	}
-
 	m_menus.Shutdown();
-	for (int i = 0; i <= MAXPLAYERS; i++)
-	{
-		m_extHandle[i] = kInvalidMenuHandle;
-	}
 }
 
 bool RTVMenuBridge::Available() const
@@ -122,34 +95,14 @@ void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
 
 	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
 
-	// One-shot: free the menu when the display ends, and forget the handle.
-	m_menus->SetMenuEndCallback(h,
-								[this, onExit = def.onExit](MenuHandle menu, int s, MenuEndReason reason)
-								{
-									if (s >= 0 && s <= MAXPLAYERS && m_extHandle[s] == menu)
-									{
-										m_extHandle[s] = kInvalidMenuHandle;
-									}
-									if (m_menus)
-									{
-										m_menus->DestroyMenu(menu);
-									}
-									if (reason == MenuEndReason::Exit && onExit)
-									{
-										onExit(s);
-									}
-								});
-
-	// Record before DisplayMenu:
-	// displaying replaces any current menu for the slot and fires its end callback, which must not clear the handle we just set.
-	m_extHandle[slot] = h;
-	if (!m_menus->DisplayMenu(h, slot, def.duration))
-	{
-		// Refused (a host menu owns the slot), so no end callback will ever free it
-		// and its lambdas would outlive this plugin.
-		m_extHandle[slot] = kInvalidMenuHandle;
-		m_menus->DestroyMenu(h);
-	}
+	m_menus.Present(slot, h, def.duration,
+					[onExit = def.onExit](MenuHandle, int s, MenuEndReason reason)
+					{
+						if (reason == MenuEndReason::Exit && onExit)
+						{
+							onExit(s);
+						}
+					});
 }
 
 void RTVMenuBridge::CloseMenu(int slot)
