@@ -25,6 +25,7 @@
 #include "mmu/entity/ccsplayercontroller.h"
 #include "mmu/entity/entity_system.h"
 #include "mmu/chat_command.h"
+#include "mmu/command_args.h"
 #include "mmu/cvarquery.h"
 #include "mmu/gamesystem.h"
 #include "mmu/log.h"
@@ -494,6 +495,26 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CP
 	return {KHook::Action::Ignore};
 }
 
+// The value of a one-key command like !nominate, typed bare or as key=, "" when left out.
+// False after telling the player what was wrong.
+static bool RTV_MainArg(int slot, const std::string &line, const char *key, std::string &value)
+{
+	mmu::Args args;
+	std::string what;
+	switch (mmu::ParseArgs(line, {{{key}}, key}, args, &what))
+	{
+		case mmu::ArgError::None:
+			value = args.GetOr(key, "");
+			return true;
+		case mmu::ArgError::UnknownKey:
+			RTV_PrintToChatT(slot, "Unknown key %s=.", what.c_str());
+			return false;
+		default:
+			RTV_PrintToChatT(slot, "A quote is left open.");
+			return false;
+	}
+}
+
 KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args)
 {
 	// The registered name, since the typed Arg(0) can be "SAY", which still dispatches to say.
@@ -552,7 +573,6 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 	const KHook::Action cmdReturn = chatCmd.silent ? KHook::Action::Supersede : KHook::Action::Ignore;
 
 	const char *cmdBuf = chatCmd.name.c_str();
-	const char *argBuf = chatCmd.argLine.c_str();
 
 	if (strcmp(cmdBuf, "rtv") == 0)
 	{
@@ -579,13 +599,14 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 
 	if (strcmp(cmdBuf, "nominate") == 0 || strcmp(cmdBuf, "nom") == 0)
 	{
-		if (g_RTVConfig.nominate.enabled)
-		{
-			g_NominateManager.CommandNominate(slot, argBuf);
-		}
-		else
+		std::string map;
+		if (!g_RTVConfig.nominate.enabled)
 		{
 			RTV_PrintToChatT(slot, "Nominations are disabled.");
+		}
+		else if (RTV_MainArg(slot, chatCmd.argLine, "map", map))
+		{
+			g_NominateManager.CommandNominate(slot, map.c_str());
 		}
 		return {cmdReturn};
 	}
@@ -637,7 +658,11 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 			return {cmdReturn};
 		}
-		RTV_CommandExtend(slot, atoi(argBuf));
+		std::string minutes;
+		if (RTV_MainArg(slot, chatCmd.argLine, "time", minutes))
+		{
+			RTV_CommandExtend(slot, atoi(minutes.c_str()));
+		}
 		return {cmdReturn};
 	}
 
@@ -730,8 +755,11 @@ CON_COMMAND_F(mm_nominate, "Nominate a map for the next vote", FCVAR_RELEASE | F
 		RTV_PrintToChatT(slot, "Nominations are disabled.");
 		return;
 	}
-	const char *arg = args.ArgC() > 1 ? args[1] : "";
-	g_NominateManager.CommandNominate(slot, arg);
+	std::string map;
+	if (RTV_MainArg(slot, args.ArgS(), "map", map))
+	{
+		g_NominateManager.CommandNominate(slot, map.c_str());
+	}
 }
 
 CON_COMMAND_F(mm_listmaps, "List available maps to your console", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
@@ -795,7 +823,11 @@ CON_COMMAND_F(mm_extend, "Admin: extend the current map's time limit", FCVAR_REL
 		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
 		return;
 	}
-	RTV_CommandExtend(slot, args.ArgC() > 1 ? atoi(args[1]) : 0);
+	std::string minutes;
+	if (RTV_MainArg(slot, args.ArgS(), "time", minutes))
+	{
+		RTV_CommandExtend(slot, atoi(minutes.c_str()));
+	}
 }
 
 CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)

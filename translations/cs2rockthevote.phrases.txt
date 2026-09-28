@@ -8,6 +8,14 @@
 	{
 		"en"	"{red}You don't have permission to use this command."
 	}
+	"Unknown key %s=."
+	{
+		"en"	"{red}Unknown key {default}%s={red}."
+	}
+	"A quote is left open."
+	{
+		"en"	"{red}A quote is left open."
+	}
 
 	// RTV
 	"RTV is currently disabled."

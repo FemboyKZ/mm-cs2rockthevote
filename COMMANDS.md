@@ -4,6 +4,9 @@ Every command can be typed in chat (`!cmd`) or run from the console as `mm_cmd`.
 
 The server console always has full access.
 
+Arguments are `key=value` pairs like cs2kz's, and a command's one argument can be typed without its key:
+`!nominate de_dust2` is `!nominate map=de_dust2`, `!extend 15` is `!extend time=15`.
+
 ## Permissions
 
 **Permission check order:**
