@@ -14,11 +14,11 @@ on:
       - "README.md"
 
 jobs:
-  build-linux:
-    name: Linux
+  build-steamrt3:
+    name: SteamRT3
     runs-on: ubuntu-latest
     container:
-      image: registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest
+      image: ghcr.io/femboykz/build-containers:steamrt3
 
     steps:
       - name: Checkout
@@ -32,12 +32,6 @@ jobs:
           git config --global --add safe.directory $GITHUB_WORKSPACE
           git submodule update --init --recursive metamod-source hl2sdk-cs2
           git submodule update --init
-
-      - name: Install dependencies
-        run: |
-          git config --global --add safe.directory $GITHUB_WORKSPACE
-          git clone https://github.com/alliedmodders/ambuild.git
-          cd ambuild && python3 setup.py install
 
       - name: Configure
         run: |
@@ -64,7 +58,54 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: cs2rtv-linux
+          name: cs2rtv-steamrt3
+          path: staging
+
+  build-steamrt4:
+    name: SteamRT4
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/femboykz/build-containers:steamrt4
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: false
+          fetch-depth: 0
+
+      - name: Init submodules
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          git submodule update --init --recursive metamod-source hl2sdk-cs2
+          git submodule update --init
+
+      - name: Configure
+        run: |
+          mkdir -p build && cd build
+          python3 ../configure.py \
+            --sdks cs2 \
+            --targets x86_64 \
+            --mms_path ../metamod-source \
+            --hl2sdk-manifests ../metamod-source/hl2sdk-manifests \
+            --enable-optimize
+
+      - name: Build
+        working-directory: build
+        run: ambuild
+
+      - name: Stage package
+        run: |
+          mkdir -p staging/addons
+          cp -r build/package/addons/* staging/addons/
+          mkdir -p staging/cfg/cs2rtv
+          cp configs/core.cfg staging/cfg/cs2rtv/
+          cp configs/maplist.txt staging/cfg/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cs2rtv-steamrt4
           path: staging
 
   build-windows:
@@ -130,17 +171,23 @@ jobs:
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [build-linux, build-windows]
+    needs: [build-steamrt3, build-steamrt4, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Download Linux artifact
+      - name: Download SteamRT3 artifact
         uses: actions/download-artifact@v8
         with:
-          name: cs2rtv-linux
-          path: cs2rtv-linux
+          name: cs2rtv-steamrt3
+          path: cs2rtv-steamrt3
+
+      - name: Download SteamRT4 artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: cs2rtv-steamrt4
+          path: cs2rtv-steamrt4
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v8
@@ -150,13 +197,15 @@ jobs:
 
       - name: Create archives
         run: |
-          cd cs2rtv-linux && zip -r ../cs2rtv-${{ github.ref_name }}-linux.zip . && cd ..
+          cd cs2rtv-steamrt3 && zip -r ../cs2rtv-${{ github.ref_name }}-steamrt3.zip . && cd ..
+          cd cs2rtv-steamrt4 && zip -r ../cs2rtv-${{ github.ref_name }}-steamrt4.zip . && cd ..
           cd cs2rtv-windows && zip -r ../cs2rtv-${{ github.ref_name }}-windows.zip . && cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            cs2rtv-${{ github.ref_name }}-linux.zip
+            cs2rtv-${{ github.ref_name }}-steamrt3.zip
+            cs2rtv-${{ github.ref_name }}-steamrt4.zip
             cs2rtv-${{ github.ref_name }}-windows.zip
           generate_release_notes: true

@@ -1,5 +1,7 @@
 #include "timer_system.h"
 
+#include <algorithm>
+
 RTVTimerSystem g_Timers;
 
 int RTVTimerSystem::CreateTimer(float delay, TimerCallback callback, float interval)
