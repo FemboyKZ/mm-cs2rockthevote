@@ -103,6 +103,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->mapvote.enableRevote = (value != "0");
 		}
+		else if (k == "votenotice")
+		{
+			cfg->mapvote.voteNotice = (value != "0");
+		}
 		else if (k == "mapchangedelay")
 		{
 			cfg->mapvote.mapChangeDelay = std::atoi(value.c_str());

@@ -114,6 +114,7 @@ void MapVoteManager::Reset()
 	for (int i = 0; i <= MAXPLAYERS; i++)
 	{
 		g_RTVMenus.CloseMenu(i);
+		g_RTVMenus.HideNotice(i);
 	}
 }
 
@@ -350,8 +351,59 @@ void MapVoteManager::SendVoteMenuToAll()
 		{
 			continue;
 		}
-		ShowVoteMenuToPlayer(i);
+		PromptPlayer(i);
 	}
+}
+
+// The no-change and extend options carry a phrase key as their label, so translate them per viewer.
+// Real map options use their language-neutral display name.
+static std::string OptionLabel(int slot, const VoteOption &opt)
+{
+	if (opt.kind == VoteOptionKind::Map)
+	{
+		return opt.label;
+	}
+	std::string label = RTV_Translate(slot, opt.label.c_str());
+	if (opt.kind == VoteOptionKind::Extend)
+	{
+		char extendLabel[128];
+		snprintf(extendLabel, sizeof(extendLabel), label.c_str(), opt.extendMinutes);
+		label = extendLabel;
+	}
+	return label;
+}
+
+void MapVoteManager::PromptPlayer(int slot)
+{
+	if (!ShowVoteNotice(slot))
+	{
+		ShowVoteMenuToPlayer(slot);
+	}
+}
+
+bool MapVoteManager::ShowVoteNotice(int slot)
+{
+	if (!g_RTVConfig.mapvote.voteNotice)
+	{
+		return false;
+	}
+
+	CGlobalVars *globals = GetGameGlobals();
+	float curtime = globals ? globals->curtime : 0.0f;
+
+	std::string text;
+	std::string hint = RTV_Translate(slot, "Type !vote in chat, or hold TAB and click.");
+	auto it = m_playerVotes.find(slot);
+	if (it != m_playerVotes.end())
+	{
+		char vote[160];
+		snprintf(vote, sizeof(vote), RTV_Translate(slot, "Your vote: %s").c_str(), OptionLabel(slot, m_options[it->second]).c_str());
+		text = vote;
+		hint = g_RTVConfig.mapvote.enableRevote ? RTV_Translate(slot, "Type !revote in chat to change it.") : "";
+	}
+	// A notice without time left would never go away.
+	return g_RTVMenus.ShowNotice(slot, RTV_Translate(slot, "Vote for next map"), text, hint, (std::max)(m_voteEndTime - curtime, 1.0f),
+								 [this](int s) { ShowVoteMenuToPlayer(s); });
 }
 
 void MapVoteManager::ShowVoteMenuToPlayer(int slot)
@@ -372,6 +424,25 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 	def.onExit = [this](int s) { m_dismissed.insert(s); };
 	m_dismissed.erase(slot);
 
+	// A panorama viewer gets the tiers in columns, as in the map list.
+	def.table = g_RTVMenus.UsesPanorama(slot);
+	const int tierCells = g_MapLister.TierCells();
+	if (def.table)
+	{
+		bool classic = false;
+		bool vanilla = false;
+		MapLister::TierModes(classic, vanilla);
+		def.columns.push_back({RTV_Translate(slot, "Map"), 0, 0});
+		if (classic)
+		{
+			def.columns.push_back({"CKZ", tierCells, 0});
+		}
+		if (vanilla)
+		{
+			def.columns.push_back({"VNL", tierCells, 0});
+		}
+	}
+
 	for (int i = 0; i < static_cast<int>(m_options.size()); i++)
 	{
 		const VoteOption &opt = m_options[i];
@@ -382,16 +453,9 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 			alreadyVoted = true;
 		}
 
-		// The no-change and extend options carry a phrase key as their label, so translate them per viewer.
-		// Real map options use their language-neutral display name.
-		std::string optLabel = opt.kind == VoteOptionKind::Map ? opt.label : RTV_Translate(slot, opt.label.c_str());
-
-		if (opt.kind == VoteOptionKind::Extend)
-		{
-			char extendLabel[128];
-			snprintf(extendLabel, sizeof(extendLabel), optLabel.c_str(), opt.extendMinutes);
-			optLabel = extendLabel;
-		}
+		std::vector<std::string> cells;
+		const bool mapRow = def.table && opt.kind == VoteOptionKind::Map;
+		std::string optLabel = mapRow ? g_MapLister.GetNameAndCells(opt.entry, tierCells, cells) : OptionLabel(slot, opt);
 
 		char label[128];
 		if (alreadyVoted)
@@ -428,6 +492,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 								m_playerVotes.erase(vit);
 								const char *name = g_RTVPlayerManager.DisplayName(playerSlot);
 								RTV_ChatToAllT("%s removed their vote for %s", name, m_options[capturedIndex].announce.c_str());
+								ShowVoteNotice(playerSlot);
 								return;
 							}
 							// Switching vote
@@ -442,6 +507,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 
 						const char *name = g_RTVPlayerManager.DisplayName(playerSlot);
 						RTV_ChatToAllT("%s voted for %s", name, m_options[capturedIndex].announce.c_str());
+						ShowVoteNotice(playerSlot);
 
 						// Auto-shorten: if all eligible players voted and >5s remain, end in 5s
 						int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
@@ -458,6 +524,15 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 								g_Timers.KillTimer(m_verifyTimerId);
 								m_verifyTimerId = g_Timers.CreateTimer(5.0f, [this]() { FinishVote(); });
 								RTV_ChatToAllT("All players voted! Vote ending in 5 second(s).");
+								// The notices count down to the old end.
+								for (int i = 0; i <= MAXPLAYERS; i++)
+								{
+									PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
+									if (pi && pi->connected && !pi->fakePlayer)
+									{
+										ShowVoteNotice(i);
+									}
+								}
 							}
 							else
 							{
@@ -467,6 +542,11 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 							}
 						}
 					});
+		if (mapRow)
+		{
+			def.items.back().cells = std::move(cells);
+			def.items.back().details = g_MapLister.GetTierDetails(opt.entry);
+		}
 	}
 
 	g_RTVMenus.ShowMenu(slot, def);
@@ -493,6 +573,16 @@ void MapVoteManager::CommandRevote(int slot)
 		m_playerVotes.erase(it);
 	}
 
+	ShowVoteMenuToPlayer(slot);
+}
+
+void MapVoteManager::CommandVote(int slot)
+{
+	if (!m_voteActive)
+	{
+		RTV_PrintToChatT(slot, "There is no vote in progress.");
+		return;
+	}
 	ShowVoteMenuToPlayer(slot);
 }
 
@@ -536,7 +626,7 @@ void MapVoteManager::SendChoiceReminders()
 		}
 		else if (!g_RTVMenus.HasMenu(i))
 		{
-			ShowVoteMenuToPlayer(i);
+			PromptPlayer(i);
 		}
 	}
 }
@@ -560,6 +650,7 @@ void MapVoteManager::FinishVote()
 	for (int i = 0; i <= MAXPLAYERS; i++)
 	{
 		g_RTVMenus.CloseMenu(i);
+		g_RTVMenus.HideNotice(i);
 	}
 
 	if (m_options.empty())

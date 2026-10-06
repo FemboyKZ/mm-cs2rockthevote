@@ -3,6 +3,7 @@
 #include "src/admin/admin_bridge.h"
 #include "src/config/config.h"
 #include "src/lang/translations.h"
+#include "src/menu/map_menu.h"
 #include "src/menu/menu_bridge.h"
 #include "src/player/player_manager.h"
 #include "src/utils/print_utils.h"
@@ -209,21 +210,12 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 
 	if (!entry && matches.size() > 1)
 	{
-		RTVMenuDef def;
-		def.title = RTV_Translate(slot, "Matching maps");
-		def.exitButton = true;
-		def.closeOnSelect = true;
-		def.mapList = true;
-
-		SortMapsByName(matches);
+		std::vector<std::string> names;
 		for (auto *m : matches)
 		{
-			// By name, since a dynamic add or reload while the menu is open would leave a pointer dangling.
-			std::string capturedMapName = m->mapName;
-			def.AddItem(g_MapLister.GetDisplayLabel(*m),
-						[this, capturedMapName](int playerSlot) { NominateMap(playerSlot, g_MapLister.FindExact(capturedMapName)); });
+			names.push_back(m->mapName);
 		}
-		g_RTVMenus.ShowMenu(slot, def);
+		ShowMapMenu(slot, "Matching maps", std::move(names));
 		return;
 	}
 
@@ -301,59 +293,38 @@ void NominateManager::CommandReloadMaps(int slot)
 
 void NominateManager::ShowNominateMenu(int slot)
 {
-	const auto &maps = g_MapLister.GetMaps();
-	if (maps.empty())
+	ShowMapMenu(slot, "Nominate a map", {});
+}
+
+void NominateManager::ShowMapMenu(int slot, const char *title, std::vector<std::string> only)
+{
+	MapMenu menu;
+	menu.title = title;
+	menu.only = std::move(only);
+	menu.mark = [this](int playerSlot, const MapEntry &e, bool &disabled)
 	{
-		RTV_PrintToChatT(slot, "No maps in the map list.");
-		return;
-	}
-
-	RTVMenuDef def;
-	def.title = RTV_Translate(slot, "Nominate a map");
-	def.exitButton = true;
-	def.closeOnSelect = true;
-	def.mapList = true;
-
-	std::vector<const MapEntry *> sorted;
-	sorted.reserve(maps.size());
-	for (const auto &e : maps)
-	{
-		sorted.push_back(&e);
-	}
-	SortMapsByName(sorted);
-
-	for (const MapEntry *entry : sorted)
-	{
-		const MapEntry &e = *entry;
-		bool disabled = (e.mapName == m_currentMap);
-
-		bool alreadyNom = m_nomCounts.count(e.mapName) > 0;
-		// Disabled rows render grey (\x08); keep trailing text grey after the tier.
-		std::string label = g_MapLister.GetDisplayLabel(e, true, disabled ? "\x08" : "\x01");
-		if (alreadyNom)
+		std::string mark;
+		if (m_nomCounts.count(e.mapName) > 0)
 		{
-			label += " " + RTV_Translate(slot, "[nominated]");
+			mark += " " + RTV_Translate(playerSlot, "[nominated]");
 		}
+		disabled = (e.mapName == m_currentMap);
 		if (disabled)
 		{
-			label += " " + RTV_Translate(slot, "[current]");
+			mark += " " + RTV_Translate(playerSlot, "[current]");
 		}
-
-		std::string capturedMapName = e.mapName;
-		def.AddItem(
-			label,
-			[this, capturedMapName](int playerSlot)
-			{
-				const MapEntry *entry = g_MapLister.FindExact(capturedMapName);
-				if (entry)
-				{
-					NominateMap(playerSlot, entry);
-				}
-			},
-			disabled);
-	}
-
-	g_RTVMenus.ShowMenu(slot, def);
+		return mark;
+	};
+	// By name, a dynamic add or reload while the menu is open leaves the row's copy behind.
+	menu.onPick = [this](int playerSlot, const MapEntry &e)
+	{
+		const MapEntry *entry = g_MapLister.FindExact(e.mapName);
+		if (entry)
+		{
+			NominateMap(playerSlot, entry);
+		}
+	};
+	RTV_ShowMapMenu(slot, menu);
 }
 
 void NominateManager::NominateMap(int slot, const MapEntry *entry)

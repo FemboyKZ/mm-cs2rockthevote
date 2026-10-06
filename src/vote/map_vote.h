@@ -69,6 +69,8 @@ public:
 	// Re-open the vote menu for a player (e.g. they typed !rtv while vote runs)
 	void ShowVoteMenuToPlayer(int slot);
 
+	void CommandVote(int slot);
+
 	// Handle !revote command
 	void CommandRevote(int slot);
 
@@ -109,6 +111,10 @@ private:
 	void BuildOptions(const std::vector<std::string> &nominations, bool includeNoChange);
 	void ApplyExtendWin(int minutes);
 	void SendVoteMenuToAll();
+	// The ballot, or the notice with VoteNotice on.
+	void PromptPlayer(int slot);
+	// False for a player who gets no notice.
+	bool ShowVoteNotice(int slot);
 	void SendCountdownReminder(int secsLeft);
 	void SendChoiceReminders();
 	void FinishVote();

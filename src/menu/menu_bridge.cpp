@@ -48,6 +48,11 @@ bool RTVMenuBridge::UsesChatInput(int slot)
 	return m_menus && m_menus->HasMenu(slot) && m_menus->GetActiveMenuType(slot) == MenuType::Chat;
 }
 
+bool RTVMenuBridge::UsesPanorama(int slot)
+{
+	return slot >= 0 && slot <= MAXPLAYERS && m_menus && m_menus->GetSlotMenuType(slot, g_RTVConfig.menu.Type()) == MenuType::Panorama;
+}
+
 void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 {
 	if (slot < 0 || slot > MAXPLAYERS)
@@ -82,9 +87,61 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 		return;
 	}
 
-	for (const auto &item : def.items)
+	size_t section = 0;
+	for (size_t i = 0; i < def.items.size(); i++)
 	{
-		m_menus->AddItem(h, item.text.c_str(), "", item.disabled);
+		const RTVMenuItem &item = def.items[i];
+		if (section < def.sections.size() && def.sections[section].second == i)
+		{
+			m_menus->AddSection(h, def.sections[section++].first.c_str());
+		}
+		int index = m_menus->AddItem(h, item.text.c_str(), "", item.disabled);
+		auto pointers = [](const std::vector<std::string> &strings)
+		{
+			std::vector<const char *> out;
+			for (const std::string &s : strings)
+			{
+				out.push_back(s.c_str());
+			}
+			return out;
+		};
+		if (!item.cells.empty())
+		{
+			m_menus->SetItemCells(h, index, pointers(item.cells).data(), static_cast<int>(item.cells.size()));
+		}
+		if (!item.details.empty())
+		{
+			m_menus->SetItemDetails(h, index, pointers(item.details).data(), static_cast<int>(item.details.size()));
+		}
+	}
+	for (const RTVMenuChip &chip : def.chips)
+	{
+		std::vector<const char *> options;
+		for (const std::string &option : chip.options)
+		{
+			options.push_back(option.c_str());
+		}
+		m_menus->AddMenuChip(h, chip.label.c_str(), options.data(), static_cast<int>(options.size()), chip.selected);
+	}
+	if (def.onChip)
+	{
+		m_menus->SetMenuChipCallback(h, [onChip = def.onChip](MenuHandle, int s, int chip, int selected) { onChip(s, chip, selected); });
+	}
+	if (!def.emptyText.empty())
+	{
+		m_menus->SetMenuEmpty(h, def.emptyText.c_str(), "", false);
+	}
+	if (def.table)
+	{
+		m_menus->SetMenuLayout(h, MenuLayout::Table);
+	}
+	for (const RTVMenuColumn &column : def.columns)
+	{
+		m_menus->AddMenuColumn(h, column.label.c_str(), column.cells, column.sort);
+	}
+	if (def.onColumn)
+	{
+		m_menus->SetMenuColumnCallback(h, [onColumn = def.onColumn](MenuHandle, int s, int column) { onColumn(s, column); });
 	}
 	m_menus->SetExitButton(h, def.exitButton);
 	m_menus->SetCloseOnSelect(h, def.closeOnSelect);
@@ -117,4 +174,22 @@ void RTVMenuBridge::CloseMenu(int slot)
 bool RTVMenuBridge::HasMenu(int slot)
 {
 	return m_menus && m_menus->HasMenu(slot);
+}
+
+bool RTVMenuBridge::ShowNotice(int slot, const std::string &title, const std::string &text, const std::string &hint, float seconds,
+							   MenuItemCallback onMouse1)
+{
+	if (!UsesPanorama(slot))
+	{
+		return false;
+	}
+	return m_menus.ShowNotice(slot, title.c_str(), text.c_str(), hint.c_str(), seconds, std::move(onMouse1));
+}
+
+void RTVMenuBridge::HideNotice(int slot)
+{
+	if (m_menus)
+	{
+		m_menus.HideNotice(slot);
+	}
 }

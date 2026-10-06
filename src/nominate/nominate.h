@@ -48,6 +48,8 @@ private:
 
 	void NominateMap(int slot, const MapEntry *entry);
 	void ShowNominateMenu(int slot);
+	// `only` these maps by name, all of them when empty.
+	void ShowMapMenu(int slot, const char *title, std::vector<std::string> only);
 };
 
 extern NominateManager g_NominateManager;

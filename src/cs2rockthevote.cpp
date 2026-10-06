@@ -8,6 +8,7 @@
 #include "config/config.h"
 #include "lang/translations.h"
 #include "maplist/map_lister.h"
+#include "menu/map_menu.h"
 #include "menu/menu_bridge.h"
 #include "nominate/nominate.h"
 #include "player/player_manager.h"
@@ -192,45 +193,16 @@ void *CS2RTVPlugin::OnMetamodQuery(const char *iface, int *ret)
 
 static void ShowMapChooserMenu(int slot)
 {
-	const auto &maps = g_MapLister.GetMaps();
-	if (maps.empty())
+	MapMenu menu;
+	menu.title = "Choose a map (immediate change)";
+	menu.onPick = [](int playerSlot, const MapEntry &e)
 	{
-		RTV_PrintToChatT(slot, "No maps in the map list.");
-		return;
-	}
-
-	RTVMenuDef def;
-	def.title = RTV_Translate(slot, "Choose a map (immediate change)");
-	def.exitButton = true;
-	def.closeOnSelect = true;
-	def.mapList = true;
-
-	std::vector<const MapEntry *> sorted;
-	sorted.reserve(maps.size());
-	for (const auto &e : maps)
-	{
-		sorted.push_back(&e);
-	}
-	SortMapsByName(sorted);
-
-	for (const MapEntry *entry : sorted)
-	{
-		const MapEntry &e = *entry;
-		std::string display = g_MapLister.GetDisplayLabel(e);
-		// Capture a value copy of the entry so we're not holding a pointer into
-		// m_maps, which can reallocate (AddDynamicMap) or be cleared (Reload).
-		MapEntry entryCopy = e;
-		def.AddItem(display,
-					[entryCopy](int playerSlot)
-					{
-						if (!g_MapVoteManager.ChangeMapNow(entryCopy))
-						{
-							RTV_PrintToChatT(playerSlot, "%s is not installed on this server.", entryCopy.mapName.c_str());
-						}
-					});
-	}
-
-	g_RTVMenus.ShowMenu(slot, def);
+		if (!g_MapVoteManager.ChangeMapNow(e))
+		{
+			RTV_PrintToChatT(playerSlot, "%s is not installed on this server.", e.mapName.c_str());
+		}
+	};
+	RTV_ShowMapMenu(slot, menu);
 }
 
 CS2RTVPlugin::CS2RTVPlugin()
@@ -648,6 +620,17 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 		return {cmdReturn};
 	}
 
+	if (strcmp(cmdBuf, "vote") == 0)
+	{
+		if (!RTV_AdminBridge_CanUseCommand(slot, "vote", 0))
+		{
+			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
+			return {cmdReturn};
+		}
+		g_MapVoteManager.CommandVote(slot);
+		return {cmdReturn};
+	}
+
 	if (strcmp(cmdBuf, "revote") == 0)
 	{
 		if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
@@ -774,6 +757,21 @@ CON_COMMAND_F(mm_reloadmaps, "Reload the map list", FCVAR_RELEASE | FCVAR_CLIENT
 		return;
 	}
 	g_NominateManager.CommandReloadMaps(slot);
+}
+
+CON_COMMAND_F(mm_vote, "Open the ballot of an active map vote", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
+{
+	int slot = context.GetPlayerSlot().Get();
+	if (!RTV_ConsoleCallerReady(slot))
+	{
+		return;
+	}
+	if (!RTV_AdminBridge_CanUseCommand(slot, "vote", 0))
+	{
+		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
+		return;
+	}
+	g_MapVoteManager.CommandVote(slot);
 }
 
 CON_COMMAND_F(mm_revote, "Change your vote in an active map vote", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)

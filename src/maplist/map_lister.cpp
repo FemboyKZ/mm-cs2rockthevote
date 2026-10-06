@@ -923,26 +923,41 @@ void SortMapsByName(std::vector<const MapEntry *> &maps)
 	std::stable_sort(maps.begin(), maps.end(), [&](const MapEntry *a, const MapEntry *b) { return mmu::MapNameLess(name(a), name(b)); });
 }
 
-std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const char *resetColor) const
+void MapLister::TierModes(bool &classic, bool &vanilla)
 {
-	std::string base = e.displayName.empty() ? e.mapName : e.displayName;
-
+	classic = vanilla = false;
 	std::string mode;
 	if (!TierDisplayEnabled(mode))
+	{
+		return;
+	}
+	classic = (mode == "both" || mode == "classic" || mode == "ckz");
+	vanilla = (mode == "both" || mode == "vanilla" || mode == "vnl");
+	if (!classic && !vanilla)
+	{
+		// Unrecognized value - default to showing both.
+		classic = vanilla = true;
+	}
+}
+
+// Courses a row lists per mode.
+static const size_t MAX_COURSES = 5;
+
+std::string MapLister::GetNameAndTiers(const MapEntry &e, bool colorize, std::string &tiers) const
+{
+	tiers.clear();
+	std::string base = e.displayName.empty() ? e.mapName : e.displayName;
+
+	bool wantClassic = false;
+	bool wantVanilla = false;
+	TierModes(wantClassic, wantVanilla);
+	if (!wantClassic && !wantVanilla)
 	{
 		return base;
 	}
 
 	// Use the clean map name as the base so we don't duplicate any baked "(Tn)".
 	std::string clean = e.mapName.empty() ? base : e.mapName;
-
-	bool wantClassic = (mode == "both" || mode == "classic" || mode == "ckz");
-	bool wantVanilla = (mode == "both" || mode == "vanilla" || mode == "vnl");
-	if (!wantClassic && !wantVanilla)
-	{
-		// Unrecognized value - default to showing both.
-		wantClassic = wantVanilla = true;
-	}
 
 	// Collect the mode parts to show.
 	struct TierPart
@@ -972,7 +987,6 @@ std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const c
 	// Multiple courses -> each course's tier as a number joined by "/" (e.g. "1/2/2/3");
 	// capped at MAX_COURSES with a trailing "..." when there are more.
 	// Each number is colored by its own tier; the "/" stays default.
-	const size_t MAX_COURSES = 5;
 	auto renderValue = [&](const std::vector<int> &tiers) -> std::string
 	{
 		if (tiers.size() == 1)
@@ -1007,32 +1021,110 @@ std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const c
 		return s;
 	};
 
-	// Format: " [CKZ: x | VNL: x]".
 	// Color codes (0x01-0x10) only render in chat/menus, not the console.
-	std::string suffix = " ";
-	suffix += def;
-	suffix += "[";
 	for (size_t i = 0; i < parts.size(); i++)
 	{
 		if (i > 0)
 		{
-			suffix += def;
-			suffix += " | ";
+			tiers += def;
+			tiers += " | ";
 		}
-		suffix += colorize ? parts[i].labelColor : "";
-		suffix += parts[i].label;
-		suffix += def;
-		suffix += ": ";
-		suffix += renderValue(*parts[i].tiers);
+		tiers += colorize ? parts[i].labelColor : "";
+		tiers += parts[i].label;
+		tiers += def;
+		tiers += ": ";
+		tiers += renderValue(*parts[i].tiers);
 	}
-	suffix += def;
-	suffix += "]";
+	return clean;
+}
+
+int MapLister::TierCells() const
+{
+	bool classic = false;
+	bool vanilla = false;
+	TierModes(classic, vanilla);
+	size_t most = 0;
+	for (const MapEntry &map : m_maps)
+	{
+		most = (std::max)({most, classic ? map.classicTiers.size() : 0, vanilla ? map.vanillaTiers.size() : 0});
+	}
+	// Two at least, which a mode's heading takes.
+	return static_cast<int>((std::max)((std::min)(most, MAX_COURSES), size_t(2)));
+}
+
+std::string MapLister::GetNameAndCells(const MapEntry &e, int columns, std::vector<std::string> &cells) const
+{
+	cells.clear();
+	std::string tiers;
+	std::string name = GetNameAndTiers(e, false, tiers);
+	if (tiers.empty())
+	{
+		return name;
+	}
+
+	auto mode = [&](const std::vector<int> &modeTiers)
+	{
+		for (size_t i = 0; i < static_cast<size_t>(columns); i++)
+		{
+			cells.push_back(i < modeTiers.size() ? TierColorCode(modeTiers[i]) + std::to_string(modeTiers[i]) : std::string());
+		}
+	};
+	bool classic = false;
+	bool vanilla = false;
+	TierModes(classic, vanilla);
+	if (classic)
+	{
+		mode(e.classicTiers);
+	}
+	if (vanilla)
+	{
+		mode(e.vanillaTiers);
+	}
+	return name;
+}
+
+std::vector<std::string> MapLister::GetTierDetails(const MapEntry &e) const
+{
+	bool classic = false;
+	bool vanilla = false;
+	TierModes(classic, vanilla);
+	const size_t courses = (std::max)(classic ? e.classicTiers.size() : 0, vanilla ? e.vanillaTiers.size() : 0);
+	std::vector<std::string> lines;
+	for (size_t i = 0; courses > MAX_COURSES && i < courses; i++)
+	{
+		std::string line = "#" + std::to_string(i + 1);
+		auto mode = [&](const char *label, const std::vector<int> &tiers)
+		{ line += std::string("   ") + label + " " + (i < tiers.size() ? std::to_string(tiers[i]) : "-"); };
+		if (classic)
+		{
+			mode("CKZ", e.classicTiers);
+		}
+		if (vanilla)
+		{
+			mode("VNL", e.vanillaTiers);
+		}
+		lines.push_back(std::move(line));
+	}
+	return lines;
+}
+
+std::string MapLister::GetDisplayLabel(const MapEntry &e, bool colorize, const char *resetColor) const
+{
+	std::string tiers;
+	std::string name = GetNameAndTiers(e, colorize, tiers);
+	if (tiers.empty())
+	{
+		return name;
+	}
+
+	// Format: " [CKZ: x | VNL: x]".
+	const char *def = colorize ? CHAT_COLOR_DEFAULT : "";
+	std::string suffix = std::string(" ") + def + "[" + tiers + def + "]";
 	if (colorize)
 	{
 		suffix += resetColor; // restore the surrounding row color
 	}
-
-	return clean + suffix;
+	return name + suffix;
 }
 
 void MapLister::ValidateMapsAsync() const

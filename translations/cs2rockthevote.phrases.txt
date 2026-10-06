@@ -295,6 +295,14 @@
 	{
 		"en"	"Vote for next map"
 	}
+	"No maps match the filter."
+	{
+		"en"	"No maps match the filter."
+	}
+	"Map"
+	{
+		"en"	"Map"
+	}
 	"Don't Change Map"
 	{
 		"en"	"Don't Change Map"
@@ -314,5 +322,17 @@
 	"[your vote]"
 	{
 		"en"	"[your vote]"
+	}
+	"Type !vote in chat, or hold TAB and click."
+	{
+		"en"	"Type !vote in chat, or hold TAB and click."
+	}
+	"Your vote: %s"
+	{
+		"en"	"Your vote: %s"
+	}
+	"Type !revote in chat to change it."
+	{
+		"en"	"Type !revote in chat to change it."
 	}
 }

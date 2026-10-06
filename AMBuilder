@@ -22,6 +22,7 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/utils/print_utils.cpp",
         "src/timers/timer_system.cpp",
         "src/menu/menu_bridge.cpp",
+        "src/menu/map_menu.cpp",
         "src/entity/cgamerules.cpp",
         "src/rtv/rtv_manager.cpp",
         "src/timelimit/timelimit.cpp",

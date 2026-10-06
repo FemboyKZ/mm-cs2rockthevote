@@ -28,6 +28,7 @@ struct MapVoteCfg
 	bool chatChoiceReminder = true;
 	int chatChoiceInterval = 15;
 	bool enableRevote = true;
+	bool voteNotice = false; // a notice instead of the panorama ballot, which takes the mouse
 	int mapChangeDelay = 5;
 	int workshopDownloadTimeout = 120; // seconds to wait for an absent workshop map
 };

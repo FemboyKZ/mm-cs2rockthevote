@@ -92,6 +92,20 @@ public:
 	// text keeps the surrounding row color (e.g. "\x08" grey for disabled rows).
 	std::string GetDisplayLabel(const MapEntry &e, bool colorize = true, const char *resetColor = "\x01") const;
 
+	// GetDisplayLabel's two parts: returns the name, `tiers` gets "CKZ: x | VNL: x" or nothing.
+	std::string GetNameAndTiers(const MapEntry &e, bool colorize, std::string &tiers) const;
+
+	// For the panorama table, which draws the tiers apart from the name. `cells` gets them in their chat colors,
+	// `columns` per mode shown and "" where a mode has no more. Nothing for a map without tiers.
+	std::string GetNameAndCells(const MapEntry &e, int columns, std::vector<std::string> &cells) const;
+	// The cells a mode needs for the map with the most courses, 5 at most.
+	int TierCells() const;
+	// A line per course with its tier in each mode shown, for a map with more courses than cells.
+	std::vector<std::string> GetTierDetails(const MapEntry &e) const;
+
+	// The modes DisplayKzTiers shows.
+	static void TierModes(bool &classic, bool &vanilla);
+
 	// Async API lookups (run on background thread; callback on same thread).
 	// DO NOT call game engine APIs from the callback - set a flag and handle on next GameFrame tick.
 
