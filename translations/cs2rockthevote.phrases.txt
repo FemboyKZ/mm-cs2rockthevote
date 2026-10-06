@@ -126,6 +126,22 @@
 	{
 		"en"	"{green}Map list reloaded. {default}(%d maps)"
 	}
+	"Refreshing the map pool from the CS2KZ API..."
+	{
+		"en"	"{default}Refreshing the map pool from the CS2KZ API..."
+	}
+	"Failed to refresh the map pool."
+	{
+		"en"	"{red}Failed to refresh the map pool."
+	}
+	"Map pool refreshed. (%d maps)"
+	{
+		"en"	"{green}Map pool refreshed. {default}(%d maps)"
+	}
+	"The map pool has not loaded yet, try again shortly."
+	{
+		"en"	"{red}The map pool has not loaded yet, try again shortly."
+	}
 
 	// Config admin
 	"RTV config reloaded."

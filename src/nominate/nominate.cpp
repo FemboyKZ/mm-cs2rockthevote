@@ -254,6 +254,34 @@ void NominateManager::CommandMaps(int slot) const
 
 void NominateManager::CommandReloadMaps(int slot)
 {
+	if (g_MapLister.UsesApiPool())
+	{
+		RTV_PrintToChatT(slot, "Refreshing the map pool from the CS2KZ API...");
+
+		PlayerInfo *caller = g_RTVPlayerManager.GetPlayer(slot);
+		uint64_t callerId = caller ? caller->steamid64 : 0;
+		uint32_t callerSerial = m_mapSerial;
+
+		g_MapLister.RefreshAsync(
+			[this, slot, callerId, callerSerial](int count)
+			{
+				// The server console has no slot to go stale.
+				if (slot >= 0 && !CallerStillPresent(slot, callerId, callerSerial))
+				{
+					return;
+				}
+				if (count < 0)
+				{
+					RTV_PrintToChatT(slot, "Failed to refresh the map pool.");
+				}
+				else
+				{
+					RTV_PrintToChatT(slot, "Map pool refreshed. (%d maps)", count);
+				}
+			});
+		return;
+	}
+
 	if (g_MapVoteManager.IsVoteActive() || g_MapVoteManager.IsChangeScheduled())
 	{
 		g_MapVoteManager.CancelVote();

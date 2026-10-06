@@ -29,7 +29,7 @@ Arguments are `key=value` pairs like cs2kz's, and a command's one argument can b
 | -                   | -               | `nominate.externalNominatePermission` | `nominate_ext`: nominating off-list / workshop-ID maps |
 | `!mapmenu`, `!mm`   | `mm_mapmenu`    | `mapchooser.permission`               | Admin: open immediate map-change menu                  |
 | `!listmaps`         | `mm_listmaps`   | open                                  | List available maps                                    |
-| `!reloadmaps`       | `mm_reloadmaps` | `general.adminPermission`             | Admin: reload the map list from disk                   |
+| `!reloadmaps`       | `mm_reloadmaps` | `general.adminPermission`             | Admin: reload the map list                             |
 | `!revote`           | `mm_revote`     | open                                  | Change your vote in an active vote                     |
 | `!extend [minutes]` | `mm_extend`     | `extend.permission`                   | Admin: add time to the current map (config default)    |
 | `!reloadrtv`        | `mm_reloadrtv`  | `general.adminPermission`             | Admin: reload cs2rtv config                            |

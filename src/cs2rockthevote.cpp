@@ -391,7 +391,7 @@ void CS2RTVPlugin::OnLevelInit(char const *pMapName, char const * /*pMapEntities
 
 	char mapPath[512];
 	snprintf(mapPath, sizeof(mapPath), "%s/cfg/maplist.txt", g_SMAPI->GetBaseDir());
-	g_MapLister.LoadFromFile(mapPath);
+	g_MapLister.LoadForMap(mapPath);
 
 	g_MapVoteManager.NotifyMapChangeSucceeded(); // cancel failure-detection timer
 												 // before KillAll
@@ -759,7 +759,7 @@ CON_COMMAND_F(mm_listmaps, "List available maps to your console", FCVAR_RELEASE 
 	g_NominateManager.CommandMaps(slot);
 }
 
-CON_COMMAND_F(mm_reloadmaps, "Reload the map list from disk", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
+CON_COMMAND_F(mm_reloadmaps, "Reload the map list", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	int slot = context.GetPlayerSlot().Get();
 	if (!RTV_ConsoleCallerReady(slot))

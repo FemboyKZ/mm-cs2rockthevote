@@ -10,8 +10,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <sstream>
 
 MapLister g_MapLister;
@@ -162,9 +164,115 @@ bool MapLister::ParseLine(const std::string &rawLine, MapEntry &out)
 	return true;
 }
 
+void MapLister::LoadForMap(const char *path)
+{
+	m_apiPool = g_RTVConfig.general.kzApiMaplist;
+	if (!m_apiPool)
+	{
+		LoadFromFile(path);
+		return;
+	}
+
+	if (!m_poolLoaded)
+	{
+		// Left over from file mode.
+		m_maps.clear();
+	}
+	if (NeedsRefresh())
+	{
+		RefreshAsync();
+	}
+}
+
+bool MapLister::NeedsRefresh() const
+{
+	if (m_refreshInFlight)
+	{
+		return false;
+	}
+	if (!m_poolLoaded)
+	{
+		return true;
+	}
+	return std::chrono::steady_clock::now() - m_lastRefresh >= std::chrono::seconds(kRefreshIntervalSeconds);
+}
+
+void MapLister::RefreshAsync(std::function<void(int)> onDone)
+{
+	if (m_refreshInFlight)
+	{
+		if (onDone)
+		{
+			onDone(-1);
+		}
+		return;
+	}
+	m_refreshInFlight = true;
+
+	FetchAllApprovedMapsAsync(
+		[this, onDone](std::vector<MapEntry> maps)
+		{
+			auto fresh = std::make_shared<std::vector<MapEntry>>(std::move(maps));
+
+			// Touches m_maps, so merge on the game thread.
+			mmu::http::QueueMainThread(
+				[this, onDone, fresh]()
+				{
+					m_refreshInFlight = false;
+
+					if (fresh->empty())
+					{
+						MMU_LOG_WARN("CS2KZ map pool fetch failed or returned no maps.%s\n", m_poolLoaded ? " Keeping the previous pool." : "");
+						if (onDone)
+						{
+							onDone(-1);
+						}
+						return;
+					}
+
+					ApplyPool(std::move(*fresh));
+					MMU_LOG_INFO("Map pool loaded: %d maps from the CS2KZ API.\n", static_cast<int>(m_maps.size()));
+
+					if (g_RTVConfig.general.enableMapValidation && !g_RTVConfig.general.steamApiKey.empty())
+					{
+						ValidateMapsAsync();
+					}
+
+					if (onDone)
+					{
+						onDone(static_cast<int>(m_maps.size()));
+					}
+				});
+		});
+}
+
+void MapLister::ApplyPool(std::vector<MapEntry> fresh)
+{
+	std::vector<MapEntry> old = std::move(m_maps);
+	m_maps = std::move(fresh);
+
+	// Keep off-pool nominations resolvable.
+	for (auto &e : old)
+	{
+		if (!e.dynamic)
+		{
+			continue;
+		}
+		bool inPool = FindExact(e.mapName) != nullptr || (!e.workshopId.empty() && FindByWorkshopId(e.workshopId) != nullptr);
+		if (!inPool)
+		{
+			m_maps.push_back(std::move(e));
+		}
+	}
+
+	m_poolLoaded = true;
+	m_lastRefresh = std::chrono::steady_clock::now();
+}
+
 int MapLister::LoadFromFile(const char *path)
 {
 	m_maps.clear();
+	m_poolLoaded = false;
 	m_lastPath = path;
 
 	FILE *fp = fopen(path, "r");
@@ -300,6 +408,7 @@ const MapEntry *MapLister::AddDynamicMap(const MapEntry &entry)
 	}
 
 	m_maps.push_back(entry);
+	m_maps.back().dynamic = true;
 	return &m_maps.back();
 }
 

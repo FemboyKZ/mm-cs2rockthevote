@@ -2,6 +2,7 @@
 #define _INCLUDE_RTV_MAP_LISTER_H_
 
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -14,6 +15,8 @@ struct MapEntry
 	std::string mapName;     // Clean name for changelevel, e.g. "kz_grotto"
 	std::string workshopId;  // Workshop ID if present, else empty
 	bool isWorkshop = false;
+	// Off-list lookup, kept across API pool refreshes.
+	bool dynamic = false;
 	// CS2KZ nub_tier per course (1-10), in course order. One entry per course that
 	// has a tier for that mode. Empty = unknown.
 	std::vector<int> classicTiers;
@@ -30,6 +33,23 @@ struct TierLists
 class MapLister
 {
 public:
+	// Latches KzApiMaplist for the map, so a config reload cannot switch source mid-map.
+	void LoadForMap(const char *path);
+
+	bool UsesApiPool() const
+	{
+		return m_apiPool;
+	}
+
+	// API mode with no pool fetched yet.
+	bool PoolPending() const
+	{
+		return m_apiPool && !m_poolLoaded;
+	}
+
+	// onDone(count) runs on the game thread, -1 on failure or when a fetch is already running.
+	void RefreshAsync(std::function<void(int)> onDone = nullptr);
+
 	// Load maps from file. Returns number of maps loaded, or -1 on error.
 	// If the file doesn't exist, triggers auto-generate from the CS2KZ API.
 	int LoadFromFile(const char *path);
@@ -97,6 +117,16 @@ public:
 private:
 	std::vector<MapEntry> m_maps;
 	std::string m_lastPath;
+
+	// Game thread only.
+	static constexpr int kRefreshIntervalSeconds = 1200;
+	bool m_apiPool = false;
+	bool m_poolLoaded = false;
+	bool m_refreshInFlight = false;
+	std::chrono::steady_clock::time_point m_lastRefresh;
+
+	bool NeedsRefresh() const;
+	void ApplyPool(std::vector<MapEntry> fresh);
 
 	// Cache of CS2KZ tiers keyed by lowercased clean map name -> {classic, vanilla}.
 	// Populated by FetchTiersAsync(); read/written on the game thread only.

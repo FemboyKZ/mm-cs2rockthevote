@@ -179,6 +179,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.adminPermission = value;
 		}
+		else if (k == "kzapimaplist")
+		{
+			cfg->general.kzApiMaplist = (value != "0");
+		}
 		else if (k == "enablemapvalidation")
 		{
 			cfg->general.enableMapValidation = (value != "0");

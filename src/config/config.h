@@ -70,6 +70,7 @@ struct GeneralCfg
 	std::string adminPermission = "root";
 	std::string commandPrefix = "!";       // normal: message visible in chat
 	std::string silentCommandPrefix = "/"; // silent: message suppressed
+	bool kzApiMaplist = false;             // CS2KZ API approved maps instead of maplist.txt
 	bool enableMapValidation = false;
 	std::string steamApiKey = "";
 	std::string discordWebhook = "";

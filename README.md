@@ -8,11 +8,11 @@ CS2 RTV Plugin using Metamod: Source
 
 ### Requirements
 
-* CS2 Dedicated Server
-* [Metamod: Source 2.0](https://www.metamodsource.net/downloads.php?branch=dev)
-* [mm-cs2menus](https://github.com/FemboyKZ/mm-cs2menus), which renders every menu (map votes, nominate, mapmenu)
-* (Optional\*) [mm-cs2admin](https://github.com/FemboyKZ/mm-cs2admin)
-* (Optional\*\*) [mm-cs2whitelist](https://github.com/FemboyKZ/mm-cs2whitelist)
+- CS2 Dedicated Server
+- [Metamod: Source 2.0](https://www.metamodsource.net/downloads.php?branch=dev)
+- [mm-cs2menus](https://github.com/FemboyKZ/mm-cs2menus), which renders every menu (map votes, nominate, mapmenu)
+- (Optional\*) [mm-cs2admin](https://github.com/FemboyKZ/mm-cs2admin)
+- (Optional\*\*) [mm-cs2whitelist](https://github.com/FemboyKZ/mm-cs2whitelist)
 
 \*Admin commands like `reloadrtv` and `mapmenu` will not work without it.
 
@@ -26,8 +26,8 @@ This stops players from spamming it on join before getting kicked to trigger a v
 
 ### Configuration
 
-* `/cfg/cs2rtv/core.cfg` - Main config file
-* `/cfg/maplist.txt` - Maplist file
+- `/cfg/cs2rtv/core.cfg` - Main config file
+- `/cfg/maplist.txt` - Maplist file (unused with `KzApiMaplist`)
 
 ### Commands
 
@@ -37,10 +37,10 @@ See: [COMMANDS](./COMMANDS.md)
 
 ### Prerequisites
 
-* This repository is cloned recursively (ie. has submodules)
-* [python3](https://www.python.org/)
-* [ambuild](https://github.com/alliedmodders/ambuild), make sure ``ambuild`` command is available via the ``PATH`` environment variable;
-* MSVC (VS build tools)/Clang installed for Windows/Linux.
+- This repository is cloned recursively (ie. has submodules)
+- [python3](https://www.python.org/)
+- [ambuild](https://github.com/alliedmodders/ambuild), make sure `ambuild` command is available via the `PATH` environment variable;
+- MSVC (VS build tools)/Clang installed for Windows/Linux.
 
 ### AMBuild
 
@@ -50,8 +50,14 @@ python3 ../configure.py --enable-optimize
 ambuild
 ```
 
+### Docker
+
+```bash
+docker compose run --rm build
+```
+
 ## Credits
 
-* [SourceMod](https://github.com/alliedmodders/sourcemod)
-* [zer0.k's MetaMod Sample plugin fork](https://github.com/zer0k-z/mm_misc_plugins)
-* [cs2kz-metamod](https://github.com/KZGlobalTeam/cs2kz-metamod)
+- [SourceMod](https://github.com/alliedmodders/sourcemod)
+- [zer0.k's MetaMod Sample plugin fork](https://github.com/zer0k-z/mm_misc_plugins)
+- [cs2kz-metamod](https://github.com/KZGlobalTeam/cs2kz-metamod)

@@ -164,6 +164,13 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 		return;
 	}
 
+	if (g_MapLister.PoolPending())
+	{
+		RTV_ChatToAllT("The map pool has not loaded yet, try again shortly.");
+		g_RTVManager.OnVoteEndedNoVotes();
+		return;
+	}
+
 	if (g_CS2RTVForwards.FireOnMapVoteStart(isRTV))
 	{
 		g_RTVManager.OnVoteEndedNoVotes();
