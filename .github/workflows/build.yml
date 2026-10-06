@@ -14,34 +14,41 @@ on:
       - "README.md"
 
 jobs:
-  build-steamrt3:
-    name: SteamRT3
+  build-linux:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: SteamRT3
+            runtime: steamrt3
+          - name: SteamRT4
+            runtime: steamrt4
     container:
-      image: ghcr.io/femboykz/build-containers:steamrt3
+      image: ghcr.io/femboykz/build-containers:${{ matrix.runtime }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           submodules: false
-          fetch-depth: 0
 
       - name: Init submodules
         run: |
           git config --global --add safe.directory $GITHUB_WORKSPACE
-          git submodule update --init --recursive metamod-source hl2sdk-cs2
-          git submodule update --init
+          git init -q hl2sdk-cs2
+          git -C hl2sdk-cs2 fetch -q --depth 1 "$(git config -f .gitmodules submodule.hl2sdk-cs2.url)" "$(git rev-parse HEAD:hl2sdk-cs2)"
+          git -C hl2sdk-cs2 checkout -q FETCH_HEAD
+          git submodule update --init --depth 1 --jobs 4
+          git -C metamod-source submodule update --init --depth 1 hl2sdk-manifests third_party/khook
 
       - name: Configure
         run: |
           mkdir -p build && cd build
           python3 ../configure.py \
-            --sdks cs2 \
-            --targets x86_64 \
-            --mms_path ../metamod-source \
-            --hl2sdk-manifests ../metamod-source/hl2sdk-manifests \
-            --enable-optimize
+            --enable-optimize \
+            --symbol-files
 
       - name: Build
         working-directory: build
@@ -58,55 +65,14 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: cs2rtv-steamrt3
+          name: cs2rtv-${{ matrix.runtime }}
           path: staging
 
-  build-steamrt4:
-    name: SteamRT4
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/femboykz/build-containers:steamrt4
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          submodules: false
-          fetch-depth: 0
-
-      - name: Init submodules
-        run: |
-          git config --global --add safe.directory $GITHUB_WORKSPACE
-          git submodule update --init --recursive metamod-source hl2sdk-cs2
-          git submodule update --init
-
-      - name: Configure
-        run: |
-          mkdir -p build && cd build
-          python3 ../configure.py \
-            --sdks cs2 \
-            --targets x86_64 \
-            --mms_path ../metamod-source \
-            --hl2sdk-manifests ../metamod-source/hl2sdk-manifests \
-            --enable-optimize
-
-      - name: Build
-        working-directory: build
-        run: ambuild
-
-      - name: Stage package
-        run: |
-          mkdir -p staging/addons
-          cp -r build/package/addons/* staging/addons/
-          mkdir -p staging/cfg/cs2rtv
-          cp configs/core.cfg staging/cfg/cs2rtv/
-          cp configs/maplist.txt staging/cfg/
-
-      - name: Upload artifact
+      - name: Upload symbols
         uses: actions/upload-artifact@v7
         with:
-          name: cs2rtv-steamrt4
-          path: staging
+          name: cs2rtv-${{ matrix.runtime }}-symbols
+          path: build/cs2rockthevote.cs2/linux-x86_64/*.dbg
 
   build-windows:
     name: Windows
@@ -122,8 +88,11 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory $GITHUB_WORKSPACE
-          git submodule update --init --recursive metamod-source hl2sdk-cs2
-          git submodule update --init
+          git init -q hl2sdk-cs2
+          git -C hl2sdk-cs2 fetch -q --depth 1 "$(git config -f .gitmodules submodule.hl2sdk-cs2.url)" "$(git rev-parse HEAD:hl2sdk-cs2)"
+          git -C hl2sdk-cs2 checkout -q FETCH_HEAD
+          git submodule update --init --depth 1 --jobs 4
+          git -C metamod-source submodule update --init --depth 1 hl2sdk-manifests third_party/khook
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -144,14 +113,12 @@ jobs:
         run: |
           mkdir -Force build | Out-Null; cd build
           python ../configure.py `
-            --sdks cs2 `
-            --targets x86_64 `
-            --mms_path ../metamod-source `
-            --hl2sdk-manifests ../metamod-source/hl2sdk-manifests `
             --enable-optimize
 
       - name: Build
         working-directory: build
+        env:
+          LINK: /MAP
         run: ambuild
 
       - name: Stage package
@@ -168,10 +135,18 @@ jobs:
           name: cs2rtv-windows
           path: staging
 
+      - name: Upload symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: cs2rtv-windows-symbols
+          path: |
+            build/cs2rockthevote.cs2/windows-x86_64/*.pdb
+            build/cs2rockthevote.cs2/windows-x86_64/*.map
+
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [build-steamrt3, build-steamrt4, build-windows]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -195,11 +170,18 @@ jobs:
           name: cs2rtv-windows
           path: cs2rtv-windows
 
+      - name: Download symbol artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cs2rtv-*-symbols
+          path: symbols
+
       - name: Create archives
         run: |
           cd cs2rtv-steamrt3 && zip -r ../cs2rtv-${{ github.ref_name }}-steamrt3.zip . && cd ..
           cd cs2rtv-steamrt4 && zip -r ../cs2rtv-${{ github.ref_name }}-steamrt4.zip . && cd ..
           cd cs2rtv-windows && zip -r ../cs2rtv-${{ github.ref_name }}-windows.zip . && cd ..
+          cd symbols && zip -r ../cs2rtv-${{ github.ref_name }}-symbols.zip . && cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -208,4 +190,5 @@ jobs:
             cs2rtv-${{ github.ref_name }}-steamrt3.zip
             cs2rtv-${{ github.ref_name }}-steamrt4.zip
             cs2rtv-${{ github.ref_name }}-windows.zip
+            cs2rtv-${{ github.ref_name }}-symbols.zip
           generate_release_notes: true
