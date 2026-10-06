@@ -2,6 +2,7 @@
 #include "mmu/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
+#include "src/utils/print_utils.h"
 
 #include <vector>
 
@@ -10,6 +11,10 @@ RTVMenuBridge g_RTVMenus;
 void RTVMenuBridge::Init()
 {
 	Refresh();
+	if (!m_menus)
+	{
+		MMU_LOG_WARN("mm-cs2menus not found - votes and map menus are unavailable.\n");
+	}
 }
 
 void RTVMenuBridge::Refresh()
@@ -17,10 +22,10 @@ void RTVMenuBridge::Refresh()
 	switch (m_menus.Refresh())
 	{
 		case mmu::BridgeChange::Unloaded:
-			MMU_LOG_INFO("mm-cs2menus unloaded - using built-in chat menus.\n");
+			MMU_LOG_WARN("mm-cs2menus unloaded - votes and map menus are unavailable.\n");
 			break;
 		case mmu::BridgeChange::Loaded:
-			MMU_LOG_INFO("mm-cs2menus found - menu rendering delegated to it.\n");
+			MMU_LOG_INFO("mm-cs2menus found - menus enabled.\n");
 			break;
 		case mmu::BridgeChange::Unchanged:
 			break;
@@ -39,24 +44,19 @@ bool RTVMenuBridge::Available() const
 
 bool RTVMenuBridge::UsesChatInput(int slot)
 {
-	// The fallback in-plugin menu is always a chat menu.
-	if (!m_menus)
-	{
-		return true;
-	}
 	// "default" resolves per viewer, so ask what actually rendered.
-	return m_menus->HasMenu(slot) && m_menus->GetActiveMenuType(slot) == MenuType::Chat;
+	return m_menus && m_menus->HasMenu(slot) && m_menus->GetActiveMenuType(slot) == MenuType::Chat;
 }
 
-void RTVMenuBridge::ShowMenu(int slot, const ChatMenuDef &def, float curtime)
+void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 {
-	if (!m_menus)
-	{
-		g_ChatMenus.ShowMenu(slot, def, curtime);
-		return;
-	}
 	if (slot < 0 || slot > MAXPLAYERS)
 	{
+		return;
+	}
+	if (!m_menus)
+	{
+		RTV_PrintToChatT(slot, "Menus need the mm-cs2menus plugin.");
 		return;
 	}
 
@@ -110,39 +110,10 @@ void RTVMenuBridge::CloseMenu(int slot)
 	if (m_menus)
 	{
 		m_menus->CancelMenu(slot);
-		return;
 	}
-	g_ChatMenus.CloseMenu(slot);
 }
 
 bool RTVMenuBridge::HasMenu(int slot)
 {
-	if (m_menus)
-	{
-		return m_menus->HasMenu(slot);
-	}
-	return g_ChatMenus.HasMenu(slot);
-}
-
-bool RTVMenuBridge::ProcessInput(int slot, const char *text, float curtime)
-{
-	// The external plugin drives its own input (it hooks "say" itself),
-	// so there's nothing for us to consume in that case.
-	if (m_menus)
-	{
-		return false;
-	}
-	return g_ChatMenus.ProcessInput(slot, text, curtime);
-}
-
-void RTVMenuBridge::Tick(float curtime)
-{
-	// Only the built-in backend needs ticking, the external plugin ticks itself.
-	g_ChatMenus.Tick(curtime);
-}
-
-void RTVMenuBridge::OnPlayerDisconnect(int slot)
-{
-	// The external plugin cleans up disconnects via its own ClientDisconnect hook.
-	g_ChatMenus.OnPlayerDisconnect(slot);
+	return m_menus && m_menus->HasMenu(slot);
 }

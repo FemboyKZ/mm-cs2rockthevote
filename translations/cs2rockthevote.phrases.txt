@@ -142,6 +142,14 @@
 	{
 		"en"	"{red}Map voting is currently disabled."
 	}
+	"Map voting needs the mm-cs2menus plugin."
+	{
+		"en"	"{red}Map voting needs the mm-cs2menus plugin."
+	}
+	"Menus need the mm-cs2menus plugin."
+	{
+		"en"	"{red}Menus need the mm-cs2menus plugin."
+	}
 	"Map vote started! Type a number in chat to vote."
 	{
 		"en"	"{green}Map vote started! {default}Type a number in chat to vote."
@@ -290,19 +298,5 @@
 	"[your vote]"
 	{
 		"en"	"[your vote]"
-	}
-
-	// Chat-menu
-	"Next Page"
-	{
-		"en"	"Next Page"
-	}
-	"Previous Page"
-	{
-		"en"	"Previous Page"
-	}
-	"Exit"
-	{
-		"en"	"Exit"
 	}
 }

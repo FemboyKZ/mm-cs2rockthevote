@@ -8,7 +8,6 @@
 #include "config/config.h"
 #include "lang/translations.h"
 #include "maplist/map_lister.h"
-#include "menu/chatmenu.h"
 #include "menu/menu_bridge.h"
 #include "nominate/nominate.h"
 #include "player/player_manager.h"
@@ -200,10 +199,7 @@ static void ShowMapChooserMenu(int slot)
 		return;
 	}
 
-	CGlobalVars *globals = GetGameGlobals();
-	float curtime = globals ? globals->curtime : 0.0f;
-
-	ChatMenuDef def;
+	RTVMenuDef def;
 	def.title = RTV_Translate(slot, "Choose a map (immediate change)");
 	def.exitButton = true;
 	def.closeOnSelect = true;
@@ -234,7 +230,7 @@ static void ShowMapChooserMenu(int slot)
 					});
 	}
 
-	g_RTVMenus.ShowMenu(slot, def, curtime);
+	g_RTVMenus.ShowMenu(slot, def);
 }
 
 CS2RTVPlugin::CS2RTVPlugin()
@@ -426,7 +422,6 @@ KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simula
 	float curtime = globals->curtime;
 	mmu::http::DrainMainThread();
 	g_Timers.Process(curtime);
-	g_RTVMenus.Tick(curtime);
 
 	// Auto end-of-map vote: start the next-map vote before mp_timelimit expires
 	// if nobody has triggered !rtv (no-op unless the setting is enabled).
@@ -475,7 +470,6 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CP
 	g_RTVManager.OnPlayerDisconnect(s);
 	g_MapVoteManager.OnPlayerDisconnect(s);
 	g_NominateManager.OnPlayerDisconnect(s);
-	g_RTVMenus.OnPlayerDisconnect(s);
 	g_RTVPlayerManager.OnClientDisconnect(s);
 	mmu::cvarquery::OnClientDisconnect(s);
 
@@ -551,18 +545,6 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 
 	std::string msg = mmu::StripSayQuotes(rawMsg);
 
-	CGlobalVars *globals = GetGameGlobals();
-	float curtime = globals ? globals->curtime : 0.0f;
-
-	if (g_RTVMenus.HasMenu(slot))
-	{
-		if (g_RTVMenus.ProcessInput(slot, msg.c_str(), curtime))
-		{
-			return {KHook::Action::Supersede};
-		}
-	}
-
-	// Second pass: chat commands
 	mmu::ChatCommand chatCmd;
 	if (!mmu::ParseChatCommand(msg, g_RTVConfig.general.commandPrefix, g_RTVConfig.general.silentCommandPrefix, chatCmd))
 	{

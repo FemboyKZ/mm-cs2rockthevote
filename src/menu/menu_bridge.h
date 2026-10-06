@@ -1,17 +1,39 @@
 #ifndef _INCLUDE_RTV_MENU_BRIDGE_H_
 #define _INCLUDE_RTV_MENU_BRIDGE_H_
 
-// Routes RTV menus through the mm-cs2menus plugin (ICS2Menus) when it's loaded,
-// and falls back to the in-plugin chat menu (g_ChatMenus) when it isn't.
-//
-// Call sites build the same ChatMenuDef as before and call g_RTVMenus instead of g_ChatMenus,
-// this bridge picks the backend per call.
-
-#include "chatmenu.h"
+// Shows RTV menus through the mm-cs2menus plugin (ICS2Menus). Without it there are no menus.
 
 #include "interfaces/cs2menus/menus_client.h"
 
-#include <cstdint>
+#include <functional>
+#include <string>
+#include <vector>
+
+using MenuItemCallback = std::function<void(int slot)>;
+
+struct RTVMenuItem
+{
+	std::string text;
+	MenuItemCallback callback;
+	bool disabled = false; // greyed out, not selectable
+};
+
+struct RTVMenuDef
+{
+	std::string title;
+	std::vector<RTVMenuItem> items;
+	float duration = 0.0f; // 0 = no timeout
+	bool exitButton = true;
+	bool closeOnSelect = true;
+	MenuItemCallback onExit; // closed with the exit option
+	// mm-cs2menus panorama page labels skip map prefixes like "kz_", matching SortByName in nominate.cpp.
+	bool mapList = false;
+
+	void AddItem(const std::string &text, MenuItemCallback cb, bool disabled = false)
+	{
+		items.push_back({text, std::move(cb), disabled});
+	}
+};
 
 class RTVMenuBridge
 {
@@ -20,25 +42,19 @@ public:
 	void Init();
 	// Re-resolve the interface. Call from OnPluginLoad / OnPluginUnload.
 	void Refresh();
-	// Cancel any externally-shown menus and drop the pointer. Call from Unload().
+	// Cancel any shown menus and drop the pointer. Call from Unload().
 	void Shutdown();
 
-	// True if the external menu plugin is available.
+	// True if the menu plugin is available.
 	bool Available() const;
 
 	// True if `slot`'s open menu renders as a chat (numbered) menu, so the "type a number in chat" hint applies.
 	bool UsesChatInput(int slot);
 
-	// --- Mirrors ChatMenuHandler so call sites are a drop-in swap ---
-
-	void ShowMenu(int slot, const ChatMenuDef &def, float curtime);
+	// Tells the player when mm-cs2menus is missing.
+	void ShowMenu(int slot, const RTVMenuDef &def);
 	void CloseMenu(int slot);
 	bool HasMenu(int slot);
-	// Chat input for the fallback backend. Returns true if consumed.
-	// When the external plugin owns the menu it handles its own input, so this returns false.
-	bool ProcessInput(int slot, const char *text, float curtime);
-	void Tick(float curtime);
-	void OnPlayerDisconnect(int slot);
 
 private:
 	CS2MenusClient m_menus;

@@ -2,7 +2,6 @@
 #include "mmu/log.h"
 #include "src/config/config.h"
 #include "src/lang/translations.h"
-#include "src/menu/chatmenu.h"
 #include "src/menu/menu_bridge.h"
 #include "src/nominate/nominate.h"
 #include "src/player/player_manager.h"
@@ -153,6 +152,14 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	if (!cfg.enabled)
 	{
 		RTV_ChatToAllT("Map voting is currently disabled.");
+		g_RTVManager.OnVoteEndedNoVotes();
+		return;
+	}
+
+	// Nobody could cast a vote.
+	if (!g_RTVMenus.Available())
+	{
+		RTV_ChatToAllT("Map voting needs the mm-cs2menus plugin.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -350,7 +357,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 	CGlobalVars *globals = GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 
-	ChatMenuDef def;
+	RTVMenuDef def;
 	def.title = RTV_Translate(slot, "Vote for next map");
 	def.duration = (std::max)(m_voteEndTime - curtime, 5.0f);
 	def.exitButton = true;
@@ -455,7 +462,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 					});
 	}
 
-	g_RTVMenus.ShowMenu(slot, def, curtime);
+	g_RTVMenus.ShowMenu(slot, def);
 }
 
 void MapVoteManager::CommandRevote(int slot)

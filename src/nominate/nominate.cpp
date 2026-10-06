@@ -3,7 +3,6 @@
 #include "src/admin/admin_bridge.h"
 #include "src/config/config.h"
 #include "src/lang/translations.h"
-#include "src/menu/chatmenu.h"
 #include "src/menu/menu_bridge.h"
 #include "src/player/player_manager.h"
 #include "src/utils/print_utils.h"
@@ -210,10 +209,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 
 	if (!entry && matches.size() > 1)
 	{
-		CGlobalVars *globals = GetGameGlobals();
-		float curtime = globals ? globals->curtime : 0.0f;
-
-		ChatMenuDef def;
+		RTVMenuDef def;
 		def.title = RTV_Translate(slot, "Matching maps");
 		def.exitButton = true;
 		def.closeOnSelect = true;
@@ -227,7 +223,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 			def.AddItem(g_MapLister.GetDisplayLabel(*m),
 						[this, capturedMapName](int playerSlot) { NominateMap(playerSlot, g_MapLister.FindExact(capturedMapName)); });
 		}
-		g_RTVMenus.ShowMenu(slot, def, curtime);
+		g_RTVMenus.ShowMenu(slot, def);
 		return;
 	}
 
@@ -284,10 +280,7 @@ void NominateManager::ShowNominateMenu(int slot)
 		return;
 	}
 
-	CGlobalVars *globals = GetGameGlobals();
-	float curtime = globals ? globals->curtime : 0.0f;
-
-	ChatMenuDef def;
+	RTVMenuDef def;
 	def.title = RTV_Translate(slot, "Nominate a map");
 	def.exitButton = true;
 	def.closeOnSelect = true;
@@ -332,7 +325,7 @@ void NominateManager::ShowNominateMenu(int slot)
 			disabled);
 	}
 
-	g_RTVMenus.ShowMenu(slot, def, curtime);
+	g_RTVMenus.ShowMenu(slot, def);
 }
 
 void NominateManager::NominateMap(int slot, const MapEntry *entry)

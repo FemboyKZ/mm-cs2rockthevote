@@ -15,7 +15,7 @@ public:
 	void OnMapStart(const char *currentMap);
 
 	// Handle !nominate [mapname] from a player.
-	// If mapname is empty, shows a map-selection ChatMenu.
+	// If mapname is empty, shows a map-selection menu.
 	void CommandNominate(int slot, const char *arg);
 
 	// Handle !maps command - list all maps to the player's console
