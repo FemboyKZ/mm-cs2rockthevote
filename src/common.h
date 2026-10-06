@@ -1,8 +1,8 @@
 #ifndef _INCLUDE_RTV_COMMON_H_
 #define _INCLUDE_RTV_COMMON_H_
 
-#include "mmu/chat_colors.h"
-#include "mmu/plugin_globals.h"
+#include "utils/chat_colors.h"
+#include "sdk/plugin_globals.h"
 
 #include <ISmmPlugin.h>
 #include <igameevents.h>
@@ -13,7 +13,7 @@
 #include <cstring>
 #include <string>
 
-// Plugin-specific engine interfaces. Shared ones live in mmu/plugin_globals.h.
+// Plugin-specific engine interfaces. Shared ones live in sdk/plugin_globals.h.
 extern IGameEventManager2 *g_pGameEvents;
 extern INetworkServerService *g_pNetworkServerService;
 
@@ -32,7 +32,7 @@ extern CGameEntitySystem *g_pEntitySystem;
 CGameEntitySystem *GameEntitySystem();
 
 // CGlobalVars accessor, only valid during an active game
-#include "mmu/print.h"
+#include "game/print.h"
 
 inline CGlobalVars *GetGameGlobals()
 {

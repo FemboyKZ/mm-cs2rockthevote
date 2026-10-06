@@ -1,6 +1,6 @@
 #include "whitelist_bridge.h"
-#include "mmu/interface_bridge.h"
-#include "mmu/log.h"
+#include "interfaces/interface_bridge.h"
+#include "utils/log.h"
 #include "src/common.h"
 
 static mmu::InterfaceBridge<ICS2Whitelist> s_whitelist(CS2WHITELIST_INTERFACE);

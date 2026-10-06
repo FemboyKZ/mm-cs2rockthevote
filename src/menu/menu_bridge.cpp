@@ -1,5 +1,5 @@
 #include "menu_bridge.h"
-#include "mmu/log.h"
+#include "utils/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
 #include "src/utils/print_utils.h"

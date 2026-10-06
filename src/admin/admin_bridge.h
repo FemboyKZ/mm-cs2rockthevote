@@ -4,7 +4,7 @@
 // Optional integration with mm-cs2admin (ICS2Admin002 interface).
 // If mm-cs2admin is not loaded at runtime, all HasFlag calls return false.
 
-#include "mmu/admin_access.h"
+#include "interfaces/cs2admin/admin_access.h"
 #include <cstdint>
 
 // Call once in AllPluginsLoaded() to try to acquire the ICS2Admin interface.

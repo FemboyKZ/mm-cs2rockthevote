@@ -1,5 +1,5 @@
 #include "map_vote.h"
-#include "mmu/log.h"
+#include "utils/log.h"
 #include "src/config/config.h"
 #include "src/lang/translations.h"
 #include "src/menu/menu_bridge.h"
@@ -10,7 +10,7 @@
 #include "src/timers/timer_system.h"
 #include "interfaces/cs2rockthevote/forwards.h"
 #include "src/utils/print_utils.h"
-#include "mmu/workshop.h"
+#include "game/workshop.h"
 
 extern CSteamGameServerAPIContext g_RTVSteamAPI;
 

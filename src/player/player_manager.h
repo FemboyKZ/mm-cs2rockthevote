@@ -2,7 +2,7 @@
 #define _INCLUDE_RTV_PLAYER_MANAGER_H_
 
 #include "src/common.h"
-#include "mmu/player_table.h"
+#include "game/player_table.h"
 #include <string>
 
 struct PlayerInfo

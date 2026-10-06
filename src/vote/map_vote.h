@@ -1,7 +1,7 @@
 #ifndef _INCLUDE_RTV_MAP_VOTE_H_
 #define _INCLUDE_RTV_MAP_VOTE_H_
 
-#include "mmu/workshop.h"
+#include "game/workshop.h"
 
 #include "src/common.h"
 #include "src/maplist/map_lister.h"

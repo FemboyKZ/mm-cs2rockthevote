@@ -4,8 +4,8 @@
 #include "src/lang/translations.h"
 #include "src/player/player_manager.h"
 
-#include "mmu/log.h"
-#include "mmu/print.h"
+#include "utils/log.h"
+#include "game/print.h"
 
 #include <cstdarg>
 #include <cstdio>

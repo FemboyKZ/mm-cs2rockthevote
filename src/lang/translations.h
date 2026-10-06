@@ -1,7 +1,7 @@
 #ifndef _INCLUDE_RTV_TRANSLATIONS_H_
 #define _INCLUDE_RTV_TRANSLATIONS_H_
 
-#include "mmu/translations.h"
+#include "utils/translations.h"
 
 #include <string>
 

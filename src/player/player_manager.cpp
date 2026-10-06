@@ -1,6 +1,6 @@
 #include "player_manager.h"
 #include "src/config/config.h"
-#include "mmu/entity/ccsplayercontroller.h"
+#include "sdk/entity/ccsplayercontroller.h"
 
 RTVPlayerManager g_RTVPlayerManager;
 

@@ -1,12 +1,12 @@
 #include "map_lister.h"
-#include "mmu/str_utils.h"
-#include "mmu/log.h"
-#include "mmu/maplist.h"
+#include "utils/str.h"
+#include "utils/log.h"
+#include "utils/maplist.h"
 #include "src/common.h"
 #include "src/config/config.h"
-#include "mmu/discord.h"
-#include "mmu/http_client.h"
-#include "mmu/json.h"
+#include "utils/discord.h"
+#include "utils/http_client.h"
+#include "utils/json.h"
 
 #include <algorithm>
 #include <cctype>

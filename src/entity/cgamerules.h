@@ -1,8 +1,8 @@
 #ifndef _INCLUDE_RTV_ENTITY_CGAMERULES_H_
 #define _INCLUDE_RTV_ENTITY_CGAMERULES_H_
 
-#include "mmu/schema.h"
-#include "mmu/entity/cbaseentity.h"
+#include "sdk/schema.h"
+#include "sdk/entity/cbaseentity.h"
 #include <entity2/entitysystem.h> // GameTime_t
 
 // Minimal gamerules wrappers for the map and round clocks.

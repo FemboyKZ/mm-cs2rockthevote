@@ -2,7 +2,7 @@
 #define _INCLUDE_RTV_CONFIG_H_
 
 #include "interfaces/cs2menus/menu_style.h"
-#include "mmu/config_blocks.h"
+#include "utils/config_blocks.h"
 
 #include <string>
 
