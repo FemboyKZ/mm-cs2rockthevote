@@ -91,6 +91,7 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 	if (def.mapList)
 	{
 		m_menus->SetMenuStyle(h, MenuStyle::PagePrefixDelimiter, "_");
+		m_menus->SetMenuTextFeatures(h, kMenuTextIndex);
 	}
 
 	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
