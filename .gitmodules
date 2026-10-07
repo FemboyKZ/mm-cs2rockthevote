@@ -1,9 +1,9 @@
 [submodule "metamod-source"]
 	path = metamod-source
 	url = https://github.com/alliedmodders/metamod-source
-[submodule "hl2sdk-cs2"]
-	path = hl2sdk-cs2
-	url = https://github.com/alliedmodders/hl2sdk
+[submodule "s2sdk"]
+	path = s2sdk
+	url = https://github.com/alliedmodders/s2sdk
 	branch = cs2
 [submodule "mm-utils"]
 	path = mm-utils
