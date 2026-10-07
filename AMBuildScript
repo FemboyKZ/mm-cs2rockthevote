@@ -134,6 +134,12 @@ SdkHelpers = builder.Eval(
     os.path.join(hl2sdk_manifests_root, "SdkHelpers.ambuild"), {"Project": "metamod"}
 )
 
+# s2sdk ships mathlib/AMBuilder for its own lib builds. SdkHelpers would pick it up and
+# compile mathlib with our flags, which fails. Keep linking the prebuilt libs from the manifest.
+SdkHelpers.findSdks.__globals__["SdkTarget"].findLibrary = staticmethod(
+    lambda context, sdk, cxx, name: None
+)
+
 
 class MMSPluginConfig(object):
     def __init__(self):
