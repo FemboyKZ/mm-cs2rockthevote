@@ -25,6 +25,7 @@ static mmu::ChatPrinter &Printer()
 		s.translations = &g_RTVTranslations;
 		s.slotLanguage = &RTV_SlotLanguage;
 		s.chatPrefix = &g_RTVConfig.general.chatPrefix;
+		s.resetColorAfterPrefix = true;
 		s.conTag = "RTV";
 		s.slotIsHuman = &SlotIsHuman;
 		p.Configure(s);

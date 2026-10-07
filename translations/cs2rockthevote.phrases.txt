@@ -1,5 +1,9 @@
 // RTV chat and menu phrases. Section name is the phrase key used in code.
 // To add a language, copy the "en" line and change the key, keeping the SAME format specifiers in the SAME order.
+//
+// Colors: text is {default} unless the line is an error or a denial, which is {red} throughout.
+// On default lines players, maps, commands and numbers are {green}. On red lines every inserted value is {default}.
+// Menu titles and labels carry no tags.
 
 "Phrases"
 {
@@ -32,31 +36,31 @@
 	}
 	"RTV is not available yet. Wait %d more second(s)."
 	{
-		"en"	"{red}RTV is not available yet. Wait %d more second(s)."
+		"en"	"{red}RTV is not available yet. Wait {default}%d{red} more second(s)."
 	}
 	"RTV is on cooldown. Wait %d more second(s)."
 	{
-		"en"	"{red}RTV is on cooldown. Wait %d more second(s)."
+		"en"	"{red}RTV is on cooldown. Wait {default}%d{red} more second(s)."
 	}
 	"You already voted. (%d/%d needed)"
 	{
-		"en"	"You already voted. (%d/%d needed)"
+		"en"	"{red}You already voted. ({default}%d{red}/{default}%d{red} needed)"
 	}
 	"%s wants to rock the vote. (%d/%d needed - type !rtv to vote)"
 	{
-		"en"	"{green}%s{default} wants to rock the vote. (%d/%d needed - type {green}!rtv{default} to vote)"
+		"en"	"{green}%s{default} wants to rock the vote. ({green}%d{default}/{green}%d{default} needed - type {green}!rtv{default} to vote)"
 	}
 	"RTV threshold reached! Starting vote..."
 	{
-		"en"	"{green}RTV threshold reached! Starting vote..."
+		"en"	"RTV threshold reached! Starting vote..."
 	}
 	"Map is ending soon - starting the next-map vote..."
 	{
-		"en"	"{green}Map is ending soon {default}- starting the next-map vote..."
+		"en"	"Map is ending soon - starting the next-map vote..."
 	}
 	"Type !rtv to vote for a map change. (%d more vote(s) needed)"
 	{
-		"en"	"{default}Type {green}!rtv{default} to vote for a map change. (%d more vote(s) needed)"
+		"en"	"Type {green}!rtv{default} to vote for a map change. ({green}%d{default} more vote(s) needed)"
 	}
 
 	// Nominations
@@ -78,23 +82,23 @@
 	}
 	"Looking up workshop map %s..."
 	{
-		"en"	"{default}Looking up workshop map {green}%s{default}..."
+		"en"	"Looking up workshop map {green}%s{default}..."
 	}
 	"Workshop map %s not found."
 	{
-		"en"	"{red}Workshop map {green}%s{red} not found."
+		"en"	"{red}Workshop map {default}%s{red} not found."
 	}
 	"Map %s not found in map list."
 	{
-		"en"	"{red}Map {green}%s{red} not found in map list."
+		"en"	"{red}Map {default}%s{red} not found in map list."
 	}
 	"Looking up map %s via API..."
 	{
-		"en"	"{default}Looking up map {green}%s{default} via API..."
+		"en"	"Looking up map {green}%s{default} via API..."
 	}
 	"Map %s not found."
 	{
-		"en"	"{red}Map {green}%s{red} not found."
+		"en"	"{red}Map {default}%s{red} not found."
 	}
 	"You cannot nominate the current map."
 	{
@@ -102,7 +106,7 @@
 	}
 	"You already nominated %s."
 	{
-		"en"	"{red}You already nominated {green}%s{red}."
+		"en"	"{red}You already nominated {default}%s{red}."
 	}
 	"%s nominated %s for the next map."
 	{
@@ -128,11 +132,11 @@
 	}
 	"Map list reloaded. (%d maps)"
 	{
-		"en"	"{green}Map list reloaded. {default}(%d maps)"
+		"en"	"Map list reloaded. ({green}%d{default} maps)"
 	}
 	"Refreshing the map pool from the CS2KZ API..."
 	{
-		"en"	"{default}Refreshing the map pool from the CS2KZ API..."
+		"en"	"Refreshing the map pool from the CS2KZ API..."
 	}
 	"Failed to refresh the map pool."
 	{
@@ -140,7 +144,7 @@
 	}
 	"Map pool refreshed. (%d maps)"
 	{
-		"en"	"{green}Map pool refreshed. {default}(%d maps)"
+		"en"	"Map pool refreshed. ({green}%d{default} maps)"
 	}
 	"The map pool has not loaded yet, try again shortly."
 	{
@@ -150,7 +154,7 @@
 	// Config admin
 	"RTV config reloaded."
 	{
-		"en"	"{green}RTV config reloaded."
+		"en"	"RTV config reloaded."
 	}
 	"Failed to reload RTV config."
 	{
@@ -172,11 +176,11 @@
 	}
 	"Map vote started! Type a number in chat to vote."
 	{
-		"en"	"{green}Map vote started! {default}Type a number in chat to vote."
+		"en"	"Map vote started! Type a number in chat to vote."
 	}
 	"Map vote started!"
 	{
-		"en"	"{green}Map vote started!"
+		"en"	"Map vote started!"
 	}
 	"%s removed their vote for %s"
 	{
@@ -188,7 +192,7 @@
 	}
 	"All players voted! Vote ending in 5 second(s)."
 	{
-		"en"	"{green}All players voted! Vote ending in {green}5{default} second(s)."
+		"en"	"All players voted! Vote ending in {green}5{default} second(s)."
 	}
 	"There is no vote in progress."
 	{
@@ -200,11 +204,11 @@
 	}
 	"Map vote ends in %d second(s). Vote now!"
 	{
-		"en"	"{green}Map vote{default} ends in {green}%d{default} second(s). Vote now!"
+		"en"	"Map vote ends in {green}%d{default} second(s). Vote now!"
 	}
 	"You haven't voted yet. Type !revote or !rtv to vote."
 	{
-		"en"	"{default}You haven't voted yet. Type {green}!revote{default} or {green}!rtv{default} to vote."
+		"en"	"You haven't voted yet. Type {green}!revote{default} or {green}!rtv{default} to vote."
 	}
 	"Vote ended with no options."
 	{
@@ -212,37 +216,37 @@
 	}
 	"Nobody voted. Map will not change."
 	{
-		"en"	"{red}Nobody voted. Map will not change."
+		"en"	"Nobody voted. Map will not change."
 	}
 	"No map reached %d%% - starting runoff vote."
 	{
-		"en"	"{green}No map reached %d%% - starting runoff vote."
+		"en"	"No map reached {green}%d%%{default} - starting runoff vote."
 	}
 	"Tie! Starting runoff vote with the tied maps."
 	{
-		"en"	"{green}Tie! Starting runoff vote with the tied maps."
+		"en"	"Tie! Starting runoff vote with the tied maps."
 	}
 	"Tie! The map will NOT be changed."
 	{
-		"en"	"{red}Tie! The map will {red}NOT{green} be changed."
+		"en"	"Tie! The map will NOT be changed."
 	}
 	"The map will NOT be changed."
 	{
-		"en"	"{green}The map will {red}NOT{green} be changed."
+		"en"	"The map will NOT be changed."
 	}
 
 	// Extend
 	"Map extended by %d minute(s). About %d minute(s) left."
 	{
-		"en"	"{green}Map extended by {gold}%d{green} minute(s). About {gold}%d{green} minute(s) left."
+		"en"	"Map extended by {green}%d{default} minute(s). About {green}%d{default} minute(s) left."
 	}
 	"Map extended by %d minute(s) - the server's %d minute time cap is now reached, so this is the last extension."
 	{
-		"en"	"{green}Map extended by {gold}%d{green} minute(s) - the server's {gold}%d{green} minute time cap is now reached, so this is the {red}last{green} extension."
+		"en"	"Map extended by {green}%d{default} minute(s) - the server's {green}%d{default} minute time cap is now reached, so this is the last extension."
 	}
 	"The map cannot be extended - the server's %d minute time cap is already reached."
 	{
-		"en"	"{red}The map cannot be extended{default} - the server's {gold}%d{default} minute time cap is already reached."
+		"en"	"{red}The map cannot be extended - the server's {default}%d{red} minute time cap is already reached."
 	}
 	"The map cannot be extended."
 	{
@@ -259,23 +263,23 @@
 	// Workshop downloads
 	"%s is not installed on this server."
 	{
-		"en"	"{red}%s is not installed on this server."
+		"en"	"%s{red} is not installed on this server."
 	}
 	"Downloading %s, the map will change once it finishes."
 	{
-		"en"	"{green}Downloading {gold}%s{green}, the map will change once it finishes."
+		"en"	"Downloading {green}%s{default}, the map will change once it finishes."
 	}
 	"Downloading %s... %d%%"
 	{
-		"en"	"{green}Downloading {gold}%s{green}... {gold}%d%%"
+		"en"	"Downloading {green}%s{default}... {green}%d%%"
 	}
 	"%s could not be downloaded in time. Staying on the current map."
 	{
-		"en"	"{red}%s could not be downloaded in time.{default} Staying on the current map."
+		"en"	"%s{red} could not be downloaded in time. Staying on the current map."
 	}
 	"%s could not be downloaded. Staying on the current map."
 	{
-		"en"	"{red}%s could not be downloaded.{default} Staying on the current map."
+		"en"	"%s{red} could not be downloaded. Staying on the current map."
 	}
 	"%s won the vote! Map changing in %d second(s)."
 	{
@@ -283,7 +287,7 @@
 	}
 	"Runoff vote started!"
 	{
-		"en"	"{green}Runoff vote started!"
+		"en"	"Runoff vote started!"
 	}
 
 	// Menu titles and labels
@@ -342,5 +346,15 @@
 	"Type !revote in chat to change it."
 	{
 		"en"	"Type !revote in chat to change it."
+	}
+
+	// Console map list
+	"No maps loaded."
+	{
+		"en"	"No maps loaded."
+	}
+	"Available maps (%d):"
+	{
+		"en"	"Available maps (%d):"
 	}
 }

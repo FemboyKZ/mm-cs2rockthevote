@@ -227,10 +227,10 @@ void NominateManager::CommandMaps(int slot) const
 	const auto &maps = g_MapLister.GetMaps();
 	if (maps.empty())
 	{
-		RTV_PrintToClient(slot, "No maps loaded.");
+		RTV_PrintToClient(slot, "%s", RTV_Translate(slot, "No maps loaded.").c_str());
 		return;
 	}
-	RTV_PrintToClient(slot, "Available maps (%d):", static_cast<int>(maps.size()));
+	RTV_PrintToClient(slot, RTV_Translate(slot, "Available maps (%d):").c_str(), static_cast<int>(maps.size()));
 	std::vector<const MapEntry *> sorted;
 	sorted.reserve(maps.size());
 	for (const auto &e : maps)
