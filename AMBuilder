@@ -32,7 +32,6 @@ for sdk_target in MMSPlugin.sdk_targets:
         "src/whitelist/whitelist_bridge.cpp",
         "mm-utils/utils/chat_colors.cpp",
         "mm-utils/game/cvarquery.cpp",
-        "mm-utils/sdk/gamesystem.cpp",
         "mm-utils/utils/http_client.cpp",
         "mm-utils/utils/log.cpp",
         "mm-utils/game/print.cpp",

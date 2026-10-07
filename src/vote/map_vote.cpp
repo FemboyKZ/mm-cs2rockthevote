@@ -110,6 +110,7 @@ void MapVoteManager::Reset()
 	m_failureTimerId = -1;
 	g_Timers.KillTimer(m_downloadTimerId);
 	m_downloadTimerId = -1;
+	m_pendingDownload.Clear();
 
 	for (int i = 0; i <= MAXPLAYERS; i++)
 	{
@@ -132,7 +133,7 @@ void MapVoteManager::CancelVote()
 bool MapVoteManager::ChangeMapNow(const MapEntry &entry)
 {
 	uint64_t fileId = entry.isWorkshop ? std::strtoull(entry.workshopId.c_str(), nullptr, 10) : 0;
-	if (fileId == 0 || mmu::workshop::IsReady(fileId, g_RTVSteamAPI))
+	if (fileId == 0 || mmu::workshop::IsReady(fileId))
 	{
 		DoMapChange(entry);
 		return true;
@@ -860,7 +861,7 @@ void MapVoteManager::BeginMapChange(const MapEntry &entry)
 {
 	uint64_t fileId = entry.isWorkshop ? std::strtoull(entry.workshopId.c_str(), nullptr, 10) : 0;
 
-	if (fileId == 0 || mmu::workshop::IsReady(fileId, g_RTVSteamAPI))
+	if (fileId == 0 || mmu::workshop::IsReady(fileId))
 	{
 		DoMapChange(entry);
 		return;
@@ -890,11 +891,8 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry, bool fromVote)
 		return false;
 	}
 
-	// Drops an ACF entry left behind by a deleted addon,
-	// otherwise Steam still thinks the map is installed and the download below is a no-op.
-	mmu::EnsureWorkshopMapReady(entry.workshopId, g_RTVSteamAPI);
-
-	if (!mmu::workshop::StartDownload(fileId, g_RTVSteamAPI))
+	// The download itself starts from the poll below, once Steam has confirmed the id is a CS2 map.
+	if (!m_pendingDownload.Begin(fileId, static_cast<float>(g_RTVConfig.mapvote.workshopDownloadTimeout), g_RTVSteamAPI))
 	{
 		MMU_LOG_WARN("Workshop map '%s' (%s) is not installed and no download could be started.\n", entry.mapName.c_str(), entry.workshopId.c_str());
 		if (fromVote)
@@ -904,25 +902,33 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry, bool fromVote)
 		return false;
 	}
 
-	CGlobalVars *globals = GetGameGlobals();
-	float now = globals ? globals->curtime : 0.0f;
-	m_pendingDownload.Begin(fileId, static_cast<float>(g_RTVConfig.mapvote.workshopDownloadTimeout), now);
-
-	MMU_LOG_INFO("Downloading workshop map '%s' (%s) before changing.\n", entry.mapName.c_str(), entry.workshopId.c_str());
-	RTV_ChatToAllT("Downloading %s, the map will change once it finishes.", MapLabel(entry));
-
 	MapEntry captured = entry;
 	g_Timers.KillTimer(m_downloadTimerId);
 	m_downloadTimerId = g_Timers.CreateTimer(
 		1.0f,
 		[this, captured, fileId, fromVote]()
 		{
-			CGlobalVars *g = GetGameGlobals();
-			float curtime = g ? g->curtime : 0.0f;
 			int percent = 0;
 
-			switch (m_pendingDownload.Poll(curtime, g_RTVSteamAPI))
+			switch (m_pendingDownload.Poll(g_RTVSteamAPI))
 			{
+				case mmu::workshop::PendingDownload::Status::Started:
+					MMU_LOG_INFO("Downloading workshop map '%s' (%s) before changing.\n", captured.mapName.c_str(), captured.workshopId.c_str());
+					RTV_ChatToAllT("Downloading %s, the map will change once it finishes.", MapLabel(captured));
+					break;
+				case mmu::workshop::PendingDownload::Status::Rejected:
+				case mmu::workshop::PendingDownload::Status::StartFailed:
+				case mmu::workshop::PendingDownload::Status::DownloadFailed:
+					g_Timers.KillTimer(m_downloadTimerId);
+					m_downloadTimerId = -1;
+					MMU_LOG_WARN("Workshop map '%s' (%llu) is not a CS2 map Steam knows, or its download could not start or failed.\n",
+								 captured.mapName.c_str(), static_cast<unsigned long long>(fileId));
+					RTV_ChatToAllT("%s could not be downloaded. Staying on the current map.", MapLabel(captured));
+					if (fromVote)
+					{
+						AbortChange();
+					}
+					break;
 				case mmu::workshop::PendingDownload::Status::Settled:
 					g_Timers.KillTimer(m_downloadTimerId);
 					m_downloadTimerId = -1;
@@ -955,6 +961,7 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry, bool fromVote)
 					break;
 				case mmu::workshop::PendingDownload::Status::Waiting:
 				case mmu::workshop::PendingDownload::Status::Idle:
+				case mmu::workshop::PendingDownload::Status::ChangeFailed:
 					break;
 			}
 		},
@@ -988,6 +995,13 @@ void MapVoteManager::ArmChangeFailureTimer(const MapEntry &entry, float timeout)
 			m_failureTimerId = -1;
 			if (!m_changeScheduled)
 			{
+				return;
+			}
+
+			// The engine is still fetching the map itself, which is not a failed change.
+			if (entry.isWorkshop && mmu::workshop::IsRequestPending(std::strtoull(entry.workshopId.c_str(), nullptr, 10)))
+			{
+				ArmChangeFailureTimer(entry, 30.0f);
 				return;
 			}
 

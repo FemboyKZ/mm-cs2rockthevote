@@ -27,7 +27,6 @@
 #include "utils/chat_command.h"
 #include "utils/command_args.h"
 #include "game/cvarquery.h"
-#include "sdk/gamesystem.h"
 #include "utils/log.h"
 #include "whitelist/whitelist_bridge.h"
 
@@ -76,7 +75,7 @@ CS2RTVForwards g_CS2RTVForwards;
 
 PLUGIN_EXPOSE(CS2RTVPlugin, g_ThisPlugin);
 
-// Public read-only status/maplist interface, queried via CS2RTV_INTERFACE.
+// Public status/maplist interface, queried via CS2RTV_INTERFACE.
 class CS2RTVAPI : public ICS2RTV
 {
 	bool IsVoteActive() override
@@ -161,13 +160,22 @@ class CS2RTVAPI : public ICS2RTV
 		label = g_MapLister.GetDisplayLabel(maps[index], true, disabled ? "\x08" : "\x01");
 		return label.c_str();
 	}
+
+	void CancelVote() override
+	{
+		if (g_MapVoteManager.IsVoteActive() || g_MapVoteManager.IsChangeScheduled())
+		{
+			g_MapVoteManager.CancelVote();
+			RTV_ChatToAllT("An admin is changing the map - active vote cancelled.");
+		}
+	}
 };
 
 static CS2RTVAPI g_CS2RTVAPI;
 
 void *CS2RTVPlugin::OnMetamodQuery(const char *iface, int *ret)
 {
-	if (!strcmp(iface, CS2RTV_INTERFACE))
+	if (!strcmp(iface, CS2RTV_INTERFACE) || !strcmp(iface, "ICS2RTV001"))
 	{
 		if (ret)
 		{
@@ -229,13 +237,6 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	GET_V_IFACE_ANY(GetEngineFactory, g_pNetworkServerService, INetworkServerService, NETWORKSERVERSERVICE_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pSchemaSystem, ISchemaSystem, SCHEMASYSTEM_INTERFACE_VERSION);
 	GET_V_IFACE_ANY(GetEngineFactory, g_pGameResourceServiceServer, IGameResourceService, GAMERESOURCESERVICESERVER_INTERFACE_VERSION);
-
-	// Engine-native workshop map checks.
-	// On failure EnsureWorkshopMapReady silently falls back to the .vpk folder scan + ACF prune path.
-	if (!mmu::gamesystem::Resolve(reinterpret_cast<const void *>(g_pServerGameDLL)))
-	{
-		MMU_LOG_WARN("Game system list unresolved; workshop map checks fall back to ACF pruning.\n");
-	}
 
 	g_SMAPI->AddListener(this, this);
 
