@@ -32,14 +32,12 @@ public: // KHook hook handlers
 	KHook::Return<void> Hook_ClientDisconnect(IServerGameClients *, CPlayerSlot slot, ENetworkDisconnectionReason reason, const char *pszName,
 											  uint64 xuid, const char *pszNetworkID);
 	KHook::Return<void> Hook_DispatchConCommand(ICvar *, ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args);
-	KHook::Return<void> Hook_GameServerSteamAPIActivated(IServerGameDLL *);
 
 private:
 	// A late load misses OnLevelInit and every client's connect, so both are replayed from the running server.
 	void OnLateLoad();
 
 	KHook::Virtual<IServerGameDLL, void, bool, bool, bool> m_GameFrame;
-	KHook::Virtual<IServerGameDLL, void> m_GameServerSteamAPIActivated;
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, const char *, uint64, const char *, const char *, bool> m_OnClientConnected;
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, char const *, int, uint64> m_ClientPutInServer;
 	KHook::Virtual<IServerGameClients, void, CPlayerSlot, ENetworkDisconnectionReason, const char *, uint64, const char *> m_ClientDisconnect;

@@ -12,8 +12,6 @@
 #include "src/utils/print_utils.h"
 #include "game/workshop.h"
 
-extern CSteamGameServerAPIContext g_RTVSteamAPI;
-
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -30,7 +28,7 @@ static void DoMapChange(const MapEntry &entry)
 	char cmd[256];
 	if (entry.isWorkshop && !entry.workshopId.empty())
 	{
-		mmu::EnsureWorkshopMapReady(entry.workshopId, g_RTVSteamAPI);
+		mmu::EnsureWorkshopMapReady(entry.workshopId);
 		snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entry.workshopId.c_str());
 	}
 	else
@@ -892,7 +890,7 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry, bool fromVote)
 	}
 
 	// The download itself starts from the poll below, once Steam has confirmed the id is a CS2 map.
-	if (!m_pendingDownload.Begin(fileId, static_cast<float>(g_RTVConfig.mapvote.workshopDownloadTimeout), g_RTVSteamAPI))
+	if (!m_pendingDownload.Begin(fileId, static_cast<float>(g_RTVConfig.mapvote.workshopDownloadTimeout)))
 	{
 		MMU_LOG_WARN("Workshop map '%s' (%s) is not installed and no download could be started.\n", entry.mapName.c_str(), entry.workshopId.c_str());
 		if (fromVote)
@@ -910,7 +908,7 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry, bool fromVote)
 		{
 			int percent = 0;
 
-			switch (m_pendingDownload.Poll(g_RTVSteamAPI))
+			switch (m_pendingDownload.Poll())
 			{
 				case mmu::workshop::PendingDownload::Status::Started:
 					MMU_LOG_INFO("Downloading workshop map '%s' (%s) before changing.\n", captured.mapName.c_str(), captured.workshopId.c_str());
@@ -954,7 +952,7 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry, bool fromVote)
 					}
 					break;
 				case mmu::workshop::PendingDownload::Status::Announce:
-					if (m_pendingDownload.Percent(g_RTVSteamAPI, percent))
+					if (m_pendingDownload.Percent(percent))
 					{
 						RTV_ChatToAllT("Downloading %s... %d%%", MapLabel(captured), percent);
 					}

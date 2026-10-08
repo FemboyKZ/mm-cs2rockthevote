@@ -34,7 +34,6 @@
 #include <iserver.h>
 #include <networksystem/inetworkmessages.h>
 #include <filesystem.h>
-#include "steam/steam_gameserver.h"
 
 // Global interface pointers (defined here, declared extern in common.h)
 // g_pNetworkServerService, g_pFullFileSystem and g_pNetworkMessages are defined in interfaces.lib
@@ -50,9 +49,6 @@ CGameEntitySystem *GameEntitySystem()
 {
 	return mmu::EntitySystem();
 }
-
-// Steam game-server API context used for workshop validation (ISteamUGC).
-CSteamGameServerAPIContext g_RTVSteamAPI;
 
 std::string RTV_SlotLanguage(int slot)
 {
@@ -215,7 +211,6 @@ static void ShowMapChooserMenu(int slot)
 
 CS2RTVPlugin::CS2RTVPlugin()
 	: m_GameFrame(&IServerGameDLL::GameFrame, this, nullptr, &CS2RTVPlugin::Hook_GameFrame),
-	  m_GameServerSteamAPIActivated(&IServerGameDLL::GameServerSteamAPIActivated, this, nullptr, &CS2RTVPlugin::Hook_GameServerSteamAPIActivated),
 	  m_OnClientConnected(&IServerGameClients::OnClientConnected, this, &CS2RTVPlugin::Hook_OnClientConnected, nullptr),
 	  m_ClientPutInServer(&IServerGameClients::ClientPutInServer, this, nullptr, &CS2RTVPlugin::Hook_ClientPutInServer),
 	  m_ClientDisconnect(&IServerGameClients::ClientDisconnect, this, nullptr, &CS2RTVPlugin::Hook_ClientDisconnect),
@@ -244,7 +239,6 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	mmu::cvarquery::Init(g_pEngine);
 
 	m_GameFrame.Add(g_pServerGameDLL);
-	m_GameServerSteamAPIActivated.Add(g_pServerGameDLL);
 	m_OnClientConnected.Add(g_pGameClients);
 	m_ClientPutInServer.Add(g_pGameClients);
 	m_ClientDisconnect.Add(g_pGameClients);
@@ -264,11 +258,6 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 void CS2RTVPlugin::OnLateLoad()
 {
-	if (!g_RTVSteamAPI.SteamUGC())
-	{
-		g_RTVSteamAPI.Init();
-	}
-
 	INetworkGameServer *server = g_pNetworkServerService ? g_pNetworkServerService->GetIGameServer() : nullptr;
 	const char *mapName = server ? server->GetMapName() : "";
 	OnLevelInit(mapName ? mapName : "", "", "", "", false, false);
@@ -300,7 +289,6 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	mmu::http::DrainMainThread();
 
 	m_GameFrame.Remove(g_pServerGameDLL);
-	m_GameServerSteamAPIActivated.Remove(g_pServerGameDLL);
 	m_OnClientConnected.Remove(g_pGameClients);
 	m_ClientPutInServer.Remove(g_pGameClients);
 	m_ClientDisconnect.Remove(g_pGameClients);
@@ -317,7 +305,6 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	RTV_AdminBridge_Shutdown();
 	RTV_WhitelistBridge_Shutdown();
 	g_RTVMenus.Shutdown();
-	g_RTVSteamAPI.Clear();
 
 	g_CS2RTVForwards.Shutdown();
 
@@ -405,16 +392,6 @@ KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simula
 			g_MapVoteManager.StartVote(false, noms);
 		});
 
-	return {KHook::Action::Ignore};
-}
-
-KHook::Return<void> CS2RTVPlugin::Hook_GameServerSteamAPIActivated(IServerGameDLL *)
-{
-	if (g_RTVSteamAPI.SteamUGC())
-	{
-		return {KHook::Action::Ignore};
-	}
-	g_RTVSteamAPI.Init();
 	return {KHook::Action::Ignore};
 }
 
