@@ -23,7 +23,6 @@
 
 #include "entity/cgamerules.h"
 #include "sdk/entity/ccsplayercontroller.h"
-#include "sdk/entity/entity_system.h"
 #include "utils/chat_command.h"
 #include "utils/command_args.h"
 #include "game/cvarquery.h"
@@ -44,11 +43,6 @@ IGameEventManager2 *g_pGameEvents = nullptr;
 ICvar *g_pICvar = nullptr;
 IGameEventSystem *g_pGameEventSystem = nullptr;
 CGameEntitySystem *g_pEntitySystem = nullptr;
-
-CGameEntitySystem *GameEntitySystem()
-{
-	return mmu::EntitySystem();
-}
 
 std::string RTV_SlotLanguage(int slot)
 {
