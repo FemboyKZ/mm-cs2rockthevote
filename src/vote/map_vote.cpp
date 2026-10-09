@@ -12,6 +12,8 @@
 #include "src/utils/print_utils.h"
 #include "game/workshop.h"
 
+#include <filesystem.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -25,6 +27,33 @@ MapVoteManager g_MapVoteManager;
 static std::default_random_engine g_rng(std::random_device {}());
 
 static std::string s_changingToWorkshopId;
+
+// The id in ".../workshop/content/730/<id>/...", "" for any other path.
+static std::string WorkshopIdInPath(std::string path)
+{
+	static const char kRoot[] = "/workshop/content/730/";
+	std::replace(path.begin(), path.end(), '\\', '/');
+	size_t at = path.find(kRoot);
+	if (at == std::string::npos)
+	{
+		return "";
+	}
+	at += sizeof(kRoot) - 1;
+	return path.substr(at, path.find_first_not_of("0123456789", at) - at);
+}
+
+// From where the map is mounted, as cs2kz-metamod does. Leaves id alone when the file is not found.
+static void ReadMountedWorkshopId(const char *mapName, std::string &id)
+{
+	char file[512];
+	g_SMAPI->PathFormat(file, sizeof(file), "maps/%s.vpk", mapName);
+	CUtlVector<CUtlString> paths;
+	g_pFullFileSystem->FindFileAbsoluteList(paths, file, "GAME");
+	if (paths.Count() > 0)
+	{
+		id = WorkshopIdInPath(paths[0].Get());
+	}
+}
 
 static void DoMapChange(const MapEntry &entry)
 {
@@ -90,12 +119,26 @@ void MapVoteManager::OnMapStart(const char *currentMap)
 		m_recentMaps.push_back(previous);
 	}
 	m_currentWorkshopId = std::exchange(s_changingToWorkshopId, std::string());
+	m_workshopIdRead = false;
 	ClearNextLevelIfNamed(m_currentMap.c_str());
 }
 
 bool MapVoteManager::IsCurrentMap(const MapEntry &entry) const
 {
-	return entry.mapName == m_currentMap || (!m_currentWorkshopId.empty() && entry.workshopId == m_currentWorkshopId);
+	if (entry.mapName == m_currentMap)
+	{
+		return true;
+	}
+	if (entry.workshopId.empty())
+	{
+		return false;
+	}
+	if (!m_workshopIdRead)
+	{
+		m_workshopIdRead = true;
+		ReadMountedWorkshopId(m_currentMap.c_str(), m_currentWorkshopId);
+	}
+	return entry.workshopId == m_currentWorkshopId;
 }
 
 void MapVoteManager::Reset()
@@ -199,11 +242,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	m_runoffActive = false;
 
 	BuildOptions(nominations, isRTV);
-
-	CGlobalVars *globals = GetGameGlobals();
-	float curtime = globals ? globals->curtime : 0.0f;
-	float duration = static_cast<float>(cfg.voteDuration);
-	m_voteEndTime = curtime + duration;
+	ArmVoteTimers();
 
 	SendVoteMenuToAll();
 	// Per viewer, only chat menus take typed numbers.
@@ -215,6 +254,14 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 			RTV_PrintToChatT(i, g_RTVMenus.UsesChatInput(i) ? "Map vote started! Type a number in chat to vote." : "Map vote started!");
 		}
 	}
+}
+
+void MapVoteManager::ArmVoteTimers()
+{
+	const MapVoteCfg &cfg = g_RTVConfig.mapvote;
+	CGlobalVars *globals = GetGameGlobals();
+	float duration = static_cast<float>(cfg.voteDuration);
+	m_voteEndTime = (globals ? globals->curtime : 0.0f) + duration;
 
 	if (cfg.countdownInterval > 0)
 	{
@@ -833,46 +880,10 @@ void MapVoteManager::StartRunoff(const std::vector<int> &tiedIndices)
 	m_dismissed.clear();
 	m_runoffActive = true;
 	m_voteActive = true;
-
-	CGlobalVars *globals = GetGameGlobals();
-	float curtime = globals ? globals->curtime : 0.0f;
-	float duration = static_cast<float>(g_RTVConfig.mapvote.voteDuration);
-	m_voteEndTime = curtime + duration;
+	ArmVoteTimers();
 
 	RTV_ChatToAllT("Runoff vote started!");
 	SendVoteMenuToAll();
-
-	const MapVoteCfg &cfg = g_RTVConfig.mapvote;
-
-	if (cfg.countdownInterval > 0)
-	{
-		float iv = static_cast<float>(cfg.countdownInterval);
-		m_countdownTimerId = g_Timers.CreateTimer(
-			iv,
-			[this]()
-			{
-				if (!m_voteActive)
-				{
-					return;
-				}
-				CGlobalVars *g = GetGameGlobals();
-				float now = g ? g->curtime : 0.0f;
-				int secsLeft = static_cast<int>(m_voteEndTime - now);
-				if (secsLeft > 0)
-				{
-					SendCountdownReminder(secsLeft);
-				}
-			},
-			iv);
-	}
-
-	if (cfg.chatChoiceReminder && cfg.chatChoiceInterval > 0)
-	{
-		float iv = static_cast<float>(cfg.chatChoiceInterval);
-		m_reminderTimerId = g_Timers.CreateTimer(iv, [this]() { SendChoiceReminders(); }, iv);
-	}
-
-	m_verifyTimerId = g_Timers.CreateTimer(duration, [this]() { FinishVote(); });
 }
 
 void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)

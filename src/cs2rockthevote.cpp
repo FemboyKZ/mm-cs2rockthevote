@@ -203,6 +203,11 @@ static void ShowMapChooserMenu(int slot)
 	RTV_ShowMapMenu(slot, menu);
 }
 
+static void StartRtvVote()
+{
+	g_MapVoteManager.StartVote(true, g_NominateManager.GetNominations());
+}
+
 CS2RTVPlugin::CS2RTVPlugin()
 	: m_GameFrame(&IServerGameDLL::GameFrame, this, nullptr, &CS2RTVPlugin::Hook_GameFrame),
 	  m_OnClientConnected(&IServerGameClients::OnClientConnected, this, &CS2RTVPlugin::Hook_OnClientConnected, nullptr),
@@ -393,12 +398,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simula
 	if (!g_RTVConfig.general.includeSpectator && now >= s_nextRecheck)
 	{
 		s_nextRecheck = now + 1.0;
-		g_RTVManager.RecheckThreshold(
-			[]()
-			{
-				auto noms = g_NominateManager.GetNominations();
-				g_MapVoteManager.StartVote(true, noms);
-			});
+		g_RTVManager.RecheckThreshold(StartRtvVote);
 	}
 
 	return {KHook::Action::Ignore};
@@ -439,12 +439,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CP
 	{
 		return {KHook::Action::Ignore};
 	}
-	g_RTVManager.RecheckThreshold(
-		[]()
-		{
-			auto noms = g_NominateManager.GetNominations();
-			g_MapVoteManager.StartVote(true, noms);
-		});
+	g_RTVManager.RecheckThreshold(StartRtvVote);
 	return {KHook::Action::Ignore};
 }
 
@@ -466,6 +461,155 @@ static bool RTV_MainArg(int slot, const std::string &line, const char *key, std:
 			RTV_PrintToChatT(slot, "A quote is left open.");
 			return false;
 	}
+}
+
+// False after telling the player.
+static bool RTV_Allowed(int slot, const char *command, const std::string &permission = "")
+{
+	uint32_t flag = permission.empty() ? 0 : ParseAdminFlagName(permission);
+	if (RTV_AdminBridge_CanUseCommand(slot, command, flag))
+	{
+		return true;
+	}
+	RTV_PrintToChatT(slot, "You don't have permission to use this command.");
+	return false;
+}
+
+static void RTV_CmdRtv(int slot, const std::string & /*argLine*/)
+{
+	if (!RTV_Allowed(slot, "rtv"))
+	{
+		return;
+	}
+	if (g_MapVoteManager.IsVoteActive())
+	{
+		g_MapVoteManager.ShowVoteMenuToPlayer(slot);
+	}
+	else
+	{
+		g_RTVManager.CommandHandler(slot, StartRtvVote);
+	}
+}
+
+static void RTV_CmdNominate(int slot, const std::string &argLine)
+{
+	std::string map;
+	if (!g_RTVConfig.nominate.enabled)
+	{
+		RTV_PrintToChatT(slot, "Nominations are disabled.");
+	}
+	else if (RTV_MainArg(slot, argLine, "map", map))
+	{
+		g_NominateManager.CommandNominate(slot, map.c_str());
+	}
+}
+
+static void RTV_CmdMapMenu(int slot, const std::string & /*argLine*/)
+{
+	if (RTV_Allowed(slot, "mapmenu", g_RTVConfig.mapchooser.permission))
+	{
+		ShowMapChooserMenu(slot);
+	}
+}
+
+static void RTV_CmdListMaps(int slot, const std::string & /*argLine*/)
+{
+	if (RTV_Allowed(slot, "listmaps"))
+	{
+		g_NominateManager.CommandMaps(slot);
+	}
+}
+
+// Cancels a running vote or a scheduled change, so it is admin-only.
+static void RTV_CmdReloadMaps(int slot, const std::string & /*argLine*/)
+{
+	if (RTV_Allowed(slot, "reloadmaps", g_RTVConfig.general.adminPermission))
+	{
+		g_NominateManager.CommandReloadMaps(slot);
+	}
+}
+
+static void RTV_CmdExtend(int slot, const std::string &argLine)
+{
+	std::string minutes;
+	if (RTV_Allowed(slot, "extend", g_RTVConfig.extend.permission) && RTV_MainArg(slot, argLine, "time", minutes))
+	{
+		RTV_CommandExtend(slot, atoi(minutes.c_str()));
+	}
+}
+
+static void RTV_CmdVote(int slot, const std::string & /*argLine*/)
+{
+	if (RTV_Allowed(slot, "vote"))
+	{
+		g_MapVoteManager.CommandVote(slot);
+	}
+}
+
+static void RTV_CmdRevote(int slot, const std::string & /*argLine*/)
+{
+	if (RTV_Allowed(slot, "revote"))
+	{
+		g_MapVoteManager.CommandRevote(slot);
+	}
+}
+
+static void RTV_CmdReloadRtv(int slot, const std::string & /*argLine*/)
+{
+	if (!RTV_Allowed(slot, "reloadrtv", g_RTVConfig.general.adminPermission))
+	{
+		return;
+	}
+
+	char cfgPath[512];
+	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
+	if (RTV_LoadConfig(cfgPath, g_RTVConfig))
+	{
+		RTV_LoadTranslations();
+		g_RTVTimeLimit.ApplyRoundTimeCap();
+		RTV_PrintToChatT(slot, "RTV config reloaded.");
+	}
+	else
+	{
+		RTV_PrintToChatT(slot, "Failed to reload RTV config.");
+	}
+}
+
+using RTVCommandFn = void (*)(int slot, const std::string &argLine);
+
+struct RTVChatCommand
+{
+	const char *name;
+	const char *alias;
+	RTVCommandFn run;
+};
+
+// clang-format off
+static const RTVChatCommand s_chatCommands[] = {
+	{"rtv", nullptr, RTV_CmdRtv},
+	{"nominate", "nom", RTV_CmdNominate},
+	{"mapmenu", "mm", RTV_CmdMapMenu},
+	{"listmaps", nullptr, RTV_CmdListMaps},
+	{"reloadmaps", nullptr, RTV_CmdReloadMaps},
+	{"extend", nullptr, RTV_CmdExtend},
+	{"vote", nullptr, RTV_CmdVote},
+	{"revote", nullptr, RTV_CmdRevote},
+	{"reloadrtv", nullptr, RTV_CmdReloadRtv},
+};
+// clang-format on
+
+// False when the name is not one of ours.
+static bool RTV_RunChatCommand(int slot, const mmu::ChatCommand &chatCmd)
+{
+	for (const RTVChatCommand &command : s_chatCommands)
+	{
+		if (chatCmd.name == command.name || (command.alias && chatCmd.name == command.alias))
+		{
+			command.run(slot, chatCmd.argLine);
+			return true;
+		}
+	}
+	return false;
 }
 
 KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args)
@@ -505,156 +649,14 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 	std::string msg = mmu::StripSayQuotes(rawMsg);
 
 	mmu::ChatCommand chatCmd;
-	if (!mmu::ParseChatCommand(msg, g_RTVConfig.general.commandPrefix, g_RTVConfig.general.silentCommandPrefix, chatCmd))
+	if (!mmu::ParseChatCommand(msg, g_RTVConfig.general.commandPrefix, g_RTVConfig.general.silentCommandPrefix, chatCmd)
+		|| !RTV_RunChatCommand(slot, chatCmd))
 	{
 		return {KHook::Action::Ignore};
 	}
 
 	// Normal prefix: message stays visible in chat. Silent prefix: suppress it.
-	const KHook::Action cmdReturn = chatCmd.silent ? KHook::Action::Supersede : KHook::Action::Ignore;
-
-	const char *cmdBuf = chatCmd.name.c_str();
-
-	if (strcmp(cmdBuf, "rtv") == 0)
-	{
-		if (!RTV_AdminBridge_CanUseCommand(slot, "rtv", 0))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-		if (g_MapVoteManager.IsVoteActive())
-		{
-			g_MapVoteManager.ShowVoteMenuToPlayer(slot);
-		}
-		else
-		{
-			g_RTVManager.CommandHandler(slot,
-										[]()
-										{
-											auto noms = g_NominateManager.GetNominations();
-											g_MapVoteManager.StartVote(true, noms);
-										});
-		}
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "nominate") == 0 || strcmp(cmdBuf, "nom") == 0)
-	{
-		std::string map;
-		if (!g_RTVConfig.nominate.enabled)
-		{
-			RTV_PrintToChatT(slot, "Nominations are disabled.");
-		}
-		else if (RTV_MainArg(slot, chatCmd.argLine, "map", map))
-		{
-			g_NominateManager.CommandNominate(slot, map.c_str());
-		}
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "mapmenu") == 0 || strcmp(cmdBuf, "mm") == 0)
-	{
-		const std::string &permName = g_RTVConfig.mapchooser.permission;
-		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-		if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-		ShowMapChooserMenu(slot);
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "listmaps") == 0)
-	{
-		if (!RTV_AdminBridge_CanUseCommand(slot, "listmaps", 0))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-		g_NominateManager.CommandMaps(slot);
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "reloadmaps") == 0)
-	{
-		// Cancels a running vote or a scheduled change, so it is admin-only.
-		const std::string &permName = g_RTVConfig.general.adminPermission;
-		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", flag))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-		g_NominateManager.CommandReloadMaps(slot);
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "extend") == 0)
-	{
-		const std::string &permName = g_RTVConfig.extend.permission;
-		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-		if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-		std::string minutes;
-		if (RTV_MainArg(slot, chatCmd.argLine, "time", minutes))
-		{
-			RTV_CommandExtend(slot, atoi(minutes.c_str()));
-		}
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "vote") == 0)
-	{
-		if (!RTV_AdminBridge_CanUseCommand(slot, "vote", 0))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-		g_MapVoteManager.CommandVote(slot);
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "revote") == 0)
-	{
-		if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-		g_MapVoteManager.CommandRevote(slot);
-		return {cmdReturn};
-	}
-
-	if (strcmp(cmdBuf, "reloadrtv") == 0)
-	{
-		const std::string &permName = g_RTVConfig.general.adminPermission;
-		uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-		if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
-		{
-			RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-			return {cmdReturn};
-		}
-
-		char cfgPath[512];
-		snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
-		if (RTV_LoadConfig(cfgPath, g_RTVConfig))
-		{
-			RTV_LoadTranslations();
-			g_RTVTimeLimit.ApplyRoundTimeCap();
-			RTV_PrintToChatT(slot, "RTV config reloaded.");
-		}
-		else
-		{
-			RTV_PrintToChatT(slot, "Failed to reload RTV config.");
-		}
-		return {cmdReturn};
-	}
-
-	return {KHook::Action::Ignore};
+	return {chatCmd.silent ? KHook::Action::Supersede : KHook::Action::Ignore};
 }
 
 // Client-executable, so a client that isn't put in server yet can reach these the same way it could reach chat.
@@ -668,176 +670,56 @@ static bool RTV_ConsoleCallerReady(int slot)
 	return player && player->connected && player->inGame;
 }
 
-CON_COMMAND_F(mm_rtv, "Rock the vote for a map change", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
+static void RTV_RunFromConsole(const CCommandContext &context, const CCommand &args, RTVCommandFn run)
 {
 	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
+	if (RTV_ConsoleCallerReady(slot))
 	{
-		return;
+		run(slot, args.ArgS());
 	}
-	if (!RTV_AdminBridge_CanUseCommand(slot, "rtv", 0))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	if (g_MapVoteManager.IsVoteActive())
-	{
-		g_MapVoteManager.ShowVoteMenuToPlayer(slot);
-	}
-	else
-	{
-		g_RTVManager.CommandHandler(slot,
-									[]()
-									{
-										auto noms = g_NominateManager.GetNominations();
-										g_MapVoteManager.StartVote(true, noms);
-									});
-	}
+}
+
+CON_COMMAND_F(mm_rtv, "Rock the vote for a map change", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
+{
+	RTV_RunFromConsole(context, args, RTV_CmdRtv);
 }
 
 CON_COMMAND_F(mm_nominate, "Nominate a map for the next vote", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	if (!g_RTVConfig.nominate.enabled)
-	{
-		RTV_PrintToChatT(slot, "Nominations are disabled.");
-		return;
-	}
-	std::string map;
-	if (RTV_MainArg(slot, args.ArgS(), "map", map))
-	{
-		g_NominateManager.CommandNominate(slot, map.c_str());
-	}
+	RTV_RunFromConsole(context, args, RTV_CmdNominate);
 }
 
 CON_COMMAND_F(mm_listmaps, "List available maps to your console", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	if (!RTV_AdminBridge_CanUseCommand(slot, "listmaps", 0))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	g_NominateManager.CommandMaps(slot);
+	RTV_RunFromConsole(context, args, RTV_CmdListMaps);
 }
 
 CON_COMMAND_F(mm_reloadmaps, "Reload the map list", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	const std::string &permName = g_RTVConfig.general.adminPermission;
-	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadmaps", flag))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	g_NominateManager.CommandReloadMaps(slot);
+	RTV_RunFromConsole(context, args, RTV_CmdReloadMaps);
 }
 
 CON_COMMAND_F(mm_vote, "Open the ballot of an active map vote", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	if (!RTV_AdminBridge_CanUseCommand(slot, "vote", 0))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	g_MapVoteManager.CommandVote(slot);
+	RTV_RunFromConsole(context, args, RTV_CmdVote);
 }
 
 CON_COMMAND_F(mm_revote, "Change your vote in an active map vote", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	if (!RTV_AdminBridge_CanUseCommand(slot, "revote", 0))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	g_MapVoteManager.CommandRevote(slot);
+	RTV_RunFromConsole(context, args, RTV_CmdRevote);
 }
 
 CON_COMMAND_F(mm_extend, "Admin: extend the current map's time limit", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	const std::string &permName = g_RTVConfig.extend.permission;
-	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-	if (!RTV_AdminBridge_CanUseCommand(slot, "extend", flag))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	std::string minutes;
-	if (RTV_MainArg(slot, args.ArgS(), "time", minutes))
-	{
-		RTV_CommandExtend(slot, atoi(minutes.c_str()));
-	}
+	RTV_RunFromConsole(context, args, RTV_CmdExtend);
 }
 
 CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	const std::string &permName = g_RTVConfig.mapchooser.permission;
-	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-	if (!RTV_AdminBridge_CanUseCommand(slot, "mapmenu", flag))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	ShowMapChooserMenu(slot);
+	RTV_RunFromConsole(context, args, RTV_CmdMapMenu);
 }
 
 CON_COMMAND_F(mm_reloadrtv, "Admin: reload cs2rtv config from disk", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
-	int slot = context.GetPlayerSlot().Get();
-	if (!RTV_ConsoleCallerReady(slot))
-	{
-		return;
-	}
-	const std::string &permName = g_RTVConfig.general.adminPermission;
-	uint32_t flag = permName.empty() ? 0 : ParseAdminFlagName(permName);
-	if (!RTV_AdminBridge_CanUseCommand(slot, "reloadrtv", flag))
-	{
-		RTV_PrintToChatT(slot, "You don't have permission to use this command.");
-		return;
-	}
-	char cfgPath[512];
-	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
-	if (RTV_LoadConfig(cfgPath, g_RTVConfig))
-	{
-		RTV_LoadTranslations();
-		g_RTVTimeLimit.ApplyRoundTimeCap();
-		RTV_PrintToChatT(slot, "RTV config reloaded.");
-	}
-	else
-	{
-		RTV_PrintToChatT(slot, "Failed to reload RTV config.");
-	}
+	RTV_RunFromConsole(context, args, RTV_CmdReloadRtv);
 }

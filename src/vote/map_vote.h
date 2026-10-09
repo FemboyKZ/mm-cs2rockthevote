@@ -97,8 +97,9 @@ private:
 	bool m_changeScheduled = false;
 	bool m_runoffActive = false;
 	std::string m_currentMap;
-	// Empty unless this plugin loaded the map.
-	std::string m_currentWorkshopId;
+	// Read from the mount on first use, the id this plugin changed to until then.
+	mutable std::string m_currentWorkshopId;
+	mutable bool m_workshopIdRead = false;
 	// Newest last.
 	std::vector<std::string> m_recentMaps;
 	// Clean name of the scheduled winner, so a cancel can take the nextlevel backstop back down.
@@ -116,6 +117,7 @@ private:
 	float m_voteEndTime = 0.0f;
 
 	void BuildOptions(const std::vector<std::string> &nominations, bool includeNoChange);
+	void ArmVoteTimers();
 	void ApplyExtendWin(int minutes);
 	void SendVoteMenuToAll();
 	// The ballot, or the notice with VoteNotice on.

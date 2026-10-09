@@ -617,8 +617,10 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 {
 	// 1) Try CS2KZ API
 	std::string cs2kzUrl = "https://api.cs2kz.org/maps?workshop_id=" + workshopId + "&state=approved";
+	// Copied: the callbacks run off the game thread.
+	std::string steamKey = g_RTVConfig.general.steamApiKey;
 	mmu::http::Get(cs2kzUrl,
-				   [workshopId, callback](bool ok, std::string body)
+				   [workshopId, callback, steamKey](bool ok, std::string body)
 				   {
 					   if (ok && !body.empty())
 					   {
@@ -645,7 +647,6 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 					   // 2) Fallback: Steam GetPublishedFileDetails
 					   std::string steamUrl = "https://api.steampowered.com/ISteamRemoteStorage/"
 											  "GetPublishedFileDetails/v1/";
-					   const std::string &steamKey = g_RTVConfig.general.steamApiKey;
 					   if (!steamKey.empty())
 					   {
 						   steamUrl += "?key=" + steamKey;
