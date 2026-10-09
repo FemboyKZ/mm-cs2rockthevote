@@ -60,10 +60,8 @@ public:
 		return m_mapChangeScheduled;
 	}
 
-	int GetVoteCount() const
-	{
-		return static_cast<int>(m_votes.size());
-	}
+	// Eligible voters only.
+	int GetVoteCount() const;
 
 	bool HasVoted(int slot) const
 	{

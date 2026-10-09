@@ -44,6 +44,7 @@ public:
 	// (spec excluded if general.includeSpectator = false).
 	// Refreshes each counted player's teamNum from their controller.
 	int GetEligiblePlayerCount();
+	bool IsEligible(int slot);
 
 private:
 	mmu::PlayerTable<PlayerInfo> m_players;

@@ -18,16 +18,21 @@
 #include <cstdlib>
 #include <cstring>
 #include <random>
+#include <utility>
 
 MapVoteManager g_MapVoteManager;
 
 static std::default_random_engine g_rng(std::random_device {}());
 
+static std::string s_changingToWorkshopId;
+
 static void DoMapChange(const MapEntry &entry)
 {
 	char cmd[256];
+	s_changingToWorkshopId.clear();
 	if (entry.isWorkshop && !entry.workshopId.empty())
 	{
+		s_changingToWorkshopId = entry.workshopId;
 		mmu::EnsureWorkshopMapReady(entry.workshopId);
 		snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entry.workshopId.c_str());
 	}
@@ -79,8 +84,18 @@ static void ClearNextLevelIfNamed(const char *mapName)
 void MapVoteManager::OnMapStart(const char *currentMap)
 {
 	Reset();
-	m_currentMap = currentMap ? currentMap : "";
+	const std::string previous = std::exchange(m_currentMap, currentMap ? currentMap : "");
+	if (!previous.empty() && previous != m_currentMap)
+	{
+		m_recentMaps.push_back(previous);
+	}
+	m_currentWorkshopId = std::exchange(s_changingToWorkshopId, std::string());
 	ClearNextLevelIfNamed(m_currentMap.c_str());
+}
+
+bool MapVoteManager::IsCurrentMap(const MapEntry &entry) const
+{
+	return entry.mapName == m_currentMap || (!m_currentWorkshopId.empty() && entry.workshopId == m_currentWorkshopId);
 }
 
 void MapVoteManager::Reset()
@@ -314,10 +329,13 @@ std::vector<const MapEntry *> MapVoteManager::PickRandomMaps(int count, const st
 {
 	const auto &allMaps = g_MapLister.GetMaps();
 	std::vector<const MapEntry *> pool;
+	std::vector<const MapEntry *> recent;
+	const size_t keep = static_cast<size_t>((std::max)(g_RTVConfig.mapvote.excludeRecentMaps, 0));
+	const auto recentFrom = m_recentMaps.end() - (std::min)(keep, m_recentMaps.size());
 
 	for (const auto &e : allMaps)
 	{
-		bool excluded = false;
+		bool excluded = IsCurrentMap(e);
 		for (const auto &ex : exclude)
 		{
 			if (e.mapName == ex || e.displayName == ex)
@@ -328,11 +346,14 @@ std::vector<const MapEntry *> MapVoteManager::PickRandomMaps(int count, const st
 		}
 		if (!excluded)
 		{
-			pool.push_back(&e);
+			(std::find(recentFrom, m_recentMaps.end(), e.mapName) != m_recentMaps.end() ? recent : pool).push_back(&e);
 		}
 	}
 
 	std::shuffle(pool.begin(), pool.end(), g_rng);
+	// Last, so they only fill a short ballot.
+	std::shuffle(recent.begin(), recent.end(), g_rng);
+	pool.insert(pool.end(), recent.begin(), recent.end());
 	if (static_cast<int>(pool.size()) > count)
 	{
 		pool.resize(count);
@@ -510,7 +531,10 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 
 						// Auto-shorten: if all eligible players voted and >5s remain, end in 5s
 						int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
-						if (static_cast<int>(m_playerVotes.size()) >= eligible)
+						// A spectator's ballot must not stand in for a player's.
+						auto cast = std::count_if(m_playerVotes.begin(), m_playerVotes.end(),
+												  [](const auto &vote) { return g_RTVPlayerManager.IsEligible(vote.first); });
+						if (cast >= eligible)
 						{
 							CGlobalVars *g = GetGameGlobals();
 							float now = g ? g->curtime : 0.0f;
@@ -667,9 +691,25 @@ void MapVoteManager::FinishVote()
 
 	if (maxVotes == 0)
 	{
-		RTV_ChatToAllT("Nobody voted. Map will not change.");
-		g_RTVManager.OnVoteEndedNoVotes();
-		return;
+		// An end-of-map vote must leave a next map.
+		std::vector<int> maps;
+		for (int i = 0; !m_isRTV && i < static_cast<int>(m_options.size()); i++)
+		{
+			if (m_options[i].kind == VoteOptionKind::Map)
+			{
+				maps.push_back(i);
+			}
+		}
+		if (maps.empty())
+		{
+			RTV_ChatToAllT("Nobody voted. Map will not change.");
+			g_RTVManager.OnVoteEndedNoVotes();
+			return;
+		}
+		RTV_ChatToAllT("Nobody voted. Picking a map at random.");
+		// The only option with a vote, so it wins below.
+		m_options[maps[std::uniform_int_distribution<size_t>(0, maps.size() - 1)(g_rng)]].votes = 1;
+		maxVotes = 1;
 	}
 
 	std::vector<int> topIndices;
@@ -723,9 +763,14 @@ void MapVoteManager::FinishVote()
 			StartRunoff(topIndices);
 			return;
 		}
-		RTV_ChatToAllT("Tie! The map will NOT be changed.");
-		g_RTVManager.OnVoteEndedNoVotes();
-		return;
+		if (m_isRTV)
+		{
+			RTV_ChatToAllT("Tie! The map will NOT be changed.");
+			g_RTVManager.OnVoteEndedNoVotes();
+			return;
+		}
+		RTV_ChatToAllT("Tie! Picking one of the tied options at random.");
+		topIndices = {topIndices[std::uniform_int_distribution<size_t>(0, topIndices.size() - 1)(g_rng)]};
 	}
 
 	int winnerIndex = topIndices[0];

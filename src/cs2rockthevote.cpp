@@ -324,11 +324,12 @@ void CS2RTVPlugin::OnPluginLoad(PluginId /*id*/)
 	g_RTVMenus.Refresh();
 }
 
-void CS2RTVPlugin::OnPluginUnload(PluginId /*id*/)
+void CS2RTVPlugin::OnPluginUnload(PluginId id)
 {
 	RTV_AdminBridge_Refresh();
 	RTV_WhitelistBridge_Refresh();
 	g_RTVMenus.Refresh();
+	g_CS2RTVForwards.DropOwnedBy(id);
 }
 
 // IMetamodListener: map load/unload
@@ -385,6 +386,20 @@ KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simula
 			auto noms = g_NominateManager.GetNominations();
 			g_MapVoteManager.StartVote(false, noms);
 		});
+
+	// Polled: a team change announces nothing.
+	static double s_nextRecheck = 0.0;
+	const double now = Plat_FloatTime();
+	if (!g_RTVConfig.general.includeSpectator && now >= s_nextRecheck)
+	{
+		s_nextRecheck = now + 1.0;
+		g_RTVManager.RecheckThreshold(
+			[]()
+			{
+				auto noms = g_NominateManager.GetNominations();
+				g_MapVoteManager.StartVote(true, noms);
+			});
+	}
 
 	return {KHook::Action::Ignore};
 }

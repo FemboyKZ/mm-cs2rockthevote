@@ -78,6 +78,11 @@ void RTVManager::OnMapExtended()
 	m_nextEomCheckTime = 0.0f;
 }
 
+int RTVManager::GetVoteCount() const
+{
+	return static_cast<int>(std::count_if(m_votes.begin(), m_votes.end(), [](int slot) { return g_RTVPlayerManager.IsEligible(slot); }));
+}
+
 bool RTVManager::IsThresholdReached(int eligibleCount) const
 {
 	return GetVoteCount() >= RequiredVotes(eligibleCount);
@@ -116,6 +121,13 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 	if (m_mapChangeScheduled)
 	{
 		RTV_PrintToChatT(slot, "A map change is already scheduled.");
+		return;
+	}
+
+	// Left out of the player count, so their vote must not count either.
+	if (!m_voteStarted && !g_RTVPlayerManager.IsEligible(slot))
+	{
+		RTV_PrintToChatT(slot, "Spectators can't rock the vote.");
 		return;
 	}
 

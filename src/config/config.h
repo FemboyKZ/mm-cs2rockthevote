@@ -21,6 +21,7 @@ struct MapVoteCfg
 {
 	bool enabled = true;
 	int mapsToShow = 6;
+	int excludeRecentMaps = 3;
 	int voteDuration = 90;
 	int minWinPercentage = 0; // of cast votes, else runoff
 	bool runoffEnabled = true;

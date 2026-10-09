@@ -33,10 +33,9 @@ static bool LooksLikeWorkshopId(const char *s)
 	return len >= 6;
 }
 
-void NominateManager::OnMapStart(const char *currentMap)
+void NominateManager::OnMapStart(const char * /*currentMap*/)
 {
 	Reset();
-	m_currentMap = currentMap ? currentMap : "";
 	m_mapSerial++;
 }
 
@@ -308,7 +307,7 @@ void NominateManager::ShowMapMenu(int slot, const char *title, std::vector<std::
 		{
 			mark += " " + RTV_Translate(playerSlot, "[nominated]");
 		}
-		disabled = (e.mapName == m_currentMap);
+		disabled = g_MapVoteManager.IsCurrentMap(e);
 		if (disabled)
 		{
 			mark += " " + RTV_Translate(playerSlot, "[current]");
@@ -337,7 +336,7 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 	const std::string &mapName = entry->mapName;
 	std::string display = g_MapLister.GetDisplayLabel(*entry);
 
-	if (mapName == m_currentMap)
+	if (g_MapVoteManager.IsCurrentMap(*entry))
 	{
 		RTV_PrintToChatT(slot, "You cannot nominate the current map.");
 		return;

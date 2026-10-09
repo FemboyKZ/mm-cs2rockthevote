@@ -35,7 +35,6 @@ public:
 	void Reset();
 
 private:
-	std::string m_currentMap;
 	// slot -> list of nominated mapNames
 	std::unordered_map<int, std::vector<std::string>> m_playerNoms;
 	// mapName -> total nomination count

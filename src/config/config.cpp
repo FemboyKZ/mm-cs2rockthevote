@@ -75,6 +75,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->mapvote.mapsToShow = std::atoi(value.c_str());
 		}
+		else if (k == "excluderecentmaps")
+		{
+			cfg->mapvote.excludeRecentMaps = std::atoi(value.c_str());
+		}
 		else if (k == "voteduration")
 		{
 			cfg->mapvote.voteDuration = std::atoi(value.c_str());

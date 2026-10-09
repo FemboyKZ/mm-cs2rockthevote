@@ -38,6 +38,10 @@
 	{
 		"en"	"{red}A map change is already scheduled."
 	}
+	"Spectators can't rock the vote."
+	{
+		"en"	"{red}Spectators can't rock the vote."
+	}
 	"RTV is not available yet. Wait %d more second(s)."
 	{
 		"en"	"{red}RTV is not available yet. Wait {default}%d{red} more second(s)."
@@ -186,6 +190,10 @@
 	{
 		"en"	"Tie! The map will NOT be changed."
 	}
+	"Tie! Picking one of the tied options at random."
+	{
+		"en"	"Tie! Picking one of the tied options at random."
+	}
 	"Tie! Starting runoff vote with the tied maps."
 	{
 		"en"	"Tie! Starting runoff vote with the tied maps."
@@ -201,6 +209,10 @@
 	"Nobody voted. Map will not change."
 	{
 		"en"	"Nobody voted. Map will not change."
+	}
+	"Nobody voted. Picking a map at random."
+	{
+		"en"	"Nobody voted. Picking a map at random."
 	}
 	"Vote ended with no options."
 	{

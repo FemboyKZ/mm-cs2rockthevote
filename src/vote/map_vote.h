@@ -63,6 +63,9 @@ public:
 		return m_currentMap.c_str();
 	}
 
+	// Also by workshop id: an entry looked up on Steam is named by its page title.
+	bool IsCurrentMap(const MapEntry &entry) const;
+
 	// Called from OnLevelInit to cancel the failure-detection timer (change succeeded)
 	void NotifyMapChangeSucceeded();
 
@@ -94,6 +97,10 @@ private:
 	bool m_changeScheduled = false;
 	bool m_runoffActive = false;
 	std::string m_currentMap;
+	// Empty unless this plugin loaded the map.
+	std::string m_currentWorkshopId;
+	// Newest last.
+	std::vector<std::string> m_recentMaps;
 	// Clean name of the scheduled winner, so a cancel can take the nextlevel backstop back down.
 	std::string m_scheduledMap;
 	std::vector<VoteOption> m_options;

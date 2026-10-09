@@ -58,31 +58,29 @@ int RTVPlayerManager::GetHumanPlayerCount() const
 	return m_players.Count([](const PlayerInfo &p) { return p.connected && p.inGame && !p.fakePlayer; });
 }
 
-int RTVPlayerManager::GetEligiblePlayerCount()
+bool RTVPlayerManager::IsEligible(int slot)
 {
-	const bool includeSpec = g_RTVConfig.general.includeSpectator;
-	int count = 0;
-
-	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	PlayerInfo *p = m_players.Get(slot);
+	if (!p || !p->connected || !p->inGame || p->fakePlayer)
 	{
-		PlayerInfo *p = m_players.Get(slot);
-		if (!p->connected || !p->inGame || p->fakePlayer)
-		{
-			continue;
-		}
-
-		// Read live rather than tracking team changes, the controller is the only source that cannot go stale.
-		if (CCSPlayerController *controller = CCSPlayerController::FromSlot(slot))
-		{
-			p->teamNum = controller->m_iTeamNum();
-		}
-
-		if (!includeSpec && p->teamNum == CS_TEAM_SPECTATOR)
-		{
-			continue;
-		}
-		count++;
+		return false;
 	}
 
+	// Read live rather than tracking team changes, the controller is the only source that cannot go stale.
+	if (CCSPlayerController *controller = CCSPlayerController::FromSlot(slot))
+	{
+		p->teamNum = controller->m_iTeamNum();
+	}
+
+	return g_RTVConfig.general.includeSpectator || p->teamNum != CS_TEAM_SPECTATOR;
+}
+
+int RTVPlayerManager::GetEligiblePlayerCount()
+{
+	int count = 0;
+	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	{
+		count += IsEligible(slot) ? 1 : 0;
+	}
 	return count;
 }

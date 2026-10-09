@@ -62,11 +62,6 @@ bool RTV_WhitelistBridge_IsPlayerAllowed(int slot)
 		return true;
 	}
 
-	// Confirmed-rejected players are about to be kicked.
-	if (s_whitelist->IsPlayerBlacklisted(slot))
-	{
-		return false;
-	}
-
+	// Not the rejection cache: it stays set while the whitelist is switched off.
 	return s_whitelist->IsPlayerWhitelisted(slot);
 }
