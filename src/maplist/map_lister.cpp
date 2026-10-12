@@ -4,6 +4,7 @@
 #include "utils/maplist.h"
 #include "src/common.h"
 #include "src/config/config.h"
+#include "src/timers/timer_system.h"
 #include "utils/discord.h"
 #include "utils/http_client.h"
 #include "utils/json.h"
@@ -15,6 +16,7 @@
 #include <cstring>
 #include <memory>
 #include <sstream>
+#include <unordered_set>
 
 MapLister g_MapLister;
 
@@ -223,6 +225,18 @@ void MapLister::RefreshAsync(std::function<void(int)> onDone)
 					if (fresh->empty())
 					{
 						MMU_LOG_WARN("CS2KZ map pool fetch failed or returned no maps.%s\n", m_poolLoaded ? " Keeping the previous pool." : "");
+						if (!m_poolLoaded)
+						{
+							g_Timers.KillTimer(m_retryTimerId);
+							m_retryTimerId = g_Timers.CreateTimer(kRetrySeconds,
+																  [this]()
+																  {
+																	  if (PoolPending())
+																	  {
+																		  RefreshAsync();
+																	  }
+																  });
+						}
 						if (onDone)
 						{
 							onDone(-1);
@@ -289,10 +303,16 @@ int MapLister::LoadFromFile(const char *path)
 	while (fgets(line, sizeof(line), fp))
 	{
 		MapEntry entry;
-		if (ParseLine(std::string(line), entry))
+		if (!ParseLine(std::string(line), entry))
 		{
-			m_maps.push_back(std::move(entry));
+			continue;
 		}
+		if (FindExact(entry.mapName))
+		{
+			MMU_LOG_WARN("maplist.txt lists '%s' more than once, keeping the first entry.\n", entry.mapName.c_str());
+			continue;
+		}
+		m_maps.push_back(std::move(entry));
 	}
 
 	fclose(fp);
@@ -325,7 +345,18 @@ int MapLister::Reload()
 	{
 		return -1;
 	}
-	return LoadFromFile(m_lastPath.c_str());
+
+	// Keep off-list nominations resolvable, as ApplyPool does.
+	std::vector<MapEntry> old = std::move(m_maps);
+	int count = LoadFromFile(m_lastPath.c_str());
+	for (const auto &e : old)
+	{
+		if (e.dynamic)
+		{
+			AddDynamicMap(e);
+		}
+	}
+	return count;
 }
 
 const MapEntry *MapLister::FindExact(const std::string &name) const
@@ -662,6 +693,12 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 								   // Response:
 								   // {"response":{"publishedfiledetails":[{"publishedfileid":"...","title":"...","result":1}]}}
 								   std::string title = mmu::json::GetString(body2, "title");
+								   if (!title.empty() && JsonGetScalar(body2, "consumer_app_id") != "730")
+								   {
+									   MMU_LOG_WARN("Workshop item %s is not a CS2 item.\n", workshopId.c_str());
+									   mmu::http::QueueMainThread([callback]() { callback(MapEntry()); });
+									   return;
+								   }
 								   if (!title.empty())
 								   {
 									   MapEntry fallback;
@@ -729,19 +766,40 @@ void MapLister::LookupByNameAsync(const std::string &name, std::function<void(Ma
 {
 	std::string url = "https://api.cs2kz.org/maps?name=" + UrlEncodeQuery(name) + "&state=approved&limit=5";
 	mmu::http::Get(url,
-				   [callback](bool ok, std::string body)
+				   [callback, name](bool ok, std::string body)
 				   {
+					   // The API matches substrings: take the exact name, or the only result.
 					   MapEntry found;
+					   int results = 0;
+					   bool exact = false;
 					   if (ok && !body.empty())
 					   {
+						   const std::string wanted = str::ToLower(name);
 						   JsonForEachObject(body,
 											 [&](const std::string &obj)
 											 {
-												 if (found.mapName.empty())
+												 MapEntry e;
+												 if (exact || !MapLister::ParseCS2KZMapJson(obj, e))
 												 {
-													 MapLister::ParseCS2KZMapJson(obj, found);
+													 return;
+												 }
+												 // '_' and '%' are wildcards to the API.
+												 const std::string got = str::ToLower(e.mapName);
+												 if (got.find(wanted) == std::string::npos)
+												 {
+													 return;
+												 }
+												 results++;
+												 exact = got == wanted;
+												 if (exact || results == 1)
+												 {
+													 found = std::move(e);
 												 }
 											 });
+					   }
+					   if (!exact && results > 1)
+					   {
+						   found = MapEntry();
 					   }
 					   // Dispatch to game thread: callback touches game state.
 					   MapEntry captured = std::move(found);
@@ -1199,7 +1257,9 @@ void MapLister::ValidateMapsAsync() const
 													 "result=%s)\n",
 													 e.displayName.c_str(), e.workshopId.c_str(), result.c_str());
 
-										if (!webhook.empty())
+										// Callbacks run one at a time, so no lock.
+										static std::unordered_set<std::string> s_reported;
+										if (!webhook.empty() && s_reported.insert(e.workshopId).second)
 										{
 											std::string msg = "Dead workshop map: " + e.displayName + " (ID: " + e.workshopId + ")";
 											mmu::discord::SendText(webhook, msg.c_str());

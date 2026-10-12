@@ -37,8 +37,17 @@ public:
 private:
 	// slot -> list of nominated mapNames
 	std::unordered_map<int, std::vector<std::string>> m_playerNoms;
+
+	struct Nomination
+	{
+		int count = 0;
+		// Lower was nominated earlier.
+		uint32_t order = 0;
+	};
+
 	// mapName -> total nomination count
-	std::unordered_map<std::string, int> m_nomCounts;
+	std::unordered_map<std::string, Nomination> m_nomCounts;
+	uint32_t m_nextNomOrder = 0;
 	// Bumped each map, so a lookup started on the previous one is recognisable.
 	uint32_t m_mapSerial = 0;
 

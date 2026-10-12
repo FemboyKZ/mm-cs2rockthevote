@@ -4,6 +4,7 @@
 #include "src/config/config.h"
 #include "src/utils/print_utils.h"
 
+#include <algorithm>
 #include <vector>
 
 RTVMenuBridge g_RTVMenus;
@@ -23,6 +24,8 @@ void RTVMenuBridge::Refresh()
 	{
 		case mmu::BridgeChange::Unloaded:
 			MMU_LOG_WARN("mm-cs2menus unloaded - votes and map menus are unavailable.\n");
+			// No end callbacks fire for them.
+			std::fill(m_open, m_open + MAXPLAYERS + 1, 0);
 			break;
 		case mmu::BridgeChange::Loaded:
 			MMU_LOG_INFO("mm-cs2menus found - menus enabled.\n");
@@ -153,19 +156,30 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 
 	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
 
-	m_menus.Present(slot, h, def.duration,
-					[onExit = def.onExit](MenuHandle, int s, MenuEndReason reason)
-					{
-						if (reason == MenuEndReason::Exit && onExit)
-						{
-							onExit(s);
-						}
-					});
+	// A count: showing a menu ends the previous one, in either order.
+	m_open[slot]++;
+	bool shown = m_menus.Present(slot, h, def.duration,
+								 [this, onExit = def.onExit](MenuHandle, int s, MenuEndReason reason)
+								 {
+									 if (s >= 0 && s <= MAXPLAYERS)
+									 {
+										 m_open[s]--;
+									 }
+									 if (reason == MenuEndReason::Exit && onExit)
+									 {
+										 onExit(s);
+									 }
+								 });
+	if (!shown)
+	{
+		m_open[slot]--;
+	}
 }
 
 void RTVMenuBridge::CloseMenu(int slot)
 {
-	if (m_menus)
+	// CancelMenu closes any plugin's menu.
+	if (m_menus && m_open[slot] > 0)
 	{
 		m_menus->CancelMenu(slot);
 	}

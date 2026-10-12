@@ -68,8 +68,8 @@ void NominateManager::OnPlayerDisconnect(int slot)
 		auto cnt = m_nomCounts.find(mapName);
 		if (cnt != m_nomCounts.end())
 		{
-			cnt->second--;
-			if (cnt->second <= 0)
+			cnt->second.count--;
+			if (cnt->second.count <= 0)
 			{
 				m_nomCounts.erase(cnt);
 			}
@@ -361,8 +361,8 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 		auto cnt = m_nomCounts.find(oldest);
 		if (cnt != m_nomCounts.end())
 		{
-			cnt->second--;
-			if (cnt->second <= 0)
+			cnt->second.count--;
+			if (cnt->second.count <= 0)
 			{
 				m_nomCounts.erase(cnt);
 			}
@@ -371,7 +371,11 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 	}
 
 	playerList.push_back(mapName);
-	m_nomCounts[mapName]++;
+	Nomination &nom = m_nomCounts[mapName];
+	if (nom.count++ == 0)
+	{
+		nom.order = m_nextNomOrder++;
+	}
 
 	const char *pName = g_RTVPlayerManager.DisplayName(slot);
 	RTV_ChatToAllT("%s nominated %s for the next map.", pName, display.c_str());
@@ -379,13 +383,14 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 
 std::vector<std::string> NominateManager::GetNominations() const
 {
-	std::vector<std::pair<int, std::string>> ranked;
+	std::vector<std::pair<Nomination, std::string>> ranked;
 	for (const auto &kv : m_nomCounts)
 	{
 		ranked.push_back({kv.second, kv.first});
 	}
 
-	std::stable_sort(ranked.begin(), ranked.end(), [](const auto &a, const auto &b) { return a.first > b.first; });
+	std::sort(ranked.begin(), ranked.end(), [](const auto &a, const auto &b)
+			  { return a.first.count != b.first.count ? a.first.count > b.first.count : a.first.order < b.first.order; });
 
 	std::vector<std::string> result;
 	for (const auto &p : ranked)

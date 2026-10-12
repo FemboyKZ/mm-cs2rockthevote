@@ -116,7 +116,7 @@ void MapVoteManager::OnMapStart(const char *currentMap)
 	const std::string previous = std::exchange(m_currentMap, currentMap ? currentMap : "");
 	if (!previous.empty() && previous != m_currentMap)
 	{
-		m_recentMaps.push_back(previous);
+		m_recentMaps.push_back({previous, m_currentWorkshopId});
 	}
 	m_currentWorkshopId = std::exchange(s_changingToWorkshopId, std::string());
 	m_workshopIdRead = false;
@@ -175,6 +175,15 @@ void MapVoteManager::Reset()
 	}
 }
 
+void MapVoteManager::OnUnload()
+{
+	if (m_changeScheduled)
+	{
+		ClearNextLevelIfNamed(m_scheduledMap.c_str());
+	}
+	m_pendingDownload.Clear();
+}
+
 void MapVoteManager::CancelVote()
 {
 	if (m_changeScheduled)
@@ -188,6 +197,13 @@ void MapVoteManager::CancelVote()
 // A workshop map the server does not have is downloaded first.
 bool MapVoteManager::ChangeMapNow(const MapEntry &entry)
 {
+	// The download wait below is shared with a vote's own change.
+	if (m_voteActive || m_changeScheduled)
+	{
+		CancelVote();
+		RTV_ChatToAllT("An admin is changing the map - active vote cancelled.");
+	}
+
 	uint64_t fileId = entry.isWorkshop ? std::strtoull(entry.workshopId.c_str(), nullptr, 10) : 0;
 	if (fileId == 0 || mmu::workshop::IsReady(fileId))
 	{
@@ -229,8 +245,17 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 		return;
 	}
 
+	BuildOptions(nominations, isRTV);
+	if (m_options.empty())
+	{
+		RTV_ChatToAllT("Vote ended with no options.");
+		g_RTVManager.OnVoteEndedNoVotes();
+		return;
+	}
+
 	if (g_CS2RTVForwards.FireOnMapVoteStart(isRTV))
 	{
+		RTV_ChatToAllT("The map vote was blocked by another plugin.");
 		g_RTVManager.OnVoteEndedNoVotes();
 		return;
 	}
@@ -241,7 +266,6 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	m_dismissed.clear();
 	m_runoffActive = false;
 
-	BuildOptions(nominations, isRTV);
 	ArmVoteTimers();
 
 	SendVoteMenuToAll();
@@ -379,6 +403,11 @@ std::vector<const MapEntry *> MapVoteManager::PickRandomMaps(int count, const st
 	std::vector<const MapEntry *> recent;
 	const size_t keep = static_cast<size_t>((std::max)(g_RTVConfig.mapvote.excludeRecentMaps, 0));
 	const auto recentFrom = m_recentMaps.end() - (std::min)(keep, m_recentMaps.size());
+	auto isRecent = [&](const MapEntry &e)
+	{
+		return std::any_of(recentFrom, m_recentMaps.end(),
+						   [&e](const RecentMap &r) { return r.name == e.mapName || (!e.workshopId.empty() && r.workshopId == e.workshopId); });
+	};
 
 	for (const auto &e : allMaps)
 	{
@@ -393,7 +422,7 @@ std::vector<const MapEntry *> MapVoteManager::PickRandomMaps(int count, const st
 		}
 		if (!excluded)
 		{
-			(std::find(recentFrom, m_recentMaps.end(), e.mapName) != m_recentMaps.end() ? recent : pool).push_back(&e);
+			(isRecent(e) ? recent : pool).push_back(&e);
 		}
 	}
 
@@ -604,12 +633,6 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 									}
 								}
 							}
-							else
-							{
-								g_Timers.KillTimer(m_verifyTimerId);
-								m_verifyTimerId = -1;
-								FinishVote();
-							}
 						}
 					});
 		if (mapRow)
@@ -641,6 +664,7 @@ void MapVoteManager::CommandRevote(int slot)
 	{
 		m_options[it->second].votes = (std::max)(0, m_options[it->second].votes - 1);
 		m_playerVotes.erase(it);
+		ShowVoteNotice(slot);
 	}
 
 	ShowVoteMenuToPlayer(slot);
@@ -837,12 +861,19 @@ void MapVoteManager::FinishVote()
 		return;
 	}
 
-	g_CS2RTVForwards.FireOnMapVoteEnd(winner.entry.mapName.c_str(), m_isRTV);
-
 	int delaySecs = g_RTVConfig.mapvote.mapChangeDelay;
 	RTV_ChatToAllT("%s won the vote! Map changing in %d second(s).", winner.label.c_str(), delaySecs);
 
+	// Scheduled first, so a CancelVote from a forward takes effect. It clears m_options, hence the copies.
+	const std::string winnerMap = winner.entry.mapName;
+	const bool isRTV = m_isRTV;
 	ScheduleChange(winner, delaySecs);
+
+	g_CS2RTVForwards.FireOnMapVoteEnd(winnerMap.c_str(), isRTV);
+	if (m_changeScheduled)
+	{
+		g_CS2RTVForwards.FireOnMapChangeScheduled(winnerMap.c_str(), delaySecs);
+	}
 }
 
 // By value, not by option ref: the failure path restarts the vote, clearing m_options.
@@ -898,8 +929,6 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 	// Covers the map ending on its own before the changelevel below lands,
 	// and stops cs2kz-metamod filling nextlevel with the launch map instead of the winner.
 	SetNextLevel(captured);
-
-	g_CS2RTVForwards.FireOnMapChangeScheduled(captured.mapName.c_str(), delaySecs);
 
 	m_changeTimerId = g_Timers.CreateTimer(static_cast<float>(delaySecs), [this, captured]() { BeginMapChange(captured); });
 
@@ -1034,7 +1063,8 @@ void MapVoteManager::AbortChange()
 
 	m_changeScheduled = false;
 	m_voteActive = false;
-	g_RTVManager.OnVoteEndedNoVotes();
+	// Also re-arms the end-of-map vote.
+	g_RTVManager.OnVoteCancelled();
 	g_NominateManager.Reset();
 }
 
@@ -1072,7 +1102,7 @@ void MapVoteManager::ArmChangeFailureTimer(const MapEntry &entry, float timeout)
 			ClearNextLevelIfNamed(entry.mapName.c_str());
 			m_changeScheduled = false;
 			m_voteActive = false;
-			g_RTVManager.OnVoteEndedNoVotes();
+			g_RTVManager.OnVoteCancelled();
 			g_NominateManager.Reset();
 		});
 }

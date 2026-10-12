@@ -98,6 +98,8 @@ public:
 
 private:
 	CS2MenusClient m_menus;
+	// Our menus open per slot.
+	int m_open[MAXPLAYERS + 1] = {};
 };
 
 extern RTVMenuBridge g_RTVMenus;

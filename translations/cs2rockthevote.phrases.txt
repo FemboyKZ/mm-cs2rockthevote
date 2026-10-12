@@ -132,6 +132,10 @@
 	{
 		"en"	"{red}Map voting needs the mm-cs2menus plugin."
 	}
+	"The map vote was blocked by another plugin."
+	{
+		"en"	"{red}The map vote was blocked by another plugin."
+	}
 	"The map pool has not loaded yet, try again shortly."
 	{
 		"en"	"{red}The map pool has not loaded yet, try again shortly."

@@ -297,6 +297,7 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	mmu::cvarquery::Shutdown();
 
 	g_Timers.KillAll();
+	g_MapVoteManager.OnUnload();
 	mmu::http::Shutdown();
 
 	mmu::http::ClearMainQueue();
@@ -346,7 +347,10 @@ void CS2RTVPlugin::OnLevelInit(char const *pMapName, char const * /*pMapEntities
 
 	char cfgPath[512];
 	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
-	RTV_LoadConfig(cfgPath, g_RTVConfig);
+	if (!RTV_LoadConfig(cfgPath, g_RTVConfig))
+	{
+		MMU_LOG_WARN("Could not load '%s', keeping the settings already in use.\n", cfgPath);
+	}
 	RTV_LoadTranslations();
 
 	char mapPath[512];
@@ -385,12 +389,16 @@ KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simula
 
 	// Auto end-of-map vote: start the next-map vote before mp_timelimit expires
 	// if nobody has triggered !rtv (no-op unless the setting is enabled).
-	g_RTVManager.CheckEndOfMapVote(
-		[]()
-		{
-			auto noms = g_NominateManager.GetNominations();
-			g_MapVoteManager.StartVote(false, noms);
-		});
+	// A pending pool would waste the once-per-map trigger.
+	if (!g_MapLister.PoolPending())
+	{
+		g_RTVManager.CheckEndOfMapVote(
+			[]()
+			{
+				auto noms = g_NominateManager.GetNominations();
+				g_MapVoteManager.StartVote(false, noms);
+			});
+	}
 
 	// Polled: a team change announces nothing.
 	static double s_nextRecheck = 0.0;

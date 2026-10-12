@@ -324,6 +324,12 @@ ExtendResult RTVTimeLimit::Extend(int minutes)
 		return res;
 	}
 
+	const ExtendCfg &cfg = g_RTVConfig.extend;
+	if (cfg.maxExtends > 0 && m_extendsUsed >= cfg.maxExtends)
+	{
+		return res;
+	}
+
 	LimitSource src = ResolveSource();
 	if (src == LimitSource::None)
 	{

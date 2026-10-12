@@ -83,6 +83,9 @@ public:
 	// Force end any in-progress vote and reset (map end)
 	void Reset();
 
+	// No menu calls as in Reset: mm-cs2menus may already be unloaded.
+	void OnUnload();
+
 	// Admin cancel of a running vote or scheduled change.
 	// Unlike Reset the map keeps running, so the RTV gates have to reopen with it.
 	void CancelVote();
@@ -100,8 +103,15 @@ private:
 	// Read from the mount on first use, the id this plugin changed to until then.
 	mutable std::string m_currentWorkshopId;
 	mutable bool m_workshopIdRead = false;
+
+	struct RecentMap
+	{
+		std::string name;
+		std::string workshopId;
+	};
+
 	// Newest last.
-	std::vector<std::string> m_recentMaps;
+	std::vector<RecentMap> m_recentMaps;
 	// Clean name of the scheduled winner, so a cancel can take the nextlevel backstop back down.
 	std::string m_scheduledMap;
 	std::vector<VoteOption> m_options;

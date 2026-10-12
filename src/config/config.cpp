@@ -259,8 +259,17 @@ bool RTV_LoadConfig(const char *path, RTVPluginConfig &config)
 		return false;
 	}
 
-	kv::ParseSection(file, root.value, ConfigHandler, &config);
+	// Fresh, so a removed key reverts to its default.
+	RTVPluginConfig fresh;
+	if (!kv::ParseSection(file, root.value, ConfigHandler, &fresh))
+	{
+		return false;
+	}
 
+	fresh.mapvote.voteDuration = (std::max)(fresh.mapvote.voteDuration, 1);
+	fresh.rtv.votePercentage = (std::min)(fresh.rtv.votePercentage, 100);
+
+	config = std::move(fresh);
 	mmu::config::ApplyLogBlock(config.log);
 	return true;
 }

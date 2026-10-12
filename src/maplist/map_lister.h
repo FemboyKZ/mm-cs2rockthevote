@@ -134,6 +134,8 @@ private:
 
 	// Game thread only.
 	static constexpr int kRefreshIntervalSeconds = 1200;
+	static constexpr float kRetrySeconds = 30.0f;
+	int m_retryTimerId = -1;
 	bool m_apiPool = false;
 	bool m_poolLoaded = false;
 	bool m_refreshInFlight = false;
