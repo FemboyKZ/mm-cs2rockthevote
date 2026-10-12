@@ -183,7 +183,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 		std::string query(arg);
 		RTV_PrintToChatT(slot, "Looking up map %s via API...", query.c_str());
 		g_MapLister.LookupByNameAsync(query,
-									  [this, slot, callerId, callerSerial, query](MapEntry e)
+									  [this, slot, callerId, callerSerial, query](MapEntry e, bool ambiguous)
 									  {
 										  if (!CallerStillPresent(slot, callerId, callerSerial))
 										  {
@@ -201,7 +201,8 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 										  else
 										  {
 											  MMU_LOG_INFO("API lookup for '%s' returned no results.\n", query.c_str());
-											  RTV_PrintToChatT(slot, "Map %s not found.", query.c_str());
+											  RTV_PrintToChatT(slot, ambiguous ? "Several maps match %s, type the full name." : "Map %s not found.",
+															   query.c_str());
 										  }
 									  });
 		return;

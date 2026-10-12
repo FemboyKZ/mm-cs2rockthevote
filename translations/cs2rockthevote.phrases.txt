@@ -118,6 +118,10 @@
 	{
 		"en"	"{red}Map {default}%s{red} not found."
 	}
+	"Several maps match %s, type the full name."
+	{
+		"en"	"{red}Several maps match {default}%s{red}, type the full name."
+	}
 	"Looking up workshop map %s..."
 	{
 		"en"	"Looking up workshop map {green}%s{default}..."
@@ -249,6 +253,10 @@
 	"The map cannot be extended."
 	{
 		"en"	"{red}The map cannot be extended."
+	}
+	"The map has reached its extension limit."
+	{
+		"en"	"{red}The map has reached its extension limit."
 	}
 	"The map cannot be extended - the server's %d minute time cap is already reached."
 	{

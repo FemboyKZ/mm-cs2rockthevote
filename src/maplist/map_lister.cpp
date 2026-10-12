@@ -299,6 +299,7 @@ int MapLister::LoadFromFile(const char *path)
 		return -1;
 	}
 
+	std::unordered_set<std::string> seen;
 	char line[512];
 	while (fgets(line, sizeof(line), fp))
 	{
@@ -307,7 +308,7 @@ int MapLister::LoadFromFile(const char *path)
 		{
 			continue;
 		}
-		if (FindExact(entry.mapName))
+		if (!seen.insert(str::ToLower(entry.mapName)).second)
 		{
 			MMU_LOG_WARN("maplist.txt lists '%s' more than once, keeping the first entry.\n", entry.mapName.c_str());
 			continue;
@@ -725,7 +726,7 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 													  // Look for <title>Steam Workshop::MAP NAME</title>
 													  const std::string prefix = "Steam Workshop::";
 													  size_t p = body3.find(prefix);
-													  if (p != std::string::npos)
+													  if (p != std::string::npos && body3.find("data-appid=\"730\"") != std::string::npos)
 													  {
 														  p += prefix.size();
 														  size_t end = body3.find('<', p);
@@ -762,9 +763,9 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 				   });
 }
 
-void MapLister::LookupByNameAsync(const std::string &name, std::function<void(MapEntry)> callback) const
+void MapLister::LookupByNameAsync(const std::string &name, std::function<void(MapEntry, bool ambiguous)> callback) const
 {
-	std::string url = "https://api.cs2kz.org/maps?name=" + UrlEncodeQuery(name) + "&state=approved&limit=5";
+	std::string url = "https://api.cs2kz.org/maps?name=" + UrlEncodeQuery(name) + "&state=approved&limit=100";
 	mmu::http::Get(url,
 				   [callback, name](bool ok, std::string body)
 				   {
@@ -797,13 +798,14 @@ void MapLister::LookupByNameAsync(const std::string &name, std::function<void(Ma
 												 }
 											 });
 					   }
-					   if (!exact && results > 1)
+					   const bool ambiguous = !exact && results > 1;
+					   if (ambiguous)
 					   {
 						   found = MapEntry();
 					   }
 					   // Dispatch to game thread: callback touches game state.
 					   MapEntry captured = std::move(found);
-					   mmu::http::QueueMainThread([callback, captured]() mutable { callback(std::move(captured)); });
+					   mmu::http::QueueMainThread([callback, captured, ambiguous]() mutable { callback(std::move(captured), ambiguous); });
 				   });
 }
 

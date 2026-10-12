@@ -70,7 +70,7 @@ public:
 	void NotifyMapChangeSucceeded();
 
 	// Re-open the vote menu for a player (e.g. they typed !rtv while vote runs)
-	void ShowVoteMenuToPlayer(int slot);
+	void ShowVoteMenuToPlayer(int slot, bool quiet = false);
 
 	void CommandVote(int slot);
 
@@ -110,6 +110,8 @@ private:
 		std::string workshopId;
 	};
 
+	// Failed changes this map, kept off the ballot.
+	std::unordered_set<std::string> m_failedMaps;
 	// Newest last.
 	std::vector<RecentMap> m_recentMaps;
 	// Clean name of the scheduled winner, so a cancel can take the nextlevel backstop back down.
@@ -145,8 +147,8 @@ private:
 	// host_workshop_map on an addon that isn't on disk drops the server onto the "error" map,
 	// so an absent winner is downloaded first and only then loaded.
 	void BeginMapChange(const MapEntry &entry);
-	bool WaitForWorkshopMap(const MapEntry &entry, bool fromVote);
-	void AbortChange();
+	bool WaitForWorkshopMap(const MapEntry &entry);
+	void AbortChange(const MapEntry &failed);
 
 	int m_downloadTimerId = -1;
 	mmu::workshop::PendingDownload m_pendingDownload;

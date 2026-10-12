@@ -9,6 +9,11 @@
 
 RTVMenuBridge g_RTVMenus;
 
+static void Forget(std::vector<MenuHandle> &open, MenuHandle menu)
+{
+	open.erase(std::remove(open.begin(), open.end(), menu), open.end());
+}
+
 void RTVMenuBridge::Init()
 {
 	Refresh();
@@ -25,7 +30,10 @@ void RTVMenuBridge::Refresh()
 		case mmu::BridgeChange::Unloaded:
 			MMU_LOG_WARN("mm-cs2menus unloaded - votes and map menus are unavailable.\n");
 			// No end callbacks fire for them.
-			std::fill(m_open, m_open + MAXPLAYERS + 1, 0);
+			for (auto &open : m_open)
+			{
+				open.clear();
+			}
 			break;
 		case mmu::BridgeChange::Loaded:
 			MMU_LOG_INFO("mm-cs2menus found - menus enabled.\n");
@@ -156,14 +164,13 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 
 	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
 
-	// A count: showing a menu ends the previous one, in either order.
-	m_open[slot]++;
+	m_open[slot].push_back(h);
 	bool shown = m_menus.Present(slot, h, def.duration,
-								 [this, onExit = def.onExit](MenuHandle, int s, MenuEndReason reason)
+								 [this, onExit = def.onExit](MenuHandle ended, int s, MenuEndReason reason)
 								 {
 									 if (s >= 0 && s <= MAXPLAYERS)
 									 {
-										 m_open[s]--;
+										 Forget(m_open[s], ended);
 									 }
 									 if (reason == MenuEndReason::Exit && onExit)
 									 {
@@ -172,16 +179,24 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 								 });
 	if (!shown)
 	{
-		m_open[slot]--;
+		Forget(m_open[slot], h);
 		// Refused: another menu system holds the slot.
-		RTV_PrintToChatT(slot, "Another menu is open, close it first.");
+		if (!def.quiet)
+		{
+			RTV_PrintToChatT(slot, "Another menu is open, close it first.");
+		}
 	}
 }
 
 void RTVMenuBridge::CloseMenu(int slot)
 {
-	// CancelMenu closes any plugin's menu.
-	if (m_menus && m_open[slot] > 0)
+	if (!m_menus)
+	{
+		return;
+	}
+	// CancelMenu closes whatever is on screen.
+	const std::vector<MenuHandle> &open = m_open[slot];
+	if (std::find(open.begin(), open.end(), m_menus->GetActiveMenu(slot)) != open.end())
 	{
 		m_menus->CancelMenu(slot);
 	}

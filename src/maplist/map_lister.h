@@ -113,8 +113,8 @@ public:
 	// callback(entry) where entry.mapName is empty on failure.
 	void LookupByWorkshopIdAsync(const std::string &workshopId, std::function<void(MapEntry)> callback) const;
 
-	// Look up a map by name via CS2KZ API.
-	void LookupByNameAsync(const std::string &name, std::function<void(MapEntry)> callback) const;
+	// Look up a map by name via CS2KZ API. ambiguous: several maps matched and none exactly.
+	void LookupByNameAsync(const std::string &name, std::function<void(MapEntry, bool ambiguous)> callback) const;
 
 	// Fetch all approved maps from CS2KZ API and write maplist.txt.
 	// Called automatically when LoadFromFile() returns missing file.

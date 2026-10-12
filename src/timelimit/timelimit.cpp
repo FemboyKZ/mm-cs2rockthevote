@@ -301,14 +301,16 @@ int RTVTimeLimit::GetHeadroomMinutes() const
 	return (std::max)(0, static_cast<int>(std::floor(cap - ref.Get())));
 }
 
+bool RTVTimeLimit::ExtendLimitReached() const
+{
+	const ExtendCfg &cfg = g_RTVConfig.extend;
+	return cfg.maxExtends > 0 && m_extendsUsed >= cfg.maxExtends;
+}
+
 bool RTVTimeLimit::IsExtendAvailable() const
 {
 	const ExtendCfg &cfg = g_RTVConfig.extend;
-	if (!cfg.enabled || cfg.minutes <= 0)
-	{
-		return false;
-	}
-	if (cfg.maxExtends > 0 && m_extendsUsed >= cfg.maxExtends)
+	if (!cfg.enabled || cfg.minutes <= 0 || ExtendLimitReached())
 	{
 		return false;
 	}
@@ -324,8 +326,7 @@ ExtendResult RTVTimeLimit::Extend(int minutes)
 		return res;
 	}
 
-	const ExtendCfg &cfg = g_RTVConfig.extend;
-	if (cfg.maxExtends > 0 && m_extendsUsed >= cfg.maxExtends)
+	if (ExtendLimitReached())
 	{
 		return res;
 	}
@@ -463,6 +464,12 @@ void RTV_CommandExtend(int slot, int minutes)
 	if (g_RTVManager.IsMapChangeScheduled())
 	{
 		RTV_PrintToChatT(slot, "A map change is already scheduled.");
+		return;
+	}
+
+	if (g_RTVTimeLimit.ExtendLimitReached())
+	{
+		RTV_PrintToChatT(slot, "The map has reached its extension limit.");
 		return;
 	}
 

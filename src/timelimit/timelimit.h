@@ -42,6 +42,8 @@ public:
 	// Minutes that still fit under the convar max, or -1 when it has no max.
 	int GetHeadroomMinutes() const;
 
+	bool ExtendLimitReached() const;
+
 	// True when an extend would move the limit and the per-map budget allows it.
 	bool IsExtendAvailable() const;
 
