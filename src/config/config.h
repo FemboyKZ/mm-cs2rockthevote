@@ -79,6 +79,12 @@ struct GeneralCfg
 	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"
 	std::string kzTierFormat = "number"; // "number" (e.g. 3) | "text" (e.g. medium)
 	std::string defaultLanguage = "en";  // phrase-file key used when a client's language is unknown
+
+	// Each prefix is a set of trigger characters. The one chat hints name.
+	char HintPrefix() const
+	{
+		return !commandPrefix.empty() ? commandPrefix[0] : !silentCommandPrefix.empty() ? silentCommandPrefix[0] : '!';
+	}
 };
 
 struct RTVPluginConfig

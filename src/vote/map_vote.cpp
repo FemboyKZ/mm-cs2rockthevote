@@ -488,14 +488,20 @@ bool MapVoteManager::ShowVoteNotice(int slot)
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	std::string text;
-	std::string hint = RTV_Translate(slot, "Type !vote in chat, or hold TAB and click.");
+	auto hintT = [slot](const char *key)
+	{
+		char buf[160];
+		snprintf(buf, sizeof(buf), RTV_Translate(slot, key).c_str(), g_RTVConfig.general.HintPrefix());
+		return std::string(buf);
+	};
+	std::string hint = hintT("Type %cvote in chat, or hold TAB and click.");
 	auto it = m_playerVotes.find(slot);
 	if (it != m_playerVotes.end())
 	{
 		char vote[160];
 		snprintf(vote, sizeof(vote), RTV_Translate(slot, "Your vote: %s").c_str(), OptionLabel(slot, m_options[it->second]).c_str());
 		text = vote;
-		hint = g_RTVConfig.mapvote.enableRevote ? RTV_Translate(slot, "Type !revote in chat to change it.") : "";
+		hint = g_RTVConfig.mapvote.enableRevote ? hintT("Type %crevote in chat to change it.") : "";
 	}
 	// A notice without time left would never go away.
 	return g_RTVMenus.ShowNotice(slot, RTV_Translate(slot, "Vote for next map"), text, hint, (std::max)(m_voteEndTime - curtime, 1.0f),
@@ -553,15 +559,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot)
 		const bool mapRow = def.table && opt.kind == VoteOptionKind::Map;
 		std::string optLabel = mapRow ? g_MapLister.GetNameAndCells(opt.entry, tierCells, cells) : OptionLabel(slot, opt);
 
-		char label[128];
-		if (alreadyVoted)
-		{
-			snprintf(label, sizeof(label), "\x04%s \x01%s", optLabel.c_str(), RTV_Translate(slot, "[your vote]").c_str());
-		}
-		else
-		{
-			snprintf(label, sizeof(label), "%s", optLabel.c_str());
-		}
+		std::string label = alreadyVoted ? "\x04" + optLabel + " \x01" + RTV_Translate(slot, "[your vote]") : optLabel;
 
 		int capturedIndex = i;
 		def.AddItem(label,
@@ -716,7 +714,8 @@ void MapVoteManager::SendChoiceReminders()
 		// Closed on purpose, so nudge instead of forcing the menu back open.
 		if (m_dismissed.count(i))
 		{
-			RTV_PrintToChatT(i, "You haven't voted yet. Type !revote or !rtv to vote.");
+			RTV_PrintToChatT(i, "You haven't voted yet. Type %crevote or %crtv to vote.", g_RTVConfig.general.HintPrefix(),
+							 g_RTVConfig.general.HintPrefix());
 		}
 		else if (!g_RTVMenus.HasMenu(i))
 		{

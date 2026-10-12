@@ -24,6 +24,10 @@
 	{
 		"en"	"{red}Menus need the mm-cs2menus plugin."
 	}
+	"Another menu is open, close it first."
+	{
+		"en"	"{red}Another menu is open, close it first."
+	}
 
 	// Rock the vote
 	"RTV is currently disabled."
@@ -54,13 +58,13 @@
 	{
 		"en"	"{red}You already voted. ({default}%d{red}/{default}%d{red} needed)"
 	}
-	"%s wants to rock the vote. (%d/%d needed - type !rtv to vote)"
+	"%s wants to rock the vote. (%d/%d needed - type %crtv to vote)"
 	{
-		"en"	"{green}%s{default} wants to rock the vote. ({green}%d{default}/{green}%d{default} needed - type {green}!rtv{default} to vote)"
+		"en"	"{green}%s{default} wants to rock the vote. ({green}%d{default}/{green}%d{default} needed - type {green}%crtv{default} to vote)"
 	}
-	"Type !rtv to vote for a map change. (%d more vote(s) needed)"
+	"Type %crtv to vote for a map change. (%d more vote(s) needed)"
 	{
-		"en"	"Type {green}!rtv{default} to vote for a map change. ({green}%d{default} more vote(s) needed)"
+		"en"	"Type {green}%crtv{default} to vote for a map change. ({green}%d{default} more vote(s) needed)"
 	}
 	"RTV threshold reached! Starting vote..."
 	{
@@ -164,9 +168,9 @@
 	{
 		"en"	"Map vote ends in {green}%d{default} second(s). Vote now!"
 	}
-	"You haven't voted yet. Type !revote or !rtv to vote."
+	"You haven't voted yet. Type %crevote or %crtv to vote."
 	{
-		"en"	"You haven't voted yet. Type {green}!revote{default} or {green}!rtv{default} to vote."
+		"en"	"You haven't voted yet. Type {green}%crevote{default} or {green}%crtv{default} to vote."
 	}
 	"All players voted! Vote ending in 5 second(s)."
 	{
@@ -374,12 +378,12 @@
 	{
 		"en"	"Your vote: %s"
 	}
-	"Type !vote in chat, or hold TAB and click."
+	"Type %cvote in chat, or hold TAB and click."
 	{
-		"en"	"Type !vote in chat, or hold TAB and click."
+		"en"	"Type %cvote in chat, or hold TAB and click."
 	}
-	"Type !revote in chat to change it."
+	"Type %crevote in chat to change it."
 	{
-		"en"	"Type !revote in chat to change it."
+		"en"	"Type %crevote in chat to change it."
 	}
 }

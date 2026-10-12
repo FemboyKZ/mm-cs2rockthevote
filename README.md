@@ -22,7 +22,7 @@ This stops players from spamming it on join before getting kicked to trigger a v
 ### Install
 
 1. Download the [latest release](https://github.com/FemboyKZ/mm-cs2rockthevote/releases/latest) and extract it in your server's root folder (`/game/csgo/`).
-2. Configure the plugin in `core.cfg` and the maplist in `maplist.txt`
+2. Configure the plugin in `core.cfg` and the maplist in `maplist.txt` (copy `maplist.example.txt`, or leave it out to have one generated from the CS2KZ API)
 
 ### Configuration
 

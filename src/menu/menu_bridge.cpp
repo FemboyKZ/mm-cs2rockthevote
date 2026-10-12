@@ -173,6 +173,8 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 	if (!shown)
 	{
 		m_open[slot]--;
+		// Refused: another menu system holds the slot.
+		RTV_PrintToChatT(slot, "Another menu is open, close it first.");
 	}
 }
 

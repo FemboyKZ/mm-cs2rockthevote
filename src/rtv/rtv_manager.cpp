@@ -178,7 +178,7 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 
 	const char *name = g_RTVPlayerManager.DisplayName(slot);
 
-	RTV_ChatToAllT("%s wants to rock the vote. (%d/%d needed - type !rtv to vote)", name, count, required);
+	RTV_ChatToAllT("%s wants to rock the vote. (%d/%d needed - type %crtv to vote)", name, count, required, g_RTVConfig.general.HintPrefix());
 
 	if (IsThresholdReached(eligible))
 	{
@@ -287,7 +287,7 @@ void RTVManager::StartReminderTimer()
 			int need = (std::max)(required - count, 0);
 			if (need > 0)
 			{
-				RTV_ChatToAllT("Type !rtv to vote for a map change. (%d more vote(s) needed)", need);
+				RTV_ChatToAllT("Type %crtv to vote for a map change. (%d more vote(s) needed)", g_RTVConfig.general.HintPrefix(), need);
 			}
 			else
 			{
