@@ -447,6 +447,11 @@ KHook::Return<void> CS2RTVPlugin::Hook_ClientDisconnect(IServerGameClients *, CP
 	{
 		return {KHook::Action::Ignore};
 	}
+	if (g_RTVPlayerManager.GetHumanPlayerCount() <= 0)
+	{
+		g_MapVoteManager.OnServerEmpty();
+		return {KHook::Action::Ignore};
+	}
 	g_RTVManager.RecheckThreshold(StartRtvVote);
 	return {KHook::Action::Ignore};
 }

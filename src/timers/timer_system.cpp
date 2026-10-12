@@ -42,6 +42,21 @@ void RTVTimerSystem::KillTimer(int id)
 	}
 }
 
+void RTVTimerSystem::FireNow(int id)
+{
+	for (auto &e : m_timers)
+	{
+		if (e.id == id && !e.killed)
+		{
+			e.killed = true;
+			// A copy: the callback may add timers, which moves the entry.
+			TimerCallback callback = e.callback;
+			callback();
+			return;
+		}
+	}
+}
+
 void RTVTimerSystem::Process(float curtime)
 {
 	const int count = static_cast<int>(m_timers.size());

@@ -29,6 +29,9 @@ public:
 	// Cancel and remove a timer. Safe to call with INVALID_TIMER.
 	void KillTimer(int id);
 
+	// Run a pending timer's callback now and end it, repeating or not. Not from inside a callback.
+	void FireNow(int id);
+
 	// Called from Hook_GameFrame every tick.
 	void Process(float curtime);
 

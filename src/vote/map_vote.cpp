@@ -185,6 +185,17 @@ void MapVoteManager::OnUnload()
 	m_pendingDownload.Clear();
 }
 
+void MapVoteManager::OnServerEmpty()
+{
+	if (m_voteActive)
+	{
+		CancelVote();
+		return;
+	}
+	// The delay was only for players to read the result.
+	g_Timers.FireNow(m_changeTimerId);
+}
+
 void MapVoteManager::CancelVote()
 {
 	if (m_changeScheduled)

@@ -86,6 +86,9 @@ public:
 	// No menu calls as in Reset: mm-cs2menus may already be unloaded.
 	void OnUnload();
 
+	// The last player left. The server hibernates and GameFrame stops, so no timer runs until someone joins.
+	void OnServerEmpty();
+
 	// Admin cancel of a running vote or scheduled change.
 	// Unlike Reset the map keeps running, so the RTV gates have to reopen with it.
 	void CancelVote();
