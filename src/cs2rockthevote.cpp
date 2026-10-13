@@ -732,7 +732,16 @@ CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE
 	RTV_RunFromConsole(context, args, RTV_CmdMapMenu);
 }
 
-CON_COMMAND_F(mm_reloadrtv, "Admin: reload cs2rtv config from disk", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
+CON_COMMAND_F(mm_rtv_reload, "Admin: reload cs2rtv config from disk", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	RTV_RunFromConsole(context, args, RTV_CmdReloadRtv);
+}
+
+CON_COMMAND_F(mm_rtv_version, "Print the plugin version", FCVAR_RELEASE)
+{
+	// Our commands are all registered as client executable, and this one only writes to the server log.
+	if (context.GetPlayerSlot().Get() == -1)
+	{
+		MMU_LOG_INFO("Plugin version %s, interfaces %s and %s.\n", PLUGIN_FULL_VERSION, CS2RTV_INTERFACE, CS2RTV_FORWARDS_INTERFACE);
+	}
 }

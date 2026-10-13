@@ -1,6 +1,6 @@
 # CS2RockTheVote Commands
 
-Every command can be typed in chat (`!cmd`) or run from the console as `mm_cmd`.
+Every command can be typed in chat (`!cmd`) or run from the console as `mm_cmd`, the reload as `mm_rtv_reload`.
 
 The server console always has full access.
 
@@ -22,18 +22,20 @@ Arguments are `key=value` pairs like cs2kz's, and a command's one argument can b
 
 ## Commands
 
-| Chat                | Console         | Default flag                          | Description                                            |
-| ------------------- | --------------- | ------------------------------------- | ------------------------------------------------------ |
-| `!rtv`              | `mm_rtv`        | open                                  | Rock the vote for a map change                         |
-| `!nominate`, `!nom` | `mm_nominate`   | `nominate.permission`                 | Nominate a map                                         |
-| -                   | -               | `nominate.externalNominatePermission` | `nominate_ext`: nominating off-list / workshop-ID maps |
-| `!mapmenu`, `!mm`   | `mm_mapmenu`    | `mapchooser.permission`               | Admin: open immediate map-change menu                  |
-| `!listmaps`         | `mm_listmaps`   | open                                  | List available maps                                    |
-| `!reloadmaps`       | `mm_reloadmaps` | `general.adminPermission`             | Admin: reload the map list                             |
-| `!vote`             | `mm_vote`       | open                                  | Open the ballot of an active vote                      |
-| `!revote`           | `mm_revote`     | open                                  | Change your vote in an active vote                     |
-| `!extend [minutes]` | `mm_extend`     | `extend.permission`                   | Admin: add time to the current map (config default)    |
-| `!reloadrtv`        | `mm_reloadrtv`  | `general.adminPermission`             | Admin: reload cs2rtv config                            |
+| Chat                | Console         | Default flag                   | Description                                            |
+| ------------------- | --------------- | ------------------------------ | ------------------------------------------------------ |
+| `!rtv`              | `mm_rtv`        | open                           | Rock the vote for a map change                         |
+| `!nominate`, `!nom` | `mm_nominate`   | `Permissions.Nominate`         | Nominate a map                                         |
+| -                   | -               | `Permissions.NominateExternal` | `nominate_ext`: nominating off-list / workshop-ID maps |
+| `!mapmenu`, `!mm`   | `mm_mapmenu`    | `Permissions.MapChooser`       | Admin: open immediate map-change menu                  |
+| `!listmaps`         | `mm_listmaps`   | open                           | List available maps                                    |
+| `!reloadmaps`       | `mm_reloadmaps` | `Permissions.Admin`            | Admin: reload the map list                             |
+| `!vote`             | `mm_vote`       | open                           | Open the ballot of an active vote                      |
+| `!revote`           | `mm_revote`     | open                           | Change your vote in an active vote                     |
+| `!extend [minutes]` | `mm_extend`     | `Permissions.Extend`           | Admin: add time to the current map (config default)    |
+| `!reloadrtv`        | `mm_rtv_reload` | `Permissions.Admin`            | Admin: reload cs2rtv config                            |
+
+`mm_rtv_version` prints the plugin version, from the server console only.
 
 Config permissions in `cfg/cs2rtv/core.cfg` accept a flag letter (`b`), a named flag (`generic`, `changemap`, `root`, ...), or empty for open.
 
