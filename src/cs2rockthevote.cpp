@@ -217,8 +217,14 @@ CS2RTVPlugin::CS2RTVPlugin()
 {
 }
 
+// mm_maps, with the console commands below.
+static void RTV_RegisterMapsCommand();
+static void RTV_UnregisterMapsCommand();
+static bool s_loadedLate = false;
+
 bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, bool late)
 {
+	s_loadedLate = late;
 	PLUGIN_SAVEVARS();
 
 	mmu::log::Init("CS2RTV", "cs2rockthevote");
@@ -285,6 +291,7 @@ void CS2RTVPlugin::OnLateLoad()
 
 bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 {
+	RTV_UnregisterMapsCommand();
 	mmu::http::DrainMainThread();
 
 	m_GameFrame.Remove(g_pServerGameDLL);
@@ -321,6 +328,12 @@ void CS2RTVPlugin::AllPluginsLoaded()
 	RTV_WhitelistBridge_Init();
 	g_RTVMenus.Init();
 	g_RTVTimeLimit.ApplyRoundTimeCap();
+
+	// A late load gets here before the other plugins hear of us, the first frame registers it then.
+	if (!s_loadedLate)
+	{
+		RTV_RegisterMapsCommand();
+	}
 }
 
 void CS2RTVPlugin::OnPluginLoad(PluginId /*id*/)
@@ -377,6 +390,8 @@ void CS2RTVPlugin::OnLevelShutdown()
 
 KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simulating*/, bool /*bFirstTick*/, bool /*bLastTick*/)
 {
+	RTV_RegisterMapsCommand();
+
 	CGlobalVars *globals = GetGameGlobals();
 	if (!globals)
 	{
@@ -527,7 +542,7 @@ static void RTV_CmdMapMenu(int slot, const std::string & /*argLine*/)
 
 static void RTV_CmdListMaps(int slot, const std::string & /*argLine*/)
 {
-	if (RTV_Allowed(slot, "listmaps"))
+	if (RTV_Allowed(slot, "maps"))
 	{
 		g_NominateManager.CommandMaps(slot);
 	}
@@ -569,7 +584,7 @@ static void RTV_CmdRevote(int slot, const std::string & /*argLine*/)
 
 static void RTV_CmdReloadRtv(int slot, const std::string & /*argLine*/)
 {
-	if (!RTV_Allowed(slot, "reloadrtv", g_RTVConfig.general.adminPermission))
+	if (!RTV_Allowed(slot, "rtv_reload", g_RTVConfig.general.adminPermission))
 	{
 		return;
 	}
@@ -602,7 +617,7 @@ static const RTVChatCommand s_chatCommands[] = {
 	{"rtv", nullptr, RTV_CmdRtv},
 	{"nominate", "nom", RTV_CmdNominate},
 	{"mapmenu", "mm", RTV_CmdMapMenu},
-	{"listmaps", nullptr, RTV_CmdListMaps},
+	{"maps", "listmaps", RTV_CmdListMaps},
 	{"reloadmaps", nullptr, RTV_CmdReloadMaps},
 	{"extend", nullptr, RTV_CmdExtend},
 	{"vote", nullptr, RTV_CmdVote},
@@ -702,9 +717,28 @@ CON_COMMAND_F(mm_nominate, "Nominate a map for the next vote", FCVAR_RELEASE | F
 	RTV_RunFromConsole(context, args, RTV_CmdNominate);
 }
 
-CON_COMMAND_F(mm_listmaps, "List available maps to your console", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
+// mm-cs2admin has a maps command too. It serves it while we are not loaded and lets go of it once it hears of us,
+// which is after our Load. So this one can't be a CON_COMMAND, it is registered when nobody else holds the name.
+static ConCommand *s_mapsCommand = nullptr;
+
+static void RTV_MapsConsoleCommand(const CCommandContext &context, const CCommand &args)
 {
 	RTV_RunFromConsole(context, args, RTV_CmdListMaps);
+}
+
+static void RTV_RegisterMapsCommand()
+{
+	if (!s_mapsCommand)
+	{
+		s_mapsCommand =
+			new ConCommand("mm_maps", RTV_MapsConsoleCommand, "List available maps to your console", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE);
+	}
+}
+
+static void RTV_UnregisterMapsCommand()
+{
+	delete s_mapsCommand;
+	s_mapsCommand = nullptr;
 }
 
 CON_COMMAND_F(mm_reloadmaps, "Reload the map list", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
