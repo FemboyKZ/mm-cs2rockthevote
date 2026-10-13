@@ -37,7 +37,7 @@ Arguments are `key=value` pairs like cs2kz's, and a command's one argument can b
 
 `mm_rtv_version` prints the plugin version, from the server console only.
 
-mm-cs2admin has a `!maps` of its own, which steps aside while this plugin is loaded.
+mm-cs2admin leaves its `!maps` to this plugin while both are loaded.
 
 Config permissions in `cfg/cs2rtv/core.cfg` accept a flag letter (`b`), a named flag (`generic`, `changemap`, `root`, ...), or empty for open.
 

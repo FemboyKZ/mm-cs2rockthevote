@@ -75,7 +75,7 @@ struct GeneralCfg : mmu::config::GeneralBlock
 {
 	bool includeSpectator = true;
 	std::string chatPrefix = "\x07[RTV]\x01 "; // red "[RTV]" + default
-	bool kzApiMaplist = false; // CS2KZ API approved maps instead of maplist.txt
+	bool kzApiMaplist = false;                 // CS2KZ API approved maps instead of maplist.txt
 	bool mapValidationEnabled = false;
 	std::string steamApiKey = "";
 	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"

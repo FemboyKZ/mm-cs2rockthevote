@@ -217,7 +217,6 @@ CS2RTVPlugin::CS2RTVPlugin()
 {
 }
 
-// mm_maps, with the console commands below.
 static void RTV_RegisterMapsCommand();
 static void RTV_UnregisterMapsCommand();
 static bool s_loadedLate = false;
@@ -329,7 +328,7 @@ void CS2RTVPlugin::AllPluginsLoaded()
 	g_RTVMenus.Init();
 	g_RTVTimeLimit.ApplyRoundTimeCap();
 
-	// A late load gets here before the other plugins hear of us, the first frame registers it then.
+	// On a late load mm-cs2admin still holds mm_maps here.
 	if (!s_loadedLate)
 	{
 		RTV_RegisterMapsCommand();
@@ -717,8 +716,7 @@ CON_COMMAND_F(mm_nominate, "Nominate a map for the next vote", FCVAR_RELEASE | F
 	RTV_RunFromConsole(context, args, RTV_CmdNominate);
 }
 
-// mm-cs2admin has a maps command too. It serves it while we are not loaded and lets go of it once it hears of us,
-// which is after our Load. So this one can't be a CON_COMMAND, it is registered when nobody else holds the name.
+// Not a CON_COMMAND: mm-cs2admin holds mm_maps until it hears of us, which is after our Load.
 static ConCommand *s_mapsCommand = nullptr;
 
 static void RTV_MapsConsoleCommand(const CCommandContext &context, const CCommand &args)
@@ -773,7 +771,7 @@ CON_COMMAND_F(mm_rtv_reload, "Admin: reload cs2rtv config from disk", FCVAR_RELE
 
 CON_COMMAND_F(mm_rtv_version, "Print the plugin version", FCVAR_RELEASE)
 {
-	// Our commands are all registered as client executable, and this one only writes to the server log.
+	// Clients can run every command here, this one only logs.
 	if (context.GetPlayerSlot().Get() == -1)
 	{
 		MMU_LOG_INFO("Plugin version %s, interfaces %s and %s.\n", PLUGIN_FULL_VERSION, CS2RTV_INTERFACE, CS2RTV_FORWARDS_INTERFACE);
