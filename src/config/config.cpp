@@ -32,7 +32,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->rtv.reminderInterval = std::atoi(value.c_str());
 		}
-		else if (k == "cooldownduration")
+		else if (k == "cooldown" || k == "cooldownduration")
 		{
 			cfg->rtv.cooldownDuration = std::atoi(value.c_str());
 		}
@@ -71,7 +71,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->mapvote.enabled = (value != "0");
 		}
-		else if (k == "mapstoshow")
+		else if (k == "options" || k == "mapstoshow")
 		{
 			cfg->mapvote.mapsToShow = std::atoi(value.c_str());
 		}
@@ -130,7 +130,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->extend.minutes = std::atoi(value.c_str());
 		}
-		else if (k == "maxextends")
+		else if (k == "max" || k == "maxextends")
 		{
 			cfg->extend.maxExtends = std::atoi(value.c_str());
 		}
@@ -153,7 +153,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->nominate.enabled = (value != "0");
 		}
-		else if (k == "nominatelimit")
+		else if (k == "max" || k == "nominatelimit")
 		{
 			cfg->nominate.nominateLimit = std::atoi(value.c_str());
 		}
@@ -232,6 +232,29 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	else if (sec == "menu")
 	{
 		cfg->menu.ApplyKey(k, value);
+	}
+	else if (sec == "permissions")
+	{
+		if (k == "extend")
+		{
+			cfg->extend.permission = value;
+		}
+		else if (k == "nominate")
+		{
+			cfg->nominate.permission = value;
+		}
+		else if (k == "nominateexternal")
+		{
+			cfg->nominate.externalNominatePermission = value;
+		}
+		else if (k == "mapchooser")
+		{
+			cfg->mapchooser.permission = value;
+		}
+		else if (k == "admin")
+		{
+			cfg->general.adminPermission = value;
+		}
 	}
 }
 
