@@ -17,6 +17,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	RTVPluginConfig *cfg = static_cast<RTVPluginConfig *>(userdata);
 	std::string sec = str::ToLower(section);
 	std::string k = str::ToLower(key);
+	bool known = true;
 
 	if (sec == "rtv")
 	{
@@ -53,6 +54,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->endOfMapVote.triggerTime = std::atoi(value.c_str());
 		}
+		else
+		{
+			known = false;
+		}
 	}
 	else if (sec == "endofmapvote")
 	{
@@ -63,6 +68,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		else if (k == "triggertime")
 		{
 			cfg->endOfMapVote.triggerTime = std::atoi(value.c_str());
+		}
+		else
+		{
+			known = false;
 		}
 	}
 	else if (sec == "mapvote")
@@ -119,6 +128,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->mapvote.workshopDownloadTimeout = std::atoi(value.c_str());
 		}
+		else
+		{
+			known = false;
+		}
 	}
 	else if (sec == "extend")
 	{
@@ -146,6 +159,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->extend.permission = value;
 		}
+		else
+		{
+			known = false;
+		}
 	}
 	else if (sec == "nominate")
 	{
@@ -165,12 +182,20 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->nominate.externalNominatePermission = value;
 		}
+		else
+		{
+			known = false;
+		}
 	}
 	else if (sec == "mapchooser")
 	{
 		if (k == "permission")
 		{
 			cfg->mapchooser.permission = value;
+		}
+		else
+		{
+			known = false;
 		}
 	}
 	else if (sec == "general")
@@ -221,6 +246,10 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			// consumed
 		}
+		else
+		{
+			known = false;
+		}
 	}
 	else if (sec == "discord")
 	{
@@ -228,10 +257,14 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.discordWebhook = value;
 		}
+		else
+		{
+			known = false;
+		}
 	}
 	else if (sec == "menu")
 	{
-		cfg->menu.ApplyKey(k, value);
+		known = cfg->menu.ApplyKey(k, value);
 	}
 	else if (sec == "permissions")
 	{
@@ -255,6 +288,18 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.adminPermission = value;
 		}
+		else
+		{
+			known = false;
+		}
+	}
+	else
+	{
+		known = false;
+	}
+	if (!known)
+	{
+		mmu::config::WarnUnknownKey(section, key);
 	}
 }
 
