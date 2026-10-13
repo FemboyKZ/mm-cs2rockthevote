@@ -87,7 +87,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	}
 
 	// flag 0 = open by default.
-	const std::string &nomPerm = g_RTVConfig.nominate.permission;
+	const std::string &nomPerm = g_RTVConfig.permissions.nominate;
 	uint32_t nomFlag = nomPerm.empty() ? 0 : ParseAdminFlagName(nomPerm);
 	if (!RTV_AdminBridge_CanUseCommand(slot, "nominate", nomFlag))
 	{
@@ -127,7 +127,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 
 	if (LooksLikeWorkshopId(arg))
 	{
-		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
+		const std::string &extPerm = g_RTVConfig.permissions.nominateExternal;
 		uint32_t extFlag = extPerm.empty() ? 0 : ParseAdminFlagName(extPerm);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
@@ -172,7 +172,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 
 	if (!entry && matches.empty())
 	{
-		const std::string &extPerm = g_RTVConfig.nominate.externalNominatePermission;
+		const std::string &extPerm = g_RTVConfig.permissions.nominateExternal;
 		uint32_t extFlag = extPerm.empty() ? 0 : ParseAdminFlagName(extPerm);
 		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
 		{
@@ -343,7 +343,7 @@ void NominateManager::NominateMap(int slot, const MapEntry *entry)
 		return;
 	}
 
-	int limit = g_RTVConfig.nominate.nominateLimit;
+	int limit = g_RTVConfig.nominate.max;
 	auto &playerList = m_playerNoms[slot];
 
 	for (const auto &n : playerList)

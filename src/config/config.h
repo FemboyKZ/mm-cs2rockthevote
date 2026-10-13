@@ -12,7 +12,7 @@ struct RtvCfg
 	bool enabled = true;
 	int votePercentage = 51; // of eligible players
 	int reminderInterval = 120;
-	int cooldownDuration = 30;
+	int cooldown = 30;
 	int mapStartDelay = 30;
 };
 
@@ -20,7 +20,7 @@ struct RtvCfg
 struct MapVoteCfg
 {
 	bool enabled = true;
-	int mapsToShow = 6;
+	int options = 6;
 	int excludeRecentMaps = 3;
 	int voteDuration = 90;
 	int minWinPercentage = 0; // of cast votes, else runoff
@@ -28,7 +28,7 @@ struct MapVoteCfg
 	int countdownInterval = 15;
 	bool chatChoiceReminder = true;
 	int chatChoiceInterval = 15;
-	bool enableRevote = true;
+	bool revoteEnabled = true;
 	bool voteNotice = false; // a notice instead of the panorama ballot, which takes the mouse
 	int mapChangeDelay = 5;
 	int workshopDownloadTimeout = 120; // seconds to wait for an absent workshop map
@@ -45,35 +45,39 @@ struct ExtendCfg
 {
 	bool enabled = true;
 	int minutes = 60;          // added per extension
-	int maxExtends = 0;        // per map, 0 = unlimited (the convar max still applies)
+	int max = 0;               // per map, 0 = unlimited (the convar max still applies)
 	int roundTimeCap = 1440;   // raise the mp_roundtime max to this, 0 = leave the engine's
 	std::string mode = "auto"; // "auto" | "roundtime" | "timelimit"
-	std::string permission = "changemap";
 };
 
 struct NominateCfg
 {
 	bool enabled = true;
-	int nominateLimit = 1;
-	std::string permission = ""; // blank = everyone
-	std::string externalNominatePermission = "changemap";
+	int max = 1; // per player and map, 0 = unlimited
 };
 
-struct MapChooserCfg
+// Admin flag needed for each, blank = everyone.
+struct PermissionsCfg
 {
-	// Admin flag required to use map chooser; blank = everyone
-	std::string permission = "changemap";
+	std::string extend = "changemap";
+	std::string nominate;
+	std::string nominateExternal = "changemap"; // maps not in the local maplist
+	std::string mapChooser = "changemap";
+	std::string admin = "root";
+};
+
+struct DiscordCfg
+{
+	std::string webhookUrl; // dead-map alerts, blank = off
 };
 
 struct GeneralCfg : mmu::config::GeneralBlock
 {
 	bool includeSpectator = true;
 	std::string chatPrefix = "\x07[RTV]\x01 "; // red "[RTV]" + default
-	std::string adminPermission = "root";
 	bool kzApiMaplist = false; // CS2KZ API approved maps instead of maplist.txt
-	bool enableMapValidation = false;
+	bool mapValidationEnabled = false;
 	std::string steamApiKey = "";
-	std::string discordWebhook = "";
 	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"
 	std::string kzTierFormat = "number"; // "number" (e.g. 3) | "text" (e.g. medium)
 
@@ -84,14 +88,15 @@ struct GeneralCfg : mmu::config::GeneralBlock
 	}
 };
 
-struct RTVPluginConfig
+struct RTVConfig
 {
 	RtvCfg rtv;
 	MapVoteCfg mapvote;
 	EndOfMapVoteCfg endOfMapVote;
 	ExtendCfg extend;
 	NominateCfg nominate;
-	MapChooserCfg mapchooser;
+	PermissionsCfg permissions;
+	DiscordCfg discord;
 	GeneralCfg general;
 
 	MenuStyleBlock menu;
@@ -100,8 +105,8 @@ struct RTVPluginConfig
 };
 
 // Load/parse cfg/cs2rtv/core.cfg. Returns true on success.
-bool RTV_LoadConfig(const char *path, RTVPluginConfig &config);
+bool RTV_LoadConfig(const char *path, RTVConfig &config);
 
-extern RTVPluginConfig g_RTVConfig;
+extern RTVConfig g_RTVConfig;
 
 #endif // _INCLUDE_RTV_CONFIG_H_

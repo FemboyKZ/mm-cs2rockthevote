@@ -10,11 +10,11 @@
 #include <fstream>
 #include <string>
 
-RTVPluginConfig g_RTVConfig;
+RTVConfig g_RTVConfig;
 
 static void ConfigHandler(const std::string &section, const std::string &key, const std::string &value, void *userdata)
 {
-	RTVPluginConfig *cfg = static_cast<RTVPluginConfig *>(userdata);
+	RTVConfig *cfg = static_cast<RTVConfig *>(userdata);
 	std::string sec = str::ToLower(section);
 	std::string k = str::ToLower(key);
 	bool known = true;
@@ -35,7 +35,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "cooldown" || k == "cooldownduration")
 		{
-			cfg->rtv.cooldownDuration = std::atoi(value.c_str());
+			cfg->rtv.cooldown = std::atoi(value.c_str());
 		}
 		else if (k == "mapstartdelay")
 		{
@@ -82,7 +82,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "options" || k == "mapstoshow")
 		{
-			cfg->mapvote.mapsToShow = std::atoi(value.c_str());
+			cfg->mapvote.options = std::atoi(value.c_str());
 		}
 		else if (k == "excluderecentmaps")
 		{
@@ -114,7 +114,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "revoteenabled" || k == "enablerevote")
 		{
-			cfg->mapvote.enableRevote = (value != "0");
+			cfg->mapvote.revoteEnabled = (value != "0");
 		}
 		else if (k == "votenotice")
 		{
@@ -145,7 +145,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "max" || k == "maxextends")
 		{
-			cfg->extend.maxExtends = std::atoi(value.c_str());
+			cfg->extend.max = std::atoi(value.c_str());
 		}
 		else if (k == "roundtimecap")
 		{
@@ -157,7 +157,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "permission")
 		{
-			cfg->extend.permission = value;
+			cfg->permissions.extend = value;
 		}
 		else
 		{
@@ -172,15 +172,15 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "max" || k == "nominatelimit")
 		{
-			cfg->nominate.nominateLimit = std::atoi(value.c_str());
+			cfg->nominate.max = std::atoi(value.c_str());
 		}
 		else if (k == "permission")
 		{
-			cfg->nominate.permission = value;
+			cfg->permissions.nominate = value;
 		}
 		else if (k == "externalnominatepermission")
 		{
-			cfg->nominate.externalNominatePermission = value;
+			cfg->permissions.nominateExternal = value;
 		}
 		else
 		{
@@ -191,7 +191,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	{
 		if (k == "permission")
 		{
-			cfg->mapchooser.permission = value;
+			cfg->permissions.mapChooser = value;
 		}
 		else
 		{
@@ -210,7 +210,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "adminpermission")
 		{
-			cfg->general.adminPermission = value;
+			cfg->permissions.admin = value;
 		}
 		else if (k == "kzapimaplist")
 		{
@@ -218,7 +218,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "mapvalidationenabled" || k == "enablemapvalidation")
 		{
-			cfg->general.enableMapValidation = (value != "0");
+			cfg->general.mapValidationEnabled = (value != "0");
 		}
 		else if (k == "steamapikey")
 		{
@@ -227,7 +227,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		// Old name.
 		else if (k == "discordwebhook")
 		{
-			cfg->general.discordWebhook = value;
+			cfg->discord.webhookUrl = value;
 		}
 		else if (k == "displaykztiers")
 		{
@@ -255,7 +255,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	{
 		if (k == "webhookurl")
 		{
-			cfg->general.discordWebhook = value;
+			cfg->discord.webhookUrl = value;
 		}
 		else
 		{
@@ -270,23 +270,23 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	{
 		if (k == "extend")
 		{
-			cfg->extend.permission = value;
+			cfg->permissions.extend = value;
 		}
 		else if (k == "nominate")
 		{
-			cfg->nominate.permission = value;
+			cfg->permissions.nominate = value;
 		}
 		else if (k == "nominateexternal")
 		{
-			cfg->nominate.externalNominatePermission = value;
+			cfg->permissions.nominateExternal = value;
 		}
 		else if (k == "mapchooser")
 		{
-			cfg->mapchooser.permission = value;
+			cfg->permissions.mapChooser = value;
 		}
 		else if (k == "admin")
 		{
-			cfg->general.adminPermission = value;
+			cfg->permissions.admin = value;
 		}
 		else
 		{
@@ -303,7 +303,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 	}
 }
 
-bool RTV_LoadConfig(const char *path, RTVPluginConfig &config)
+bool RTV_LoadConfig(const char *path, RTVConfig &config)
 {
 	std::ifstream file(path);
 	if (!file.is_open())
@@ -325,7 +325,7 @@ bool RTV_LoadConfig(const char *path, RTVPluginConfig &config)
 	}
 
 	// Fresh, so a removed key reverts to its default.
-	RTVPluginConfig fresh;
+	RTVConfig fresh;
 	if (!kv::ParseSection(file, root.value, ConfigHandler, &fresh))
 	{
 		return false;

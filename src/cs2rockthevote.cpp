@@ -534,7 +534,7 @@ static void RTV_CmdNominate(int slot, const std::string &argLine)
 
 static void RTV_CmdMapMenu(int slot, const std::string & /*argLine*/)
 {
-	if (RTV_Allowed(slot, "mapmenu", g_RTVConfig.mapchooser.permission))
+	if (RTV_Allowed(slot, "mapmenu", g_RTVConfig.permissions.mapChooser))
 	{
 		ShowMapChooserMenu(slot);
 	}
@@ -551,7 +551,7 @@ static void RTV_CmdListMaps(int slot, const std::string & /*argLine*/)
 // Cancels a running vote or a scheduled change, so it is admin-only.
 static void RTV_CmdReloadMaps(int slot, const std::string & /*argLine*/)
 {
-	if (RTV_Allowed(slot, "reloadmaps", g_RTVConfig.general.adminPermission))
+	if (RTV_Allowed(slot, "reloadmaps", g_RTVConfig.permissions.admin))
 	{
 		g_NominateManager.CommandReloadMaps(slot);
 	}
@@ -560,7 +560,7 @@ static void RTV_CmdReloadMaps(int slot, const std::string & /*argLine*/)
 static void RTV_CmdExtend(int slot, const std::string &argLine)
 {
 	std::string minutes;
-	if (RTV_Allowed(slot, "extend", g_RTVConfig.extend.permission) && RTV_MainArg(slot, argLine, "time", minutes))
+	if (RTV_Allowed(slot, "extend", g_RTVConfig.permissions.extend) && RTV_MainArg(slot, argLine, "time", minutes))
 	{
 		RTV_CommandExtend(slot, atoi(minutes.c_str()));
 	}
@@ -584,7 +584,7 @@ static void RTV_CmdRevote(int slot, const std::string & /*argLine*/)
 
 static void RTV_CmdReloadRtv(int slot, const std::string & /*argLine*/)
 {
-	if (!RTV_Allowed(slot, "rtv_reload", g_RTVConfig.general.adminPermission))
+	if (!RTV_Allowed(slot, "rtv_reload", g_RTVConfig.permissions.admin))
 	{
 		return;
 	}

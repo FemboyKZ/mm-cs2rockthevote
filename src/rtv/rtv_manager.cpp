@@ -52,7 +52,7 @@ void RTVManager::OnVoteEndedNoVotes()
 
 	CGlobalVars *globals = GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
-	m_cooldownExpireTime = curtime + static_cast<float>(g_RTVConfig.rtv.cooldownDuration);
+	m_cooldownExpireTime = curtime + static_cast<float>(g_RTVConfig.rtv.cooldown);
 }
 
 void RTVManager::OnMapChangeScheduled()

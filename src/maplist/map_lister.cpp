@@ -247,7 +247,7 @@ void MapLister::RefreshAsync(std::function<void(int)> onDone)
 					ApplyPool(std::move(*fresh));
 					MMU_LOG_INFO("Map pool loaded: %d maps from the CS2KZ API.\n", static_cast<int>(m_maps.size()));
 
-					if (g_RTVConfig.general.enableMapValidation && !g_RTVConfig.general.steamApiKey.empty())
+					if (g_RTVConfig.general.mapValidationEnabled && !g_RTVConfig.general.steamApiKey.empty())
 					{
 						ValidateMapsAsync();
 					}
@@ -332,7 +332,7 @@ int MapLister::LoadFromFile(const char *path)
 	}
 
 	// Optionally validate workshop maps in background
-	if (g_RTVConfig.general.enableMapValidation && !g_RTVConfig.general.steamApiKey.empty())
+	if (g_RTVConfig.general.mapValidationEnabled && !g_RTVConfig.general.steamApiKey.empty())
 	{
 		ValidateMapsAsync();
 	}
@@ -1219,7 +1219,7 @@ void MapLister::ValidateMapsAsync() const
 		}
 
 		std::string apiKey = g_RTVConfig.general.steamApiKey;
-		std::string webhook = g_RTVConfig.general.discordWebhook;
+		std::string webhook = g_RTVConfig.discord.webhookUrl;
 
 		mmu::http::PostForm("https://api.steampowered.com/ISteamRemoteStorage/"
 							"GetPublishedFileDetails/v1/"

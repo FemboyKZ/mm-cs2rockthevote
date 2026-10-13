@@ -304,7 +304,7 @@ int RTVTimeLimit::GetHeadroomMinutes() const
 bool RTVTimeLimit::ExtendLimitReached() const
 {
 	const ExtendCfg &cfg = g_RTVConfig.extend;
-	return cfg.maxExtends > 0 && m_extendsUsed >= cfg.maxExtends;
+	return cfg.max > 0 && m_extendsUsed >= cfg.max;
 }
 
 bool RTVTimeLimit::IsExtendAvailable() const

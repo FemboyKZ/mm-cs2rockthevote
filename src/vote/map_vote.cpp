@@ -342,7 +342,7 @@ void MapVoteManager::ArmVoteTimers()
 void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, bool includeNoChange)
 {
 	m_options.clear();
-	int total = (std::max)(g_RTVConfig.mapvote.mapsToShow, 1);
+	int total = (std::max)(g_RTVConfig.mapvote.options, 1);
 
 	std::vector<std::string> usedNames;
 	usedNames.push_back(m_currentMap);
@@ -522,7 +522,7 @@ bool MapVoteManager::ShowVoteNotice(int slot)
 		char vote[160];
 		snprintf(vote, sizeof(vote), RTV_Translate(slot, "Your vote: %s").c_str(), OptionLabel(slot, m_options[it->second]).c_str());
 		text = vote;
-		hint = g_RTVConfig.mapvote.enableRevote ? hintT("Type %crevote in chat to change it.") : "";
+		hint = g_RTVConfig.mapvote.revoteEnabled ? hintT("Type %crevote in chat to change it.") : "";
 	}
 	// A notice without time left would never go away.
 	return g_RTVMenus.ShowNotice(slot, RTV_Translate(slot, "Vote for next map"), text, hint, (std::max)(m_voteEndTime - curtime, 1.0f),
@@ -596,7 +596,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 						if (vit != m_playerVotes.end())
 						{
 							// Reopening the menu with !rtv would otherwise let a voter change their pick freely.
-							if (!g_RTVConfig.mapvote.enableRevote)
+							if (!g_RTVConfig.mapvote.revoteEnabled)
 							{
 								RTV_PrintToChatT(playerSlot, "Revoting is not enabled.");
 								return;
@@ -673,7 +673,7 @@ void MapVoteManager::CommandRevote(int slot)
 		return;
 	}
 	// Only changing a vote is gated. Non-voters can always reopen the menu.
-	if (!g_RTVConfig.mapvote.enableRevote && m_playerVotes.count(slot))
+	if (!g_RTVConfig.mapvote.revoteEnabled && m_playerVotes.count(slot))
 	{
 		RTV_PrintToChatT(slot, "Revoting is not enabled.");
 		return;
