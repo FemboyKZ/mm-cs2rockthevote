@@ -65,20 +65,17 @@ struct MapChooserCfg
 	std::string permission = "changemap";
 };
 
-struct GeneralCfg
+struct GeneralCfg : mmu::config::GeneralBlock
 {
 	bool includeSpectator = true;
 	std::string chatPrefix = "\x07[RTV]\x01 "; // red "[RTV]" + default
 	std::string adminPermission = "root";
-	std::string commandPrefix = "!";       // normal: message visible in chat
-	std::string silentCommandPrefix = "/"; // silent: message suppressed
-	bool kzApiMaplist = false;             // CS2KZ API approved maps instead of maplist.txt
+	bool kzApiMaplist = false; // CS2KZ API approved maps instead of maplist.txt
 	bool enableMapValidation = false;
 	std::string steamApiKey = "";
 	std::string discordWebhook = "";
 	std::string displayKzTiers = "off";  // "off" | "both" | "classic"/"ckz" | "vanilla"/"vnl"
 	std::string kzTierFormat = "number"; // "number" (e.g. 3) | "text" (e.g. medium)
-	std::string defaultLanguage = "en";  // phrase-file key used when a client's language is unknown
 
 	// Each prefix is a set of trigger characters. The one chat hints name.
 	char HintPrefix() const

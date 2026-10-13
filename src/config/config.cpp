@@ -103,7 +103,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->mapvote.chatChoiceInterval = std::atoi(value.c_str());
 		}
-		else if (k == "enablerevote")
+		else if (k == "revoteenabled" || k == "enablerevote")
 		{
 			cfg->mapvote.enableRevote = (value != "0");
 		}
@@ -191,7 +191,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.kzApiMaplist = (value != "0");
 		}
-		else if (k == "enablemapvalidation")
+		else if (k == "mapvalidationenabled" || k == "enablemapvalidation")
 		{
 			cfg->general.enableMapValidation = (value != "0");
 		}
@@ -199,6 +199,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.steamApiKey = value;
 		}
+		// Old name.
 		else if (k == "discordwebhook")
 		{
 			cfg->general.discordWebhook = value;
@@ -211,30 +212,26 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		{
 			cfg->general.kzTierFormat = value;
 		}
-		else if (k == "defaultlanguage")
+		else if (mmu::config::ApplyGeneralKey(cfg->general, k, value) || mmu::config::ApplyLogKey(cfg->log, k, value))
 		{
-			cfg->general.defaultLanguage = value;
+			// consumed
 		}
-		else if (k == "logtofile")
-		{
-			cfg->log.toFile = (value != "0");
-		}
-		else if (k == "logretentiondays")
-		{
-			cfg->log.retentionDays = std::atoi(value.c_str());
-		}
-		else if (k == "commandprefix")
-		{
-			cfg->general.commandPrefix = value;
-		}
-		else if (k == "silentcommandprefix")
-		{
-			cfg->general.silentCommandPrefix = value;
-		}
+		// Old MenuType and MenuNav* keys.
 		else if (cfg->menu.ApplyKey(k, value))
 		{
 			// consumed
 		}
+	}
+	else if (sec == "discord")
+	{
+		if (k == "webhookurl")
+		{
+			cfg->general.discordWebhook = value;
+		}
+	}
+	else if (sec == "menu")
+	{
+		cfg->menu.ApplyKey(k, value);
 	}
 }
 
