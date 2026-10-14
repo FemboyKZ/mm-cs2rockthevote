@@ -249,7 +249,7 @@ bool CS2RTVPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	m_DispatchConCommand.Add(g_pICvar);
 
 	g_pCVar = g_pICvar;
-	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE | FCVAR_GAMEDLL);
+	META_CONVAR_REGISTER(FCVAR_RELEASE | FCVAR_GAMEDLL);
 
 	if (late)
 	{
@@ -291,6 +291,7 @@ void CS2RTVPlugin::OnLateLoad()
 bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 {
 	RTV_UnregisterMapsCommand();
+	ConVar_Unregister();
 	mmu::http::DrainMainThread();
 
 	m_GameFrame.Remove(g_pServerGameDLL);
@@ -771,9 +772,5 @@ CON_COMMAND_F(mm_rtv_reload, "Admin: reload cs2rtv config from disk", FCVAR_RELE
 
 CON_COMMAND_F(mm_rtv_version, "Print the plugin version", FCVAR_RELEASE)
 {
-	// Clients can run every command here, this one only logs.
-	if (context.GetPlayerSlot().Get() == -1)
-	{
-		MMU_LOG_INFO("Plugin version %s, interfaces %s and %s.\n", PLUGIN_FULL_VERSION, CS2RTV_INTERFACE, CS2RTV_FORWARDS_INTERFACE);
-	}
+	MMU_LOG_INFO("Plugin version %s, interfaces %s and %s.\n", PLUGIN_FULL_VERSION, CS2RTV_INTERFACE, CS2RTV_FORWARDS_INTERFACE);
 }

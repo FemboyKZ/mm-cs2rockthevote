@@ -61,3 +61,7 @@ docker compose run --rm build
 - [SourceMod](https://github.com/alliedmodders/sourcemod)
 - [zer0.k's MetaMod Sample plugin fork](https://github.com/zer0k-z/mm_misc_plugins)
 - [cs2kz-metamod](https://github.com/KZGlobalTeam/cs2kz-metamod)
+
+## Contributing
+
+Feel free to create PRs or issues regarding anything, but keep in mind that this is very much just for fkz and I won't spend time adding features I won't use.

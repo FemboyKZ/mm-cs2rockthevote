@@ -305,28 +305,9 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 
 bool RTV_LoadConfig(const char *path, RTVConfig &config)
 {
-	std::ifstream file(path);
-	if (!file.is_open())
-	{
-		return false;
-	}
-
-	// Expect: "cs2rockthevote" { ... }
-	kv::Token root = kv::NextToken(file);
-	if (root.kind != kv::TokenType::String)
-	{
-		return false;
-	}
-
-	kv::Token brace = kv::NextToken(file);
-	if (brace.kind != kv::TokenType::OpenBrace)
-	{
-		return false;
-	}
-
 	// Fresh, so a removed key reverts to its default.
 	RTVConfig fresh;
-	if (!kv::ParseSection(file, root.value, ConfigHandler, &fresh))
+	if (!kv::LoadFile(path, ConfigHandler, &fresh))
 	{
 		return false;
 	}
