@@ -29,10 +29,11 @@
 #include "utils/log.h"
 #include "whitelist/whitelist_bridge.h"
 
-#include <engine/igameeventsystem.h>
-#include <iserver.h>
+#include <engine2/igameeventsystem.h>
+#include <engine2/inetworkserverservice.h>
+#include <engine2/networkgameserverbase.h>
 #include <networksystem/inetworkmessages.h>
-#include <filesystem.h>
+#include <filesystem/ifilesystem.h>
 
 // Global interface pointers (defined here, declared extern in common.h)
 // g_pNetworkServerService, g_pFullFileSystem and g_pNetworkMessages are defined in interfaces.lib

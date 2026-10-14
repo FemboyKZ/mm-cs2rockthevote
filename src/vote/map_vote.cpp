@@ -12,7 +12,7 @@
 #include "src/utils/print_utils.h"
 #include "game/workshop.h"
 
-#include <filesystem.h>
+#include <filesystem/ifilesystem.h>
 
 #include <algorithm>
 #include <cmath>

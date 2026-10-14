@@ -6,7 +6,7 @@
 #include "src/rtv/rtv_manager.h"
 #include "src/utils/print_utils.h"
 
-#include <tier1/convar.h>
+#include <tier0/convar.h>
 
 #include <algorithm>
 #include <cmath>

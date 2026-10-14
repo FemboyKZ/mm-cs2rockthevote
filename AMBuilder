@@ -10,7 +10,7 @@ for sdk_target in MMSPlugin.sdk_targets:
     )
 
     binary.sources += [
-        os.path.join(sdk["path"], "tier1", "keyvalues3.cpp"),
+        os.path.join(sdk["path"], "tier0_perproject", "keyvalues3.cpp"),
         os.path.join(sdk["path"], "entity2", "entitysystem.cpp"),
         os.path.join(sdk["path"], "entity2", "entityidentity.cpp"),
         os.path.join(sdk["path"], "entity2", "entitykeyvalues.cpp"),
