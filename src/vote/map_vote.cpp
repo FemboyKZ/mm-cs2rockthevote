@@ -87,15 +87,18 @@ static bool NextLevelUsable()
 }
 
 // Backstop for a map ending on its own before our changelevel lands.
-// A workshop map is not mounted until host_workshop_map runs and the engine only resolves a bare name here,
-// so there is nothing safe to hand it for those.
+// A workshop map works only once the engine has hosted it, under the name it read from the addon.
 static void SetNextLevel(const MapEntry &entry)
 {
-	if (entry.isWorkshop || !NextLevelUsable())
+	if (!NextLevelUsable())
 	{
 		return;
 	}
-	NextLevelRef().Set(entry.mapName.c_str());
+	std::string name = entry.isWorkshop ? mmu::workshop::LoadedMapName(std::strtoull(entry.workshopId.c_str(), nullptr, 10)) : entry.mapName;
+	if (!name.empty())
+	{
+		NextLevelRef().Set(name.c_str());
+	}
 }
 
 // Drops the backstop once it can only do harm:
@@ -1215,7 +1218,7 @@ void MapVoteManager::ArmChangeFailureTimer(const MapEntry &entry, float timeout)
 				return;
 			}
 
-			// nextlevel only helps non-workshop maps, so retry the command itself before giving the map back to the players.
+			// nextlevel misses workshop maps the engine has not hosted yet, so retry the command itself before giving the map back to the players.
 			if (++m_changeAttempts < kMaxChangeAttempts)
 			{
 				MMU_LOG_WARN("Map change to '%s' did not take, retrying (%d/%d).\n", entry.mapName.c_str(), m_changeAttempts + 1, kMaxChangeAttempts);
