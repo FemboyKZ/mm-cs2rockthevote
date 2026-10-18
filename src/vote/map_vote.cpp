@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <random>
 #include <utility>
 
@@ -27,6 +28,8 @@ MapVoteManager g_MapVoteManager;
 static std::default_random_engine g_rng(std::random_device {}());
 
 static std::string s_changingToWorkshopId;
+
+static constexpr float kMinVoteSeconds = 15.0f;
 
 // The id in ".../workshop/content/730/<id>/...", "" for any other path.
 static std::string WorkshopIdInPath(std::string path)
@@ -113,6 +116,7 @@ static void ClearNextLevelIfNamed(const char *mapName)
 void MapVoteManager::OnMapStart(const char *currentMap)
 {
 	Reset();
+	m_matchEnded = false;
 	m_failedMaps.clear();
 	const std::string previous = std::exchange(m_currentMap, currentMap ? currentMap : "");
 	if (!previous.empty() && previous != m_currentMap)
@@ -204,6 +208,68 @@ void MapVoteManager::CancelVote()
 	}
 	Reset();
 	g_RTVManager.OnVoteCancelled();
+}
+
+void MapVoteManager::OnMatchEnded()
+{
+	if (m_matchEnded)
+	{
+		return;
+	}
+	m_matchEnded = true;
+
+	if (m_changeScheduled)
+	{
+		g_Timers.FireNow(m_changeTimerId);
+		return;
+	}
+
+	if (m_voteActive)
+	{
+		// Keeping or extending the map can no longer win.
+		m_isRTV = false;
+		for (VoteOption &opt : m_options)
+		{
+			if (opt.kind != VoteOptionKind::Map)
+			{
+				opt.votes = 0;
+			}
+		}
+		FinishVote();
+		return;
+	}
+
+	if (!g_RTVConfig.endOfMapVote.enabled)
+	{
+		return;
+	}
+	const MapEntry *entry = PickMatchEndMap();
+	if (!entry)
+	{
+		return;
+	}
+	VoteOption winner;
+	winner.entry = *entry;
+	winner.label = g_MapLister.GetDisplayLabel(*entry);
+	RTV_ChatToAllT("The map has ended. Changing to %s.", winner.label.c_str());
+	ScheduleChange(winner, 0);
+	if (m_changeScheduled)
+	{
+		g_CS2RTVForwards.FireOnMapChangeScheduled(entry->mapName.c_str(), 0);
+	}
+}
+
+const MapEntry *MapVoteManager::PickMatchEndMap() const
+{
+	auto maps = PickRandomMaps((std::numeric_limits<int>::max)(), {m_currentMap});
+	for (const MapEntry *e : maps)
+	{
+		if (!e->isWorkshop || mmu::workshop::IsReady(std::strtoull(e->workshopId.c_str(), nullptr, 10)))
+		{
+			return e;
+		}
+	}
+	return maps.empty() ? nullptr : maps[0];
 }
 
 // A workshop map the server does not have is downloaded first.
@@ -306,6 +372,12 @@ void MapVoteManager::ArmVoteTimers()
 	const MapVoteCfg &cfg = g_RTVConfig.mapvote;
 	CGlobalVars *globals = GetGameGlobals();
 	float duration = static_cast<float>(cfg.voteDuration);
+	// End before the map does.
+	float timeLeft = 0.0f;
+	if (g_RTVTimeLimit.GetTimeLeftSeconds(timeLeft))
+	{
+		duration = (std::min)(duration, (std::max)(timeLeft - static_cast<float>(cfg.mapChangeDelay), kMinVoteSeconds));
+	}
 	m_voteEndTime = (globals ? globals->curtime : 0.0f) + duration;
 
 	if (cfg.countdownInterval > 0)
@@ -814,7 +886,7 @@ void MapVoteManager::FinishVote()
 	}
 
 	int minPct = g_RTVConfig.mapvote.minWinPercentage;
-	if (minPct > 0 && topIndices.size() == 1 && !m_runoffActive)
+	if (minPct > 0 && topIndices.size() == 1 && !m_runoffActive && !m_matchEnded)
 	{
 		int total = static_cast<int>(m_playerVotes.size());
 		if (total > 0)
@@ -849,7 +921,7 @@ void MapVoteManager::FinishVote()
 
 	if (topIndices.size() > 1)
 	{
-		if (!m_runoffActive && g_RTVConfig.mapvote.runoffEnabled)
+		if (!m_runoffActive && !m_matchEnded && g_RTVConfig.mapvote.runoffEnabled)
 		{
 			RTV_ChatToAllT("Tie! Starting runoff vote with the tied maps.");
 			StartRunoff(topIndices);
@@ -882,7 +954,7 @@ void MapVoteManager::FinishVote()
 		return;
 	}
 
-	int delaySecs = g_RTVConfig.mapvote.mapChangeDelay;
+	int delaySecs = m_matchEnded ? 0 : g_RTVConfig.mapvote.mapChangeDelay;
 	RTV_ChatToAllT("%s won the vote! Map changing in %d second(s).", winner.label.c_str(), delaySecs);
 
 	// Scheduled first, so a CancelVote from a forward takes effect. It clears m_options, hence the copies.
@@ -951,9 +1023,14 @@ void MapVoteManager::ScheduleChange(const VoteOption &winner, int delaySecs)
 	// and stops cs2kz-metamod filling nextlevel with the launch map instead of the winner.
 	SetNextLevel(captured);
 
+	m_downloadReady = false;
 	m_changeTimerId = g_Timers.CreateTimer(static_cast<float>(delaySecs), [this, captured]() { BeginMapChange(captured); });
 
-	ArmChangeFailureTimer(captured, static_cast<float>(delaySecs) + 30.0f);
+	uint64_t fileId = captured.isWorkshop ? std::strtoull(captured.workshopId.c_str(), nullptr, 10) : 0;
+	if (fileId != 0 && !mmu::workshop::IsReady(fileId))
+	{
+		WaitForWorkshopMap(captured);
+	}
 }
 
 static const char *MapLabel(const MapEntry &entry)
@@ -963,11 +1040,20 @@ static const char *MapLabel(const MapEntry &entry)
 
 void MapVoteManager::BeginMapChange(const MapEntry &entry)
 {
+	m_changeTimerId = -1;
+
+	// The download changes map once it lands.
+	if (m_pendingDownload.Active())
+	{
+		return;
+	}
+
 	uint64_t fileId = entry.isWorkshop ? std::strtoull(entry.workshopId.c_str(), nullptr, 10) : 0;
 
-	if (fileId == 0 || mmu::workshop::IsReady(fileId))
+	if (fileId == 0 || m_downloadReady || mmu::workshop::IsReady(fileId))
 	{
 		DoMapChange(entry);
+		ArmChangeFailureTimer(entry, 30.0f);
 		return;
 	}
 
@@ -1025,6 +1111,12 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 				case mmu::workshop::PendingDownload::Status::Settled:
 					g_Timers.KillTimer(m_downloadTimerId);
 					m_downloadTimerId = -1;
+					// The delay timer changes map.
+					if (m_changeTimerId != -1)
+					{
+						m_downloadReady = true;
+						break;
+					}
 					DoMapChange(captured);
 					ArmChangeFailureTimer(captured, 30.0f);
 					break;
@@ -1055,6 +1147,8 @@ bool MapVoteManager::WaitForWorkshopMap(const MapEntry &entry)
 // Hands the map back to the players rather than leaving a change half-scheduled.
 void MapVoteManager::AbortChange(const MapEntry &failed)
 {
+	g_Timers.KillTimer(m_changeTimerId);
+	m_changeTimerId = -1;
 	g_Timers.KillTimer(m_downloadTimerId);
 	m_downloadTimerId = -1;
 	m_pendingDownload.Clear();

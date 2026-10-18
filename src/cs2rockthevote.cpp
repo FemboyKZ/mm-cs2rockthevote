@@ -403,6 +403,12 @@ KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simula
 	mmu::http::DrainMainThread();
 	g_Timers.Process(curtime);
 
+	// Before CheckEndOfMapVote, so no vote opens in the intermission.
+	if (CCSGameRules *rules = RTV_FindGameRules(); rules && rules->IsMatchEnded())
+	{
+		g_MapVoteManager.OnMatchEnded();
+	}
+
 	// Auto end-of-map vote: start the next-map vote before mp_timelimit expires
 	// if nobody has triggered !rtv (no-op unless the setting is enabled).
 	// A pending pool would waste the once-per-map trigger.

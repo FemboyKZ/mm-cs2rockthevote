@@ -226,6 +226,10 @@
 	{
 		"en"	"Nobody voted. Picking a map at random."
 	}
+	"The map has ended. Changing to %s."
+	{
+		"en"	"The map has ended. Changing to {green}%s{default}."
+	}
 	"Vote ended with no options."
 	{
 		"en"	"{red}Vote ended with no options."

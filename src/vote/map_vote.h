@@ -93,6 +93,9 @@ public:
 	// Unlike Reset the map keeps running, so the RTV gates have to reopen with it.
 	void CancelVote();
 
+	// The engine changes map itself after mp_match_restart_delay, never to a workshop map.
+	void OnMatchEnded();
+
 	// Immediate admin change to one map, through the same workshop download wait as the vote path.
 	// Change to this map right away, as !mapmenu does. False when it is a workshop map the server does not have.
 	bool ChangeMapNow(const MapEntry &entry);
@@ -102,6 +105,7 @@ private:
 	bool m_isRTV = false;
 	bool m_changeScheduled = false;
 	bool m_runoffActive = false;
+	bool m_matchEnded = false;
 	std::string m_currentMap;
 	// Read from the mount on first use, the id this plugin changed to until then.
 	mutable std::string m_currentWorkshopId;
@@ -154,6 +158,7 @@ private:
 	void AbortChange(const MapEntry &failed);
 
 	int m_downloadTimerId = -1;
+	bool m_downloadReady = false;
 	mmu::workshop::PendingDownload m_pendingDownload;
 
 	// Total tries, so one retry before the map goes back to the players.
@@ -162,6 +167,8 @@ private:
 
 	// Choose random maps (excluding currentMap and already-chosen ones)
 	std::vector<const MapEntry *> PickRandomMaps(int count, const std::vector<std::string> &exclude) const;
+	// Prefers maps on disk: a download would outlast the engine's change.
+	const MapEntry *PickMatchEndMap() const;
 };
 
 extern MapVoteManager g_MapVoteManager;

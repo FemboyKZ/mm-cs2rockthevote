@@ -5,6 +5,9 @@
 #include "src/timers/timer_system.h"
 #include "src/utils/print_utils.h"
 #include "src/whitelist/whitelist_bridge.h"
+#include "utils/log.h"
+
+#include <tier0/convar.h>
 
 #include <algorithm>
 #include <cmath>
@@ -221,6 +224,14 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 	if (!cfg.enabled)
 	{
 		return;
+	}
+
+	// The engine's vote offers its mapgroup. Map configs can turn it back on.
+	static CConVarRef<bool> builtinVote("mp_endmatch_votenextmap");
+	if (builtinVote.IsValidRef() && builtinVote.IsConVarDataAvailable() && builtinVote.Get())
+	{
+		builtinVote.Set(false);
+		MMU_LOG_INFO("Set mp_endmatch_votenextmap to 0, EndOfMapVote picks the next map.\n");
 	}
 
 	// Nothing to do if a vote already started, a change is queued, or we already

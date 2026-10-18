@@ -21,6 +21,13 @@ public:
 
 	SCHEMA_FIELD(GameTime_t, m_flGameStartTime)
 	SCHEMA_FIELD(GameTime_t, m_fRoundStartTime)
+	SCHEMA_FIELD(int32, m_gamePhase)
+
+	// GAMEPHASE_MATCH_ENDED
+	bool IsMatchEnded()
+	{
+		return m_gamePhase() == 5;
+	}
 
 	// The getters report resolution separately,
 	// because an unresolved field reads as 0 and cs2kz legitimately pins both of these to 0.

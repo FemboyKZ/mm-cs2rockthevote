@@ -413,7 +413,7 @@ void RTVTimeLimit::LogCompetingEndConditions() const
 	}
 
 	ConVarRefAbstract builtinVote("mp_endmatch_votenextmap");
-	if (builtinVote.IsValidRef() && builtinVote.GetInt() != 0)
+	if (!g_RTVConfig.endOfMapVote.enabled && builtinVote.IsValidRef() && builtinVote.GetInt() != 0)
 	{
 		MMU_LOG_WARN("mp_endmatch_votenextmap is enabled - the game's own next-map vote will compete with RTV's. Set it to 0.\n");
 	}
