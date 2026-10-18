@@ -53,6 +53,8 @@ public:
 	// Logs the non-time conditions that can end the map before any extension pays off.
 	void LogCompetingEndConditions() const;
 
+	void PrintStatus() const;
+
 private:
 	float m_mapStartTime = 0.0f;
 	int m_extendsUsed = 0;

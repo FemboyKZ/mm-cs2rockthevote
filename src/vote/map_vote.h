@@ -96,6 +96,8 @@ public:
 	// The engine changes map itself after mp_match_restart_delay, never to a workshop map.
 	void OnMatchEnded();
 
+	void PrintStatus() const;
+
 	// Immediate admin change to one map, through the same workshop download wait as the vote path.
 	// Change to this map right away, as !mapmenu does. False when it is a workshop map the server does not have.
 	bool ChangeMapNow(const MapEntry &entry);

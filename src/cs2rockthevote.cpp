@@ -777,6 +777,50 @@ CON_COMMAND_F(mm_rtv_reload, "Admin: reload cs2rtv config from disk", FCVAR_RELE
 	RTV_RunFromConsole(context, args, RTV_CmdReloadRtv);
 }
 
+CON_COMMAND_F(mm_rtv_status, "Print the plugin's state for debugging", FCVAR_RELEASE)
+{
+	MMU_LOG_INFO("Version %s. Bridges: menus %d, admin %d, whitelist %d. Map vote enabled %d, %d options, %d s.\n", PLUGIN_FULL_VERSION,
+				 g_RTVMenus.Available(), RTV_AdminBridge_Available(), RTV_WhitelistBridge_Available(), g_RTVConfig.mapvote.enabled,
+				 g_RTVConfig.mapvote.options, g_RTVConfig.mapvote.voteDuration);
+
+	int workshop = 0;
+	int installed = 0;
+	for (const MapEntry &e : g_MapLister.GetMaps())
+	{
+		if (e.isWorkshop)
+		{
+			workshop++;
+			installed += mmu::workshop::IsReady(std::strtoull(e.workshopId.c_str(), nullptr, 10)) ? 1 : 0;
+		}
+	}
+	MMU_LOG_INFO("Pool: %s, %s, %d maps, %d workshop of which %d on disk.\n", g_MapLister.UsesApiPool() ? "CS2KZ API" : "maplist.txt",
+				 g_MapLister.PoolPending() ? "pending" : "ready", static_cast<int>(g_MapLister.GetMaps().size()), workshop, installed);
+
+	std::string noms;
+	for (const std::string &n : g_NominateManager.GetNominations())
+	{
+		noms += " " + n;
+	}
+	MMU_LOG_INFO("Nominations:%s.\n", noms.empty() ? " none" : noms.c_str());
+
+	MMU_LOG_INFO("Players: %d human, %d eligible.\n", g_RTVPlayerManager.GetHumanPlayerCount(), g_RTVPlayerManager.GetEligiblePlayerCount());
+	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	{
+		const PlayerInfo *p = g_RTVPlayerManager.GetPlayer(slot);
+		if (p && p->connected)
+		{
+			// Refreshes teamNum, so before it is read.
+			bool eligible = g_RTVPlayerManager.IsEligible(slot);
+			MMU_LOG_INFO("  slot %d %s %llu: in game %d, bot %d, team %d, eligible %d, rtv %d\n", slot, p->name.c_str(),
+						 static_cast<unsigned long long>(p->steamid64), p->inGame, p->fakePlayer, p->teamNum, eligible, g_RTVManager.HasVoted(slot));
+		}
+	}
+
+	g_RTVManager.PrintStatus();
+	g_MapVoteManager.PrintStatus();
+	g_RTVTimeLimit.PrintStatus();
+}
+
 CON_COMMAND_F(mm_rtv_version, "Print the plugin version", FCVAR_RELEASE)
 {
 	MMU_LOG_INFO("Plugin version %s, interfaces %s and %s.\n", PLUGIN_FULL_VERSION, CS2RTV_INTERFACE, CS2RTV_FORWARDS_INTERFACE);

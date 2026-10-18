@@ -271,7 +271,24 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 		StopReminderTimer();
 		OnVoteStarted();
 		startVote();
+		// Refused, e.g. mm-cs2menus missing. Retry rather than give up for the map.
+		if (!m_voteStarted)
+		{
+			m_endOfMapVoteTriggered = false;
+			m_nextEomCheckTime = curtime + 30.0f;
+		}
 	}
+}
+
+void RTVManager::PrintStatus() const
+{
+	CGlobalVars *globals = GetGameGlobals();
+	float curtime = globals ? globals->curtime : 0.0f;
+	MMU_LOG_INFO("RTV: enabled %d, votes %d/%d, vote started %d, change scheduled %d, map age %.0f s, cooldown %.0f s, reminder timer %d.\n",
+				 g_RTVConfig.rtv.enabled, GetVoteCount(), GetVotesNeeded(), m_voteStarted, m_mapChangeScheduled, curtime - m_mapStartTime,
+				 (std::max)(m_cooldownExpireTime - curtime, 0.0f), m_reminderTimerId);
+	MMU_LOG_INFO("EndOfMapVote: enabled %d, trigger %d s, triggered %d, next check in %.0f s.\n", g_RTVConfig.endOfMapVote.enabled,
+				 g_RTVConfig.endOfMapVote.triggerTime, m_endOfMapVoteTriggered, (std::max)(m_nextEomCheckTime - curtime, 0.0f));
 }
 
 void RTVManager::StartReminderTimer()

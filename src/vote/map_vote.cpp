@@ -259,6 +259,37 @@ void MapVoteManager::OnMatchEnded()
 	}
 }
 
+void MapVoteManager::PrintStatus() const
+{
+	CGlobalVars *globals = GetGameGlobals();
+	float curtime = globals ? globals->curtime : 0.0f;
+	MMU_LOG_INFO("Map: %s, workshop id '%s' (mount read %d), match ended %d.\n", m_currentMap.c_str(), m_currentWorkshopId.c_str(), m_workshopIdRead,
+				 m_matchEnded);
+	MMU_LOG_INFO("Vote: active %d, rtv %d, runoff %d, %.0f s left, %d ballot(s), %d dismissed.\n", m_voteActive, m_isRTV, m_runoffActive,
+				 m_voteActive ? m_voteEndTime - curtime : 0.0f, static_cast<int>(m_playerVotes.size()), static_cast<int>(m_dismissed.size()));
+	for (const VoteOption &opt : m_options)
+	{
+		MMU_LOG_INFO("  option %s: %d vote(s)\n", opt.announce.c_str(), opt.votes);
+	}
+	int percent = -1;
+	m_pendingDownload.Percent(percent);
+	MMU_LOG_INFO("Change: scheduled %d to '%s', attempt %d, timers change %d / failure %d / download %d, download busy %d (%d%%), ready %d.\n",
+				 m_changeScheduled, m_scheduledMap.c_str(), m_changeAttempts, m_changeTimerId, m_failureTimerId, m_downloadTimerId,
+				 m_pendingDownload.Busy(), percent, m_downloadReady);
+	std::string recent;
+	for (const RecentMap &r : m_recentMaps)
+	{
+		recent += " " + r.name;
+	}
+	std::string failed;
+	for (const std::string &f : m_failedMaps)
+	{
+		failed += " " + f;
+	}
+	MMU_LOG_INFO("Recent maps (oldest first):%s. Failed this map:%s.\n", recent.empty() ? " none" : recent.c_str(),
+				 failed.empty() ? " none" : failed.c_str());
+}
+
 const MapEntry *MapVoteManager::PickMatchEndMap() const
 {
 	auto maps = PickRandomMaps((std::numeric_limits<int>::max)(), {m_currentMap});

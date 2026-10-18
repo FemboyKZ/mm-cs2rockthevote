@@ -60,6 +60,8 @@ public:
 		return m_mapChangeScheduled;
 	}
 
+	void PrintStatus() const;
+
 	// Eligible voters only.
 	int GetVoteCount() const;
 

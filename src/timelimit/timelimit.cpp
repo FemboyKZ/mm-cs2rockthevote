@@ -419,6 +419,56 @@ void RTVTimeLimit::LogCompetingEndConditions() const
 	}
 }
 
+void RTVTimeLimit::PrintStatus() const
+{
+	static const char *const kSources[] = {"none", "mp_timelimit", "mp_roundtime"};
+	CGlobalVars *globals = GetGameGlobals();
+	float timeLeft = 0.0f;
+	bool limited = GetTimeLeftSeconds(timeLeft);
+	float cap = 0.0f;
+	bool capped = ReadCap(RoundTimeRef(), cap);
+	MMU_LOG_INFO("Limit: source %s (mode %s), %s %.0f s, curtime %.1f, map start %.1f, headroom %d min.\n",
+				 kSources[static_cast<int>(ResolveSource())], g_RTVConfig.extend.mode.c_str(), limited ? "left" : "unread", timeLeft,
+				 globals ? globals->curtime : -1.0f, m_mapStartTime, GetHeadroomMinutes());
+	MMU_LOG_INFO("Round time cap: %.0f (set %d), ours %d, round start pinned %d. Extends %d/%d, available %d.\n", cap, capped, OwnsRoundTimeCap(),
+				 RoundStartIsPinned(), m_extendsUsed, g_RTVConfig.extend.max, IsExtendAvailable());
+
+	if (CCSGameRules *rules = RTV_FindGameRules())
+	{
+		float gameStart = -1.0f;
+		float roundStart = -1.0f;
+		rules->GetGameStartTime(gameStart);
+		rules->GetRoundStartTime(roundStart);
+		MMU_LOG_INFO("Gamerules: phase %d, game start %.1f, round start %.1f.\n", rules->m_gamePhase(), gameStart, roundStart);
+	}
+	else
+	{
+		MMU_LOG_INFO("Gamerules: not found.\n");
+	}
+
+	static const char *const kConVars[] = {"mp_timelimit",
+										   "mp_roundtime",
+										   "mp_roundtime_defuse",
+										   "mp_roundtime_hostage",
+										   "mp_maxrounds",
+										   "mp_winlimit",
+										   "mp_fraglimit",
+										   "mp_ignore_round_win_conditions",
+										   "mp_endmatch_votenextmap",
+										   "mp_match_end_changelevel",
+										   "mp_match_end_restart",
+										   "mp_match_restart_delay",
+										   "nextlevel",
+										   "sv_hibernate_when_empty"};
+	std::string values;
+	for (const char *name : kConVars)
+	{
+		ConVarRefAbstract ref(name);
+		values += std::string(" ") + name + "=" + (ref.IsValidRef() ? ref.GetString().Get() : "?");
+	}
+	MMU_LOG_INFO("ConVars:%s\n", values.c_str());
+}
+
 void RTV_AnnounceExtend(const ExtendResult &res)
 {
 	if (!res.applied)
