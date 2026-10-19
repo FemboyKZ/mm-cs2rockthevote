@@ -13,16 +13,6 @@ struct PlayerInfo
 	std::string name;
 	bool fakePlayer = false;
 	int teamNum = 0; // 1=spec, 2=T, 3=CT (refreshed from the controller in GetEligiblePlayerCount)
-
-	void Reset()
-	{
-		connected = false;
-		inGame = false;
-		steamid64 = 0;
-		name.clear();
-		fakePlayer = false;
-		teamNum = 0;
-	}
 };
 
 class RTVPlayerManager

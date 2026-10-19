@@ -61,12 +61,12 @@ bool RTVMenuBridge::UsesChatInput(int slot)
 
 bool RTVMenuBridge::UsesPanorama(int slot)
 {
-	return slot >= 0 && slot <= MAXPLAYERS && m_menus && m_menus->GetSlotMenuType(slot, g_RTVConfig.menu.Type()) == MenuType::Panorama;
+	return mmu::ValidSlot(slot) && m_menus && m_menus->GetSlotMenuType(slot, g_RTVConfig.menu.Type()) == MenuType::Panorama;
 }
 
 void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
+	if (!mmu::ValidSlot(slot))
 	{
 		return;
 	}
@@ -168,7 +168,7 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 	bool shown = m_menus.Present(slot, h, def.duration,
 								 [this, onExit = def.onExit](MenuHandle ended, int s, MenuEndReason reason)
 								 {
-									 if (s >= 0 && s <= MAXPLAYERS)
+									 if (mmu::ValidSlot(s))
 									 {
 										 Forget(m_open[s], ended);
 									 }

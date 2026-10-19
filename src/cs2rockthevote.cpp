@@ -4,7 +4,6 @@
 #include <cstdlib>
 #include <stdio.h>
 
-#include "admin/admin_bridge.h"
 #include "config/config.h"
 #include "lang/translations.h"
 #include "maplist/map_lister.h"
@@ -21,7 +20,7 @@
 #include "utils/print_utils.h"
 #include "vote/map_vote.h"
 
-#include "entity/cgamerules.h"
+#include "sdk/entity/cgamerules.h"
 #include "sdk/entity/ccsplayercontroller.h"
 #include "utils/chat_command.h"
 #include "utils/command_args.h"
@@ -40,16 +39,10 @@
 IServerGameDLL *g_pServerGameDLL = nullptr;
 IServerGameClients *g_pGameClients = nullptr;
 IVEngineServer *g_pEngine = nullptr;
-IGameEventManager2 *g_pGameEvents = nullptr;
 ICvar *g_pICvar = nullptr;
 IGameEventSystem *g_pGameEventSystem = nullptr;
 CGameEntitySystem *g_pEntitySystem = nullptr;
-
-std::string RTV_SlotLanguage(int slot)
-{
-	const char *raw = mmu::cvarquery::GetClientLanguage(slot);
-	return g_RTVTranslations.MapClientLanguage(raw);
-}
+mmu::AdminAccess g_RTVAdmin("cs2rtv");
 
 // Called after each config load so phrases and the default language stay in sync with core.cfg.
 static void RTV_LoadTranslations()
@@ -267,7 +260,7 @@ void CS2RTVPlugin::OnLateLoad()
 	const char *mapName = server ? server->GetMapName() : "";
 	OnLevelInit(mapName ? mapName : "", "", "", "", false, false);
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	int maxClients = globals ? globals->maxClients : MAXPLAYERS;
 
 	for (int slot = 0; slot < maxClients; slot++)
@@ -310,7 +303,7 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 
 	mmu::http::ClearMainQueue();
 
-	RTV_AdminBridge_Shutdown();
+	g_RTVAdmin.Shutdown();
 	RTV_WhitelistBridge_Shutdown();
 	g_RTVMenus.Shutdown();
 
@@ -323,9 +316,28 @@ bool CS2RTVPlugin::Unload(char *error, size_t maxlen)
 	return true;
 }
 
+static void RTV_RefreshAdmin()
+{
+	switch (g_RTVAdmin.Refresh())
+	{
+		case mmu::BridgeChange::Loaded:
+			MMU_LOG_INFO("mm-cs2admin loaded - admin bridge active.\n");
+			break;
+		case mmu::BridgeChange::Unloaded:
+			MMU_LOG_INFO("mm-cs2admin unloaded - admin commands will be blocked.\n");
+			break;
+		case mmu::BridgeChange::Unchanged:
+			break;
+	}
+}
+
 void CS2RTVPlugin::AllPluginsLoaded()
 {
-	RTV_AdminBridge_Init();
+	RTV_RefreshAdmin();
+	if (!g_RTVAdmin.Available())
+	{
+		MMU_LOG_WARN("mm-cs2admin not found - admin commands will be blocked.\n");
+	}
 	RTV_WhitelistBridge_Init();
 	g_RTVMenus.Init();
 	g_RTVTimeLimit.ApplyRoundTimeCap();
@@ -339,14 +351,14 @@ void CS2RTVPlugin::AllPluginsLoaded()
 
 void CS2RTVPlugin::OnPluginLoad(PluginId /*id*/)
 {
-	RTV_AdminBridge_Refresh();
+	RTV_RefreshAdmin();
 	RTV_WhitelistBridge_Refresh();
 	g_RTVMenus.Refresh();
 }
 
 void CS2RTVPlugin::OnPluginUnload(PluginId id)
 {
-	RTV_AdminBridge_Refresh();
+	RTV_RefreshAdmin();
 	RTV_WhitelistBridge_Refresh();
 	g_RTVMenus.Refresh();
 	g_CS2RTVForwards.DropOwnedBy(id);
@@ -357,7 +369,7 @@ void CS2RTVPlugin::OnLevelInit(char const *pMapName, char const * /*pMapEntities
 							   bool /*loadGame*/, bool /*background*/)
 {
 	g_pEntitySystem = GameEntitySystem();
-	RTV_ResetGameRulesCache(); // the gamerules proxy is recreated each map
+	mmu::ResetGameRules();
 
 	char cfgPath[512];
 	snprintf(cfgPath, sizeof(cfgPath), "%s/cfg/cs2rtv/core.cfg", g_SMAPI->GetBaseDir());
@@ -386,14 +398,14 @@ void CS2RTVPlugin::OnLevelShutdown()
 
 	// Both are freed on level end, so drop them before GameFrame can read them.
 	g_pEntitySystem = nullptr;
-	RTV_ResetGameRulesCache();
+	mmu::ResetGameRules();
 }
 
 KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simulating*/, bool /*bFirstTick*/, bool /*bLastTick*/)
 {
 	RTV_RegisterMapsCommand();
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	if (!globals)
 	{
 		return {KHook::Action::Ignore};
@@ -404,7 +416,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_GameFrame(IServerGameDLL *, bool /*simula
 	g_Timers.Process(curtime);
 
 	// Before CheckEndOfMapVote, so no vote opens in the intermission.
-	if (CCSGameRules *rules = RTV_FindGameRules(); rules && rules->IsMatchEnded())
+	if (CCSGameRules *rules = mmu::FindGameRules(); rules && rules->IsMatchEnded())
 	{
 		g_MapVoteManager.OnMatchEnded();
 	}
@@ -502,7 +514,7 @@ static bool RTV_MainArg(int slot, const std::string &line, const char *key, std:
 static bool RTV_Allowed(int slot, const char *command, const std::string &permission = "")
 {
 	uint32_t flag = permission.empty() ? 0 : ParseAdminFlagName(permission);
-	if (RTV_AdminBridge_CanUseCommand(slot, command, flag))
+	if (g_RTVAdmin.CanUseCommand(slot, command, flag))
 	{
 		return true;
 	}
@@ -663,7 +675,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef
 	}
 
 	int slot = ctx.GetPlayerSlot().Get();
-	if (slot < 0 || slot > MAXPLAYERS)
+	if (!mmu::ValidSlot(slot))
 	{
 		return {KHook::Action::Ignore};
 	}
@@ -785,7 +797,7 @@ CON_COMMAND_F(mm_rtv_reload, "Admin: reload cs2rtv config from disk", FCVAR_RELE
 CON_COMMAND_F(mm_rtv_status, "Print the plugin's state for debugging", FCVAR_RELEASE)
 {
 	MMU_LOG_INFO("Version %s. Bridges: menus %d, admin %d, whitelist %d. Map vote enabled %d, %d options, %d s.\n", PLUGIN_FULL_VERSION,
-				 g_RTVMenus.Available(), RTV_AdminBridge_Available(), RTV_WhitelistBridge_Available(), g_RTVConfig.mapvote.enabled,
+				 g_RTVMenus.Available(), g_RTVAdmin.Available(), RTV_WhitelistBridge_Available(), g_RTVConfig.mapvote.enabled,
 				 g_RTVConfig.mapvote.options, g_RTVConfig.mapvote.voteDuration);
 
 	int workshop = 0;
@@ -809,7 +821,7 @@ CON_COMMAND_F(mm_rtv_status, "Print the plugin's state for debugging", FCVAR_REL
 	MMU_LOG_INFO("Nominations:%s.\n", noms.empty() ? " none" : noms.c_str());
 
 	MMU_LOG_INFO("Players: %d human, %d eligible.\n", g_RTVPlayerManager.GetHumanPlayerCount(), g_RTVPlayerManager.GetEligiblePlayerCount());
-	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	for (int slot = 0; slot < MAXPLAYERS; slot++)
 	{
 		const PlayerInfo *p = g_RTVPlayerManager.GetPlayer(slot);
 		if (p && p->connected)

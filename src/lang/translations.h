@@ -9,10 +9,6 @@
 // Phrase values may embed {color} tags.
 extern mmu::Translations g_RTVTranslations;
 
-// Defined in cs2rockthevote.cpp.
-// Returns the mapped phrase-file language key for the client in `slot`, or the default language when unavailable.
-std::string RTV_SlotLanguage(int slot);
-
 // Translate `phrase` into the language of the client in `slot`.
 // Convenience wrapper over g_RTVTranslations for building menu titles and labels.
 std::string RTV_Translate(int slot, const char *phrase);

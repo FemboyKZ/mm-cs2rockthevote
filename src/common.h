@@ -1,6 +1,7 @@
 #ifndef _INCLUDE_RTV_COMMON_H_
 #define _INCLUDE_RTV_COMMON_H_
 
+#include "interfaces/cs2admin/admin_access.h"
 #include "utils/chat_colors.h"
 #include "sdk/plugin_globals.h"
 
@@ -15,7 +16,6 @@
 #include <string>
 
 // Plugin-specific engine interfaces. Shared ones live in sdk/plugin_globals.h.
-extern IGameEventManager2 *g_pGameEvents;
 extern INetworkServerService *g_pNetworkServerService;
 
 class IFileSystem;
@@ -30,14 +30,9 @@ extern IGameEventSystem *g_pGameEventSystem;
 class CGameEntitySystem;
 extern CGameEntitySystem *g_pEntitySystem;
 
-CGameEntitySystem *GameEntitySystem();
+extern mmu::AdminAccess g_RTVAdmin;
 
 // CGlobalVars accessor, only valid during an active game
 #include "game/print.h"
-
-inline CGlobalVars *GetGameGlobals()
-{
-	return mmu::GetGameGlobals();
-}
 
 #endif // _INCLUDE_RTV_COMMON_H_

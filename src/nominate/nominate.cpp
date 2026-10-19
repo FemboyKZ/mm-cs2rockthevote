@@ -1,6 +1,6 @@
 #include "nominate.h"
 #include "utils/log.h"
-#include "src/admin/admin_bridge.h"
+#include "src/common.h"
 #include "src/config/config.h"
 #include "src/lang/translations.h"
 #include "src/menu/map_menu.h"
@@ -89,7 +89,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	// flag 0 = open by default.
 	const std::string &nomPerm = g_RTVConfig.permissions.nominate;
 	uint32_t nomFlag = nomPerm.empty() ? 0 : ParseAdminFlagName(nomPerm);
-	if (!RTV_AdminBridge_CanUseCommand(slot, "nominate", nomFlag))
+	if (!g_RTVAdmin.CanUseCommand(slot, "nominate", nomFlag))
 	{
 		RTV_PrintToChatT(slot, "You don't have permission to nominate.");
 		return;
@@ -129,7 +129,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	{
 		const std::string &extPerm = g_RTVConfig.permissions.nominateExternal;
 		uint32_t extFlag = extPerm.empty() ? 0 : ParseAdminFlagName(extPerm);
-		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
+		if (!g_RTVAdmin.CanUseCommand(slot, "nominate_ext", extFlag))
 		{
 			RTV_PrintToChatT(slot, "You don't have permission to nominate workshop maps by ID.");
 			return;
@@ -174,7 +174,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	{
 		const std::string &extPerm = g_RTVConfig.permissions.nominateExternal;
 		uint32_t extFlag = extPerm.empty() ? 0 : ParseAdminFlagName(extPerm);
-		if (!RTV_AdminBridge_CanUseCommand(slot, "nominate_ext", extFlag))
+		if (!g_RTVAdmin.CanUseCommand(slot, "nominate_ext", extFlag))
 		{
 			RTV_PrintToChatT(slot, "Map %s not found in map list.", arg);
 			return;

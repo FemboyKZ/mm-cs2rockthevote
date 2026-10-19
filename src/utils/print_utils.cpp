@@ -23,7 +23,6 @@ static mmu::ChatPrinter &Printer()
 		mmu::ChatPrinter p;
 		mmu::ChatPrinter::Setup s;
 		s.translations = &g_RTVTranslations;
-		s.slotLanguage = &RTV_SlotLanguage;
 		s.chatPrefix = &g_RTVConfig.general.chatPrefix;
 		s.resetColorAfterPrefix = true;
 		s.conTag = "RTV";

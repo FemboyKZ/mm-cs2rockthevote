@@ -30,7 +30,7 @@ void RTVManager::OnMapStart(const char * /*mapName*/)
 	m_nextEomCheckTime = 0.0f;
 	StopReminderTimer();
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	m_mapStartTime = globals ? globals->curtime : 0.0f;
 
 	g_RTVTimeLimit.OnMapStart(m_mapStartTime);
@@ -53,7 +53,7 @@ void RTVManager::OnVoteEndedNoVotes()
 	m_voteStarted = false;
 	m_mapChangeScheduled = false;
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 	m_cooldownExpireTime = curtime + static_cast<float>(g_RTVConfig.rtv.cooldown);
 }
@@ -99,7 +99,7 @@ int RTVManager::GetVotesNeeded() const
 
 void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 {
-	if (slot < 0 || slot > MAXPLAYERS)
+	if (!mmu::ValidSlot(slot))
 	{
 		return;
 	}
@@ -141,7 +141,7 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 		return;
 	}
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	if (cfg.mapStartDelay > 0 && (curtime - m_mapStartTime) < cfg.mapStartDelay)
@@ -247,7 +247,7 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 		return;
 	}
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	// Throttle: reading the convar + math every frame is wasteful. Once/sec is
@@ -282,7 +282,7 @@ void RTVManager::CheckEndOfMapVote(StartVoteCallback startVote)
 
 void RTVManager::PrintStatus() const
 {
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 	MMU_LOG_INFO("RTV: enabled %d, votes %d/%d, vote started %d, change scheduled %d, map age %.0f s, cooldown %.0f s, reminder timer %d.\n",
 				 g_RTVConfig.rtv.enabled, GetVoteCount(), GetVotesNeeded(), m_voteStarted, m_mapChangeScheduled, curtime - m_mapStartTime,

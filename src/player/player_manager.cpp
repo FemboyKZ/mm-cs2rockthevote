@@ -12,7 +12,7 @@ void RTVPlayerManager::OnClientConnected(int slot, const char *name, uint64_t xu
 		return;
 	}
 
-	p->Reset();
+	*p = PlayerInfo();
 	p->connected = true;
 	p->steamid64 = xuid;
 	p->name = name ? name : "";
@@ -23,7 +23,7 @@ void RTVPlayerManager::OnClientDisconnect(int slot)
 {
 	if (PlayerInfo *p = m_players.Get(slot))
 	{
-		p->Reset();
+		*p = PlayerInfo();
 	}
 }
 
@@ -78,7 +78,7 @@ bool RTVPlayerManager::IsEligible(int slot)
 int RTVPlayerManager::GetEligiblePlayerCount()
 {
 	int count = 0;
-	for (int slot = 0; slot <= MAXPLAYERS; slot++)
+	for (int slot = 0; slot < MAXPLAYERS; slot++)
 	{
 		count += IsEligible(slot) ? 1 : 0;
 	}

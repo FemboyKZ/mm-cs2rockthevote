@@ -2,7 +2,7 @@
 #include "utils/log.h"
 #include "src/common.h"
 #include "src/config/config.h"
-#include "src/entity/cgamerules.h"
+#include "sdk/entity/cgamerules.h"
 #include "src/rtv/rtv_manager.h"
 #include "src/utils/print_utils.h"
 
@@ -245,7 +245,7 @@ LimitSource RTVTimeLimit::GetSource() const
 
 bool RTVTimeLimit::GetTimeLeftSeconds(float &seconds) const
 {
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	if (!globals)
 	{
 		return false;
@@ -266,7 +266,7 @@ bool RTVTimeLimit::GetTimeLeftSeconds(float &seconds) const
 
 	// The clock each limit actually counts from.
 	float anchor = 0.0f;
-	if (CCSGameRules *rules = RTV_FindGameRules())
+	if (CCSGameRules *rules = mmu::FindGameRules())
 	{
 		bool ok = src == LimitSource::RoundTime ? rules->GetRoundStartTime(anchor) : rules->GetGameStartTime(anchor);
 		if (ok)
@@ -422,7 +422,7 @@ void RTVTimeLimit::LogCompetingEndConditions() const
 void RTVTimeLimit::PrintStatus() const
 {
 	static const char *const kSources[] = {"none", "mp_timelimit", "mp_roundtime"};
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float timeLeft = 0.0f;
 	bool limited = GetTimeLeftSeconds(timeLeft);
 	float cap = 0.0f;
@@ -433,7 +433,7 @@ void RTVTimeLimit::PrintStatus() const
 	MMU_LOG_INFO("Round time cap: %.0f (set %d), ours %d, round start pinned %d. Extends %d/%d, available %d.\n", cap, capped, OwnsRoundTimeCap(),
 				 RoundStartIsPinned(), m_extendsUsed, g_RTVConfig.extend.max, IsExtendAvailable());
 
-	if (CCSGameRules *rules = RTV_FindGameRules())
+	if (CCSGameRules *rules = mmu::FindGameRules())
 	{
 		float gameStart = -1.0f;
 		float roundStart = -1.0f;

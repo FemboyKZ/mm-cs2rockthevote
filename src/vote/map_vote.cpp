@@ -176,7 +176,7 @@ void MapVoteManager::Reset()
 	m_downloadTimerId = -1;
 	m_pendingDownload.Clear();
 
-	for (int i = 0; i <= MAXPLAYERS; i++)
+	for (int i = 0; i < MAXPLAYERS; i++)
 	{
 		g_RTVMenus.CloseMenu(i);
 		g_RTVMenus.HideNotice(i);
@@ -264,7 +264,7 @@ void MapVoteManager::OnMatchEnded()
 
 void MapVoteManager::PrintStatus() const
 {
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 	MMU_LOG_INFO("Map: %s, workshop id '%s' (mount read %d), match ended %d.\n", m_currentMap.c_str(), m_currentWorkshopId.c_str(), m_workshopIdRead,
 				 m_matchEnded);
@@ -391,7 +391,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 
 	SendVoteMenuToAll();
 	// Per viewer, only chat menus take typed numbers.
-	for (int i = 0; i <= MAXPLAYERS; i++)
+	for (int i = 0; i < MAXPLAYERS; i++)
 	{
 		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
 		if (pi && pi->connected && !pi->fakePlayer)
@@ -404,7 +404,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 void MapVoteManager::ArmVoteTimers()
 {
 	const MapVoteCfg &cfg = g_RTVConfig.mapvote;
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float duration = static_cast<float>(cfg.voteDuration);
 	// End before the map does.
 	float timeLeft = 0.0f;
@@ -425,7 +425,7 @@ void MapVoteManager::ArmVoteTimers()
 				{
 					return;
 				}
-				CGlobalVars *g = GetGameGlobals();
+				CGlobalVars *g = mmu::GetGameGlobals();
 				float now = g ? g->curtime : 0.0f;
 				int secsLeft = static_cast<int>(m_voteEndTime - now);
 				if (secsLeft > 0)
@@ -567,7 +567,7 @@ std::vector<const MapEntry *> MapVoteManager::PickRandomMaps(int count, const st
 
 void MapVoteManager::SendVoteMenuToAll()
 {
-	for (int i = 0; i <= MAXPLAYERS; i++)
+	for (int i = 0; i < MAXPLAYERS; i++)
 	{
 		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
 		if (!pi || !pi->connected || pi->fakePlayer)
@@ -611,7 +611,7 @@ bool MapVoteManager::ShowVoteNotice(int slot)
 		return false;
 	}
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	std::string text;
@@ -642,7 +642,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 		return;
 	}
 
-	CGlobalVars *globals = GetGameGlobals();
+	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;
 
 	RTVMenuDef def;
@@ -738,7 +738,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 												  [](const auto &vote) { return g_RTVPlayerManager.IsEligible(vote.first); });
 						if (cast >= eligible)
 						{
-							CGlobalVars *g = GetGameGlobals();
+							CGlobalVars *g = mmu::GetGameGlobals();
 							float now = g ? g->curtime : 0.0f;
 							float timeLeft = m_voteEndTime - now;
 
@@ -750,7 +750,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 								m_verifyTimerId = g_Timers.CreateTimer(5.0f, [this]() { FinishVote(); });
 								RTV_ChatToAllT("All players voted! Vote ending in 5 second(s).");
 								// The notices count down to the old end.
-								for (int i = 0; i <= MAXPLAYERS; i++)
+								for (int i = 0; i < MAXPLAYERS; i++)
 								{
 									PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
 									if (pi && pi->connected && !pi->fakePlayer)
@@ -832,7 +832,7 @@ void MapVoteManager::SendChoiceReminders()
 	{
 		return;
 	}
-	for (int i = 0; i <= MAXPLAYERS; i++)
+	for (int i = 0; i < MAXPLAYERS; i++)
 	{
 		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
 		if (!pi || !pi->connected || pi->fakePlayer || m_playerVotes.count(i))
@@ -868,7 +868,7 @@ void MapVoteManager::FinishVote()
 	g_Timers.KillTimer(m_verifyTimerId);
 	m_verifyTimerId = -1;
 
-	for (int i = 0; i <= MAXPLAYERS; i++)
+	for (int i = 0; i < MAXPLAYERS; i++)
 	{
 		g_RTVMenus.CloseMenu(i);
 		g_RTVMenus.HideNotice(i);
