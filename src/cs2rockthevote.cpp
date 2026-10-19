@@ -743,8 +743,13 @@ static void RTV_RegisterMapsCommand()
 
 static void RTV_UnregisterMapsCommand()
 {
-	delete s_mapsCommand;
-	s_mapsCommand = nullptr;
+	if (s_mapsCommand)
+	{
+		// Metamod tracks commands created after META_CONVAR_REGISTER and walks them again at plugin unload.
+		g_SMAPI->UnregisterConCommand(g_PLAPI, s_mapsCommand);
+		delete s_mapsCommand;
+		s_mapsCommand = nullptr;
+	}
 }
 
 CON_COMMAND_F(mm_reloadmaps, "Reload the map list", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
