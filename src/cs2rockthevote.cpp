@@ -22,6 +22,7 @@
 
 #include "sdk/entity/cgamerules.h"
 #include "sdk/entity/ccsplayercontroller.h"
+#include "game/say.h"
 #include "utils/chat_command.h"
 #include "utils/command_args.h"
 #include "game/cvarquery.h"
@@ -260,23 +261,13 @@ void CS2RTVPlugin::OnLateLoad()
 	const char *mapName = server ? server->GetMapName() : "";
 	OnLevelInit(mapName ? mapName : "", "", "", "", false, false);
 
-	CGlobalVars *globals = mmu::GetGameGlobals();
-	int maxClients = globals ? globals->maxClients : MAXPLAYERS;
-
-	for (int slot = 0; slot < maxClients; slot++)
+	g_RTVPlayerManager.OnLateLoad();
+	for (int slot = 0; slot < MAXPLAYERS; slot++)
 	{
-		CPlayerSlot playerSlot(slot);
-		uint64 xuid = g_pEngine->GetClientXUID(playerSlot);
-		if (xuid == 0 || !g_pEngine->GetPlayerNetInfo(playerSlot))
+		if (g_RTVPlayerManager.Get(slot))
 		{
-			continue;
+			mmu::cvarquery::OnClientConnected(slot, false);
 		}
-
-		// A slot with a SteamID is past ClientPutInServer already, which fired before we were here to see it.
-		CCSPlayerController *controller = CCSPlayerController::FromSlot(slot);
-		g_RTVPlayerManager.OnClientConnected(slot, controller ? controller->GetPlayerName() : "", xuid, "", false);
-		g_RTVPlayerManager.OnClientPutInServer(slot);
-		mmu::cvarquery::OnClientConnected(slot, false);
 	}
 
 	MMU_LOG_INFO("Late load on '%s', restored %d player(s).\n", mapName ? mapName : "", g_RTVPlayerManager.GetHumanPlayerCount());
@@ -661,27 +652,14 @@ static bool RTV_RunChatCommand(int slot, const mmu::ChatCommand &chatCmd)
 
 KHook::Return<void> CS2RTVPlugin::Hook_DispatchConCommand(ICvar *, ConCommandRef cmd, const CCommandContext &ctx, const CCommand &args)
 {
-	// The registered name, since the typed Arg(0) can be "SAY", which still dispatches to say.
-	const char *cmdName = cmd.IsValidRef() ? cmd.GetName() : nullptr;
-	if (!cmdName)
-	{
-		return {KHook::Action::Ignore};
-	}
-
-	bool isSay = (V_stricmp(cmdName, "say") == 0 || V_stricmp(cmdName, "say_team") == 0);
-	if (!isSay)
-	{
-		return {KHook::Action::Ignore};
-	}
-
-	int slot = ctx.GetPlayerSlot().Get();
-	if (!mmu::ValidSlot(slot))
+	int slot = mmu::SaySlot(cmd, ctx);
+	if (slot < 0)
 	{
 		return {KHook::Action::Ignore};
 	}
 
 	// A client not put in server yet can't legitimately chat, so its commands don't count either.
-	const PlayerInfo *player = g_RTVPlayerManager.GetPlayer(slot);
+	const PlayerInfo *player = g_RTVPlayerManager.Get(slot);
 	if (!player || !player->connected || !player->inGame)
 	{
 		return {KHook::Action::Ignore};
@@ -713,7 +691,7 @@ static bool RTV_ConsoleCallerReady(int slot)
 	{
 		return true;
 	}
-	const PlayerInfo *player = g_RTVPlayerManager.GetPlayer(slot);
+	const PlayerInfo *player = g_RTVPlayerManager.Get(slot);
 	return player && player->connected && player->inGame;
 }
 
@@ -823,12 +801,12 @@ CON_COMMAND_F(mm_rtv_status, "Print the plugin's state for debugging", FCVAR_REL
 	MMU_LOG_INFO("Players: %d human, %d eligible.\n", g_RTVPlayerManager.GetHumanPlayerCount(), g_RTVPlayerManager.GetEligiblePlayerCount());
 	for (int slot = 0; slot < MAXPLAYERS; slot++)
 	{
-		const PlayerInfo *p = g_RTVPlayerManager.GetPlayer(slot);
+		const PlayerInfo *p = g_RTVPlayerManager.Get(slot);
 		if (p && p->connected)
 		{
 			// Refreshes teamNum, so before it is read.
 			bool eligible = g_RTVPlayerManager.IsEligible(slot);
-			MMU_LOG_INFO("  slot %d %s %llu: in game %d, bot %d, team %d, eligible %d, rtv %d\n", slot, p->name.c_str(),
+			MMU_LOG_INFO("  slot %d %s %llu: in game %d, bot %d, team %d, eligible %d, rtv %d\n", slot, g_RTVPlayerManager.DisplayName(slot),
 						 static_cast<unsigned long long>(p->steamid64), p->inGame, p->fakePlayer, p->teamNum, eligible, g_RTVManager.HasVoted(slot));
 		}
 	}

@@ -2,28 +2,17 @@
 #define _INCLUDE_RTV_PLAYER_MANAGER_H_
 
 #include "src/common.h"
-#include "game/player_table.h"
+#include "game/players.h"
 #include <string>
 
-struct PlayerInfo
+struct PlayerInfo : mmu::Player
 {
-	bool connected = false;
-	bool inGame = false; // true once ClientPutInServer fires (excludes challenging/half-connected slots)
-	uint64_t steamid64 = 0;
-	std::string name;
-	bool fakePlayer = false;
 	int teamNum = 0; // 1=spec, 2=T, 3=CT (refreshed from the controller in GetEligiblePlayerCount)
 };
 
-class RTVPlayerManager
+class RTVPlayerManager : public mmu::Players<PlayerInfo>
 {
 public:
-	void OnClientConnected(int slot, const char *name, uint64_t xuid, const char *address, bool fakePlayer);
-	void OnClientPutInServer(int slot);
-	void OnClientDisconnect(int slot);
-
-	PlayerInfo *GetPlayer(int slot);
-
 	// Name for announcements. Never null.
 	const char *DisplayName(int slot);
 
@@ -35,9 +24,6 @@ public:
 	// Refreshes each counted player's teamNum from their controller.
 	int GetEligiblePlayerCount();
 	bool IsEligible(int slot);
-
-private:
-	mmu::PlayerTable<PlayerInfo> m_players;
 };
 
 extern RTVPlayerManager g_RTVPlayerManager;

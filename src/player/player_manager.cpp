@@ -4,42 +4,6 @@
 
 RTVPlayerManager g_RTVPlayerManager;
 
-void RTVPlayerManager::OnClientConnected(int slot, const char *name, uint64_t xuid, const char *address, bool fakePlayer)
-{
-	PlayerInfo *p = m_players.Get(slot);
-	if (!p)
-	{
-		return;
-	}
-
-	*p = PlayerInfo();
-	p->connected = true;
-	p->steamid64 = xuid;
-	p->name = name ? name : "";
-	p->fakePlayer = fakePlayer;
-}
-
-void RTVPlayerManager::OnClientDisconnect(int slot)
-{
-	if (PlayerInfo *p = m_players.Get(slot))
-	{
-		*p = PlayerInfo();
-	}
-}
-
-void RTVPlayerManager::OnClientPutInServer(int slot)
-{
-	if (PlayerInfo *p = m_players.Get(slot))
-	{
-		p->inGame = true;
-	}
-}
-
-PlayerInfo *RTVPlayerManager::GetPlayer(int slot)
-{
-	return m_players.Get(slot);
-}
-
 const char *RTVPlayerManager::DisplayName(int slot)
 {
 	// Live from the controller, the stored connect-time name misses a rename.
@@ -49,18 +13,18 @@ const char *RTVPlayerManager::DisplayName(int slot)
 	{
 		return live;
 	}
-	PlayerInfo *p = m_players.Get(slot);
+	PlayerInfo *p = Get(slot);
 	return (p && !p->name.empty()) ? p->name.c_str() : "Unknown";
 }
 
 int RTVPlayerManager::GetHumanPlayerCount() const
 {
-	return m_players.Count([](const PlayerInfo &p) { return p.connected && p.inGame && !p.fakePlayer; });
+	return Count([](const PlayerInfo &p) { return p.inGame && !p.fakePlayer; });
 }
 
 bool RTVPlayerManager::IsEligible(int slot)
 {
-	PlayerInfo *p = m_players.Get(slot);
+	PlayerInfo *p = Get(slot);
 	if (!p || !p->connected || !p->inGame || p->fakePlayer)
 	{
 		return false;

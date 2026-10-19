@@ -393,7 +393,7 @@ void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nomin
 	// Per viewer, only chat menus take typed numbers.
 	for (int i = 0; i < MAXPLAYERS; i++)
 	{
-		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
+		PlayerInfo *pi = g_RTVPlayerManager.Get(i);
 		if (pi && pi->connected && !pi->fakePlayer)
 		{
 			RTV_PrintToChatT(i, g_RTVMenus.UsesChatInput(i) ? "Map vote started! Type a number in chat to vote." : "Map vote started!");
@@ -569,7 +569,7 @@ void MapVoteManager::SendVoteMenuToAll()
 {
 	for (int i = 0; i < MAXPLAYERS; i++)
 	{
-		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
+		PlayerInfo *pi = g_RTVPlayerManager.Get(i);
 		if (!pi || !pi->connected || pi->fakePlayer)
 		{
 			continue;
@@ -752,7 +752,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 								// The notices count down to the old end.
 								for (int i = 0; i < MAXPLAYERS; i++)
 								{
-									PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
+									PlayerInfo *pi = g_RTVPlayerManager.Get(i);
 									if (pi && pi->connected && !pi->fakePlayer)
 									{
 										ShowVoteNotice(i);
@@ -834,7 +834,7 @@ void MapVoteManager::SendChoiceReminders()
 	}
 	for (int i = 0; i < MAXPLAYERS; i++)
 	{
-		PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(i);
+		PlayerInfo *pi = g_RTVPlayerManager.Get(i);
 		if (!pi || !pi->connected || pi->fakePlayer || m_playerVotes.count(i))
 		{
 			continue;

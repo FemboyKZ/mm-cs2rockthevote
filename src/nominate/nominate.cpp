@@ -45,7 +45,7 @@ bool NominateManager::CallerStillPresent(int slot, uint64_t steamid64, uint32_t 
 	{
 		return false;
 	}
-	const PlayerInfo *pi = g_RTVPlayerManager.GetPlayer(slot);
+	const PlayerInfo *pi = g_RTVPlayerManager.Get(slot);
 	return pi && pi->connected && pi->steamid64 == steamid64;
 }
 
@@ -121,7 +121,7 @@ void NominateManager::CommandNominate(int slot, const char *arg)
 	}
 
 	// An API lookup outlives the request: the slot can empty, be reused, or be on the next map by the time it lands.
-	PlayerInfo *caller = g_RTVPlayerManager.GetPlayer(slot);
+	PlayerInfo *caller = g_RTVPlayerManager.Get(slot);
 	uint64_t callerId = caller ? caller->steamid64 : 0;
 	uint32_t callerSerial = m_mapSerial;
 
@@ -250,7 +250,7 @@ void NominateManager::CommandReloadMaps(int slot)
 	{
 		RTV_PrintToChatT(slot, "Refreshing the map pool from the CS2KZ API...");
 
-		PlayerInfo *caller = g_RTVPlayerManager.GetPlayer(slot);
+		PlayerInfo *caller = g_RTVPlayerManager.Get(slot);
 		uint64_t callerId = caller ? caller->steamid64 : 0;
 		uint32_t callerSerial = m_mapSerial;
 

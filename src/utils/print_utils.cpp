@@ -12,7 +12,7 @@
 
 static bool SlotIsHuman(int slot)
 {
-	PlayerInfo *p = g_RTVPlayerManager.GetPlayer(slot);
+	PlayerInfo *p = g_RTVPlayerManager.Get(slot);
 	return p && p->connected && !p->fakePlayer;
 }
 
