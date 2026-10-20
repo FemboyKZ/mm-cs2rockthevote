@@ -1,7 +1,7 @@
 #ifndef _INCLUDE_RTV_WHITELIST_BRIDGE_H_
 #define _INCLUDE_RTV_WHITELIST_BRIDGE_H_
 
-// Optional integration with mm-cs2whitelist (ICS2Whitelist002 interface).
+// Optional integration with mm-cs2whitelist (ICS2Whitelist interface).
 // If mm-cs2whitelist is not loaded at runtime, all checks return true so that RTV behaves normally on non-whitelisted servers.
 
 #include "interfaces/cs2whitelist/ics2whitelist.h"
