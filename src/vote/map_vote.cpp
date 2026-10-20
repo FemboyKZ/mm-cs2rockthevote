@@ -60,18 +60,15 @@ static void ReadMountedWorkshopId(const char *mapName, std::string &id)
 
 static void DoMapChange(const MapEntry &entry)
 {
-	char cmd[256];
 	s_changingToWorkshopId.clear();
 	if (entry.isWorkshop && !entry.workshopId.empty())
 	{
 		s_changingToWorkshopId = entry.workshopId;
-		mmu::EnsureWorkshopMapReady(entry.workshopId);
-		snprintf(cmd, sizeof(cmd), "host_workshop_map %s\n", entry.workshopId.c_str());
+		mmu::ChangeToWorkshopMap(entry.workshopId);
+		return;
 	}
-	else
-	{
-		snprintf(cmd, sizeof(cmd), "changelevel %s\n", entry.mapName.c_str());
-	}
+	char cmd[256];
+	snprintf(cmd, sizeof(cmd), "changelevel %s\n", entry.mapName.c_str());
 	g_pEngine->ServerCommand(cmd);
 }
 

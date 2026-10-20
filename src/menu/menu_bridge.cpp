@@ -4,15 +4,9 @@
 #include "src/config/config.h"
 #include "src/utils/print_utils.h"
 
-#include <algorithm>
 #include <vector>
 
 RTVMenuBridge g_RTVMenus;
-
-static void Forget(std::vector<MenuHandle> &open, MenuHandle menu)
-{
-	open.erase(std::remove(open.begin(), open.end(), menu), open.end());
-}
 
 void RTVMenuBridge::Init()
 {
@@ -29,11 +23,6 @@ void RTVMenuBridge::Refresh()
 	{
 		case mmu::BridgeChange::Unloaded:
 			MMU_LOG_WARN("mm-cs2menus unloaded - votes and map menus are unavailable.\n");
-			// No end callbacks fire for them.
-			for (auto &open : m_open)
-			{
-				open.clear();
-			}
 			break;
 		case mmu::BridgeChange::Loaded:
 			MMU_LOG_INFO("mm-cs2menus found - menus enabled.\n");
@@ -107,31 +96,18 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 			m_menus->AddSection(h, def.sections[section++].first.c_str());
 		}
 		int index = m_menus->AddItem(h, item.text.c_str(), "", item.disabled);
-		auto pointers = [](const std::vector<std::string> &strings)
-		{
-			std::vector<const char *> out;
-			for (const std::string &s : strings)
-			{
-				out.push_back(s.c_str());
-			}
-			return out;
-		};
 		if (!item.cells.empty())
 		{
-			m_menus->SetItemCells(h, index, pointers(item.cells).data(), static_cast<int>(item.cells.size()));
+			m_menus->SetItemCells(h, index, CS2MenusClient::Labels(item.cells).data(), static_cast<int>(item.cells.size()));
 		}
 		if (!item.details.empty())
 		{
-			m_menus->SetItemDetails(h, index, pointers(item.details).data(), static_cast<int>(item.details.size()));
+			m_menus->SetItemDetails(h, index, CS2MenusClient::Labels(item.details).data(), static_cast<int>(item.details.size()));
 		}
 	}
 	for (const RTVMenuChip &chip : def.chips)
 	{
-		std::vector<const char *> options;
-		for (const std::string &option : chip.options)
-		{
-			options.push_back(option.c_str());
-		}
+		const std::vector<const char *> options = CS2MenusClient::Labels(chip.options);
 		m_menus->AddMenuChip(h, chip.label.c_str(), options.data(), static_cast<int>(options.size()), chip.selected);
 	}
 	if (def.onChip)
@@ -158,20 +134,14 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 	m_menus->SetCloseOnSelect(h, def.closeOnSelect);
 	if (def.mapList)
 	{
-		m_menus->SetMenuStyle(h, MenuStyle::PagePrefixDelimiter, "_");
-		m_menus->SetMenuTextFeatures(h, kMenuTextIndex);
+		m_menus.SetMapListStyle(h);
 	}
 
 	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
 
-	m_open[slot].push_back(h);
 	bool shown = m_menus.Present(slot, h, def.duration,
-								 [this, onExit = def.onExit](MenuHandle ended, int s, MenuEndReason reason)
+								 [onExit = def.onExit](MenuHandle, int s, MenuEndReason reason)
 								 {
-									 if (mmu::ValidSlot(s))
-									 {
-										 Forget(m_open[s], ended);
-									 }
 									 if (reason == MenuEndReason::Exit && onExit)
 									 {
 										 onExit(s);
@@ -179,7 +149,6 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 								 });
 	if (!shown)
 	{
-		Forget(m_open[slot], h);
 		// Refused: another menu system holds the slot.
 		if (!def.quiet)
 		{
@@ -195,8 +164,7 @@ void RTVMenuBridge::CloseMenu(int slot)
 		return;
 	}
 	// CancelMenu closes whatever is on screen.
-	const std::vector<MenuHandle> &open = m_open[slot];
-	if (std::find(open.begin(), open.end(), m_menus->GetActiveMenu(slot)) != open.end())
+	if (m_menus.Owns(slot, m_menus->GetActiveMenu(slot)))
 	{
 		m_menus->CancelMenu(slot);
 	}

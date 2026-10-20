@@ -99,8 +99,6 @@ public:
 
 private:
 	CS2MenusClient m_menus;
-	// Our menus per slot.
-	std::vector<MenuHandle> m_open[MAXPLAYERS + 1];
 };
 
 extern RTVMenuBridge g_RTVMenus;

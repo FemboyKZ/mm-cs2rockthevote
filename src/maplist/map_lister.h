@@ -166,10 +166,6 @@ private:
 
 	// Strip the annotation part: "kz_grotto (T3)" -> "kz_grotto"
 	static std::string StripAnnotation(const std::string &displayName);
-
-	// Build a MapEntry from a CS2KZ API JSON map object string fragment.
-	// Returns false if parsing failed.
-	static bool ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out);
 };
 
 extern MapLister g_MapLister;

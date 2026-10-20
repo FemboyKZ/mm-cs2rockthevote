@@ -7,7 +7,7 @@
 #include "src/timers/timer_system.h"
 #include "utils/discord.h"
 #include "utils/http_client.h"
-#include "utils/json.h"
+#include "utils/json_doc.h"
 
 #include <algorithm>
 #include <cctype>
@@ -444,44 +444,6 @@ const MapEntry *MapLister::AddDynamicMap(const MapEntry &entry)
 	return &m_maps.back();
 }
 
-// Minimal JSON helpers (no third-party deps)
-
-// Scalar value of the first `"key"` in `doc`, as text. "" when absent or null.
-// mmu::json::GetString only reads quoted values, and the APIs here send some numeric fields bare.
-static std::string JsonGetScalar(const std::string &doc, const char *key)
-{
-	std::string search = "\"";
-	search += key;
-	search += "\"";
-
-	size_t pos = doc.find(search);
-	if (pos == std::string::npos)
-	{
-		return "";
-	}
-
-	pos += search.size();
-	while (pos < doc.size() && (doc[pos] == ' ' || doc[pos] == ':' || doc[pos] == '\t'))
-	{
-		pos++;
-	}
-	if (pos >= doc.size())
-	{
-		return "";
-	}
-	if (doc[pos] == '\"')
-	{
-		return mmu::json::GetString(doc, key);
-	}
-
-	size_t start = pos;
-	while (pos < doc.size() && (isdigit(static_cast<unsigned char>(doc[pos])) || doc[pos] == '-' || doc[pos] == '+' || doc[pos] == '.'))
-	{
-		pos++;
-	}
-	return doc.substr(start, pos - start);
-}
-
 // Percent-encode a query parameter value, so a space, '#' or '&' in a map name cannot break or extend the URL.
 static std::string UrlEncodeQuery(const std::string &value)
 {
@@ -502,113 +464,38 @@ static std::string UrlEncodeQuery(const std::string &value)
 	return out;
 }
 
-// Extract the value of a JSON string field named `key` from a flat object.
-// Handles only simple string values. Returns empty string if not found.
-// Enumerate top-level array elements `[{...},{...}]` - calls cb for each object
-// string.
-static void JsonForEachObject(const std::string &json, std::function<void(const std::string &)> cb)
+static void ForEachApiMap(const std::string &body, const std::function<void(const nlohmann::json &)> &cb)
 {
-	// Find the opening '[' (skip leading whitespace / field name)
-	size_t start = json.find('[');
-	if (start == std::string::npos)
+	const nlohmann::json doc = nlohmann::json::parse(body, nullptr, false);
+	const nlohmann::json *values = doc.is_array() ? &doc : mmu::json::Field(doc, "values");
+	if (!values || !values->is_array())
 	{
-		// Maybe the response is just a JSON object wrapper: {"maps":[...]}
-		// Fall back to finding first '['
 		return;
 	}
-
-	size_t pos = start + 1;
-	int depth = 0;
-	size_t objStart = std::string::npos;
-
-	while (pos < json.size())
+	for (const nlohmann::json &map : *values)
 	{
-		char c = json[pos];
-		if (c == '{')
+		if (map.is_object())
 		{
-			if (depth == 0)
-			{
-				objStart = pos;
-			}
-			depth++;
+			cb(map);
 		}
-		else if (c == '}')
-		{
-			depth--;
-			if (depth == 0 && objStart != std::string::npos)
-			{
-				cb(json.substr(objStart, pos - objStart + 1));
-				objStart = std::string::npos;
-			}
-		}
-		else if (c == '"')
-		{
-			// Skip string contents
-			pos++;
-			while (pos < json.size() && json[pos] != '"')
-			{
-				if (json[pos] == '\\')
-				{
-					pos++;
-				}
-				pos++;
-			}
-		}
-		else if (c == ']' && depth == 0)
-		{
-			break;
-		}
-		pos++;
 	}
 }
 
-// Parse the nub_tier for one mode for EVERY course, in course order.
-// modeKey must be the quoted key, e.g. "\"classic\"" or "\"vanilla\"".
-// Appends each course's tier (1-10) to out; a course with no tier for this mode is skipped.
+// A course with no tier for the mode is skipped.
 // API structure: map.courses[].filters.{vanilla|classic}.nub_tier (string)
-static void ParseTierListForMode(const std::string &jsonObj, const char *modeKey, std::vector<int> &out)
+static void ParseTierListForMode(const nlohmann::json &map, const char *mode, std::vector<int> &out)
 {
 	out.clear();
-
-	size_t pos = 0;
-	while (true)
+	const nlohmann::json *courses = mmu::json::Field(map, "courses");
+	if (!courses || !courses->is_array())
 	{
-		size_t filtersPos = jsonObj.find("\"filters\"", pos);
-		if (filtersPos == std::string::npos)
-		{
-			break;
-		}
-		size_t nextFilters = jsonObj.find("\"filters\"", filtersPos + 9);
-		size_t bound = (nextFilters == std::string::npos) ? jsonObj.size() : nextFilters;
-		pos = bound;
-
-		size_t modePos = jsonObj.find(modeKey, filtersPos);
-		if (modePos == std::string::npos || modePos >= bound)
-		{
-			continue;
-		}
-		size_t nubPos = jsonObj.find("\"nub_tier\"", modePos);
-		if (nubPos == std::string::npos || nubPos >= bound)
-		{
-			continue;
-		}
-		size_t colon = jsonObj.find(':', nubPos + 10);
-		if (colon == std::string::npos || colon >= bound)
-		{
-			continue;
-		}
-		size_t q1 = jsonObj.find('"', colon + 1);
-		if (q1 == std::string::npos || q1 >= bound)
-		{
-			continue;
-		}
-		size_t q2 = jsonObj.find('"', q1 + 1);
-		if (q2 == std::string::npos || q2 >= bound)
-		{
-			continue;
-		}
-
-		int tier = TierNameToInt(jsonObj.substr(q1 + 1, q2 - q1 - 1));
+		return;
+	}
+	for (const nlohmann::json &course : *courses)
+	{
+		const nlohmann::json *filters = mmu::json::Field(course, "filters");
+		const nlohmann::json *filter = filters ? mmu::json::Field(*filters, mode) : nullptr;
+		int tier = filter ? TierNameToInt(mmu::json::StringField(*filter, "nub_tier")) : 0;
 		if (tier > 0)
 		{
 			out.push_back(tier);
@@ -616,13 +503,19 @@ static void ParseTierListForMode(const std::string &jsonObj, const char *modeKey
 	}
 }
 
-// CS2KZ API parsing
-bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
+// Null when the reply has none.
+static const nlohmann::json *PublishedFileDetails(const nlohmann::json &doc)
 {
-	// Expected fields: "name" (map name), "workshop_id" (number)
-	// We also look into courses[].filters for nub_tier (all courses)
-	std::string name = mmu::json::GetString(jsonObj, "name");
-	std::string wsId = JsonGetScalar(jsonObj, "workshop_id");
+	const nlohmann::json *response = mmu::json::Field(doc, "response");
+	const nlohmann::json *files = response ? mmu::json::Field(*response, "publishedfiledetails") : nullptr;
+	return files && files->is_array() ? files : nullptr;
+}
+
+// False without a name.
+static bool ParseApiMap(const nlohmann::json &map, MapEntry &out)
+{
+	std::string name = mmu::json::StringField(map, "name");
+	std::string wsId = mmu::json::ScalarField(map, "workshop_id");
 
 	if (name.empty())
 	{
@@ -634,8 +527,8 @@ bool MapLister::ParseCS2KZMapJson(const std::string &jsonObj, MapEntry &out)
 	out.isWorkshop = !wsId.empty();
 
 	// Parse per-course classic and vanilla tiers so DisplayKzTiers can list them.
-	ParseTierListForMode(jsonObj, "\"classic\"", out.classicTiers);
-	ParseTierListForMode(jsonObj, "\"vanilla\"", out.vanillaTiers);
+	ParseTierListForMode(map, "classic", out.classicTiers);
+	ParseTierListForMode(map, "vanilla", out.vanillaTiers);
 
 	// Global maps come straight from the API with no baked tier annotation.
 	// tiers are shown live via DisplayKzTiers / GetDisplayLabel.
@@ -659,14 +552,14 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 						   // CS2KZ returns an array; grab first object
 						   MapEntry found;
 						   bool parsed = false;
-						   JsonForEachObject(body,
-											 [&](const std::string &obj)
+						   ForEachApiMap(body,
+										 [&](const nlohmann::json &map)
+										 {
+											 if (!parsed && ParseApiMap(map, found))
 											 {
-												 if (!parsed && MapLister::ParseCS2KZMapJson(obj, found))
-												 {
-													 parsed = true;
-												 }
-											 });
+												 parsed = true;
+											 }
+										 });
 						   if (parsed)
 						   {
 							   // Dispatch to game thread: callback touches game state.
@@ -693,8 +586,11 @@ void MapLister::LookupByWorkshopIdAsync(const std::string &workshopId, std::func
 							   {
 								   // Response:
 								   // {"response":{"publishedfiledetails":[{"publishedfileid":"...","title":"...","result":1}]}}
-								   std::string title = mmu::json::GetString(body2, "title");
-								   if (!title.empty() && JsonGetScalar(body2, "consumer_app_id") != "730")
+								   const nlohmann::json doc = nlohmann::json::parse(body2, nullptr, false);
+								   const nlohmann::json *files = PublishedFileDetails(doc);
+								   const nlohmann::json *file = files && !files->empty() ? &(*files)[0] : nullptr;
+								   std::string title = file ? mmu::json::StringField(*file, "title") : std::string();
+								   if (!title.empty() && mmu::json::ScalarField(*file, "consumer_app_id") != "730")
 								   {
 									   MMU_LOG_WARN("Workshop item %s is not a CS2 item.\n", workshopId.c_str());
 									   mmu::http::QueueMainThread([callback]() { callback(MapEntry()); });
@@ -776,27 +672,27 @@ void MapLister::LookupByNameAsync(const std::string &name, std::function<void(Ma
 					   if (ok && !body.empty())
 					   {
 						   const std::string wanted = str::ToLower(name);
-						   JsonForEachObject(body,
-											 [&](const std::string &obj)
+						   ForEachApiMap(body,
+										 [&](const nlohmann::json &map)
+										 {
+											 MapEntry e;
+											 if (exact || !ParseApiMap(map, e))
 											 {
-												 MapEntry e;
-												 if (exact || !MapLister::ParseCS2KZMapJson(obj, e))
-												 {
-													 return;
-												 }
-												 // '_' and '%' are wildcards to the API.
-												 const std::string got = str::ToLower(e.mapName);
-												 if (got.find(wanted) == std::string::npos)
-												 {
-													 return;
-												 }
-												 results++;
-												 exact = got == wanted;
-												 if (exact || results == 1)
-												 {
-													 found = std::move(e);
-												 }
-											 });
+												 return;
+											 }
+											 // '_' and '%' are wildcards to the API.
+											 const std::string got = str::ToLower(e.mapName);
+											 if (got.find(wanted) == std::string::npos)
+											 {
+												 return;
+											 }
+											 results++;
+											 exact = got == wanted;
+											 if (exact || results == 1)
+											 {
+												 found = std::move(e);
+											 }
+										 });
 					   }
 					   const bool ambiguous = !exact && results > 1;
 					   if (ambiguous)
@@ -847,15 +743,15 @@ void MapLister::FetchAllApprovedMapsAsync(std::function<void(std::vector<MapEntr
 							   }
 
 							   int countBefore = static_cast<int>(st->collected.size());
-							   JsonForEachObject(body,
-												 [&](const std::string &obj)
+							   ForEachApiMap(body,
+											 [&](const nlohmann::json &map)
+											 {
+												 MapEntry e;
+												 if (ParseApiMap(map, e))
 												 {
-													 MapEntry e;
-													 if (MapLister::ParseCS2KZMapJson(obj, e))
-													 {
-														 st->collected.push_back(std::move(e));
-													 }
-												 });
+													 st->collected.push_back(std::move(e));
+												 }
+											 });
 
 							   int added = static_cast<int>(st->collected.size()) - countBefore;
 							   if (added > 0)
@@ -1233,26 +1129,25 @@ void MapLister::ValidateMapsAsync() const
 									return;
 								}
 
+								const nlohmann::json doc = nlohmann::json::parse(body, nullptr, false);
+								std::unordered_map<std::string, std::string> results;
+								if (const nlohmann::json *files = PublishedFileDetails(doc))
+								{
+									for (const nlohmann::json &file : *files)
+									{
+										results[mmu::json::ScalarField(file, "publishedfileid")] = mmu::json::ScalarField(file, "result");
+									}
+								}
+
 								// Check each map; result != 1 means it's dead/removed
 								for (const auto &e : batch)
 								{
-									// Find the entry for this ID
-									size_t idPos = body.find("\"" + e.workshopId + "\"");
-									if (idPos == std::string::npos)
+									auto found = results.find(e.workshopId);
+									if (found == results.end())
 									{
 										continue;
 									}
-
-									// Extract result field in the object containing this ID
-									size_t objStart = body.rfind('{', idPos);
-									size_t objEnd = body.find('}', idPos);
-									if (objStart == std::string::npos || objEnd == std::string::npos)
-									{
-										continue;
-									}
-
-									std::string obj = body.substr(objStart, objEnd - objStart + 1);
-									std::string result = JsonGetScalar(obj, "result");
+									const std::string &result = found->second;
 									if (result != "1" && result != "")
 									{
 										MMU_LOG_INFO("Dead workshop map detected: %s (id=%s, "

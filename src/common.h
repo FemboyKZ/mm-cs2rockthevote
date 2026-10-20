@@ -21,11 +21,6 @@ extern INetworkServerService *g_pNetworkServerService;
 class IFileSystem;
 extern IFileSystem *g_pFullFileSystem;
 
-class INetworkMessages;
-class IGameEventSystem;
-extern INetworkMessages *g_pNetworkMessages;
-extern IGameEventSystem *g_pGameEventSystem;
-
 // g_pSchemaSystem and g_pGameResourceServiceServer come from the SDK's interfaces.lib.
 class CGameEntitySystem;
 extern CGameEntitySystem *g_pEntitySystem;
