@@ -292,7 +292,7 @@ void MapVoteManager::PrintStatus() const
 
 const MapEntry *MapVoteManager::PickMatchEndMap() const
 {
-	auto maps = PickRandomMaps((std::numeric_limits<int>::max)(), {m_currentMap});
+	auto maps = PickRandomMaps(std::numeric_limits<int>::max(), {m_currentMap});
 	for (const MapEntry *e : maps)
 	{
 		if (!e->isWorkshop || mmu::workshop::IsReady(std::strtoull(e->workshopId.c_str(), nullptr, 10)))
@@ -407,7 +407,7 @@ void MapVoteManager::ArmVoteTimers()
 	float timeLeft = 0.0f;
 	if (g_RTVTimeLimit.GetTimeLeftSeconds(timeLeft))
 	{
-		duration = (std::min)(duration, (std::max)(timeLeft - static_cast<float>(cfg.mapChangeDelay), kMinVoteSeconds));
+		duration = std::min(duration, std::max(timeLeft - static_cast<float>(cfg.mapChangeDelay), kMinVoteSeconds));
 	}
 	m_voteEndTime = (globals ? globals->curtime : 0.0f) + duration;
 
@@ -445,7 +445,7 @@ void MapVoteManager::ArmVoteTimers()
 void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, bool includeNoChange)
 {
 	m_options.clear();
-	int total = (std::max)(g_RTVConfig.mapvote.options, 1);
+	int total = std::max(g_RTVConfig.mapvote.options, 1);
 
 	std::vector<std::string> usedNames;
 	usedNames.push_back(m_currentMap);
@@ -502,7 +502,7 @@ void MapVoteManager::BuildOptions(const std::vector<std::string> &nominations, b
 		int headroom = g_RTVTimeLimit.GetHeadroomMinutes();
 		if (headroom >= 0)
 		{
-			minutes = (std::min)(minutes, headroom);
+			minutes = std::min(minutes, headroom);
 		}
 
 		if (minutes > 0)
@@ -525,8 +525,8 @@ std::vector<const MapEntry *> MapVoteManager::PickRandomMaps(int count, const st
 	const auto &allMaps = g_MapLister.GetMaps();
 	std::vector<const MapEntry *> pool;
 	std::vector<const MapEntry *> recent;
-	const size_t keep = static_cast<size_t>((std::max)(g_RTVConfig.mapvote.excludeRecentMaps, 0));
-	const auto recentFrom = m_recentMaps.end() - (std::min)(keep, m_recentMaps.size());
+	const size_t keep = static_cast<size_t>(std::max(g_RTVConfig.mapvote.excludeRecentMaps, 0));
+	const auto recentFrom = m_recentMaps.end() - std::min(keep, m_recentMaps.size());
 	auto isRecent = [&](const MapEntry &e)
 	{
 		return std::any_of(recentFrom, m_recentMaps.end(),
@@ -628,7 +628,7 @@ bool MapVoteManager::ShowVoteNotice(int slot)
 		hint = g_RTVConfig.mapvote.revoteEnabled ? hintT("Type %crevote in chat to change it.") : "";
 	}
 	// A notice without time left would never go away.
-	return g_RTVMenus.ShowNotice(slot, RTV_Translate(slot, "Vote for next map"), text, hint, (std::max)(m_voteEndTime - curtime, 1.0f),
+	return g_RTVMenus.ShowNotice(slot, RTV_Translate(slot, "Vote for next map"), text, hint, std::max(m_voteEndTime - curtime, 1.0f),
 								 [this](int s) { ShowVoteMenuToPlayer(s); });
 }
 
@@ -645,7 +645,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 	RTVMenuDef def;
 	def.quiet = quiet;
 	def.title = RTV_Translate(slot, "Vote for next map");
-	def.duration = (std::max)(m_voteEndTime - curtime, 5.0f);
+	def.duration = std::max(m_voteEndTime - curtime, 5.0f);
 	def.exitButton = true;
 	def.closeOnSelect = true;
 	def.onExit = [this](int s) { m_dismissed.insert(s); };
@@ -707,7 +707,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 							// Toggle: clicking the same option removes the vote
 							if (vit->second == capturedIndex)
 							{
-								m_options[capturedIndex].votes = (std::max)(0, m_options[capturedIndex].votes - 1);
+								m_options[capturedIndex].votes = std::max(0, m_options[capturedIndex].votes - 1);
 								m_playerVotes.erase(vit);
 								const char *name = g_RTVPlayerManager.DisplayName(playerSlot);
 								RTV_ChatToAllT("%s removed their vote for %s", name, m_options[capturedIndex].announce.c_str());
@@ -715,7 +715,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 								return;
 							}
 							// Switching vote
-							m_options[vit->second].votes = (std::max)(0, m_options[vit->second].votes - 1);
+							m_options[vit->second].votes = std::max(0, m_options[vit->second].votes - 1);
 							vit->second = capturedIndex;
 						}
 						else
@@ -729,7 +729,7 @@ void MapVoteManager::ShowVoteMenuToPlayer(int slot, bool quiet)
 						ShowVoteNotice(playerSlot);
 
 						// Auto-shorten: if all eligible players voted and >5s remain, end in 5s
-						int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
+						int eligible = std::max(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
 						// A spectator's ballot must not stand in for a player's.
 						auto cast = std::count_if(m_playerVotes.begin(), m_playerVotes.end(),
 												  [](const auto &vote) { return g_RTVPlayerManager.IsEligible(vote.first); });
@@ -785,7 +785,7 @@ void MapVoteManager::CommandRevote(int slot)
 	auto it = m_playerVotes.find(slot);
 	if (it != m_playerVotes.end())
 	{
-		m_options[it->second].votes = (std::max)(0, m_options[it->second].votes - 1);
+		m_options[it->second].votes = std::max(0, m_options[it->second].votes - 1);
 		m_playerVotes.erase(it);
 		ShowVoteNotice(slot);
 	}
@@ -812,7 +812,7 @@ void MapVoteManager::OnPlayerDisconnect(int slot)
 		int idx = it->second;
 		if (idx >= 0 && idx < static_cast<int>(m_options.size()))
 		{
-			m_options[idx].votes = (std::max)(0, m_options[idx].votes - 1);
+			m_options[idx].votes = std::max(0, m_options[idx].votes - 1);
 		}
 		m_playerVotes.erase(it);
 	}
@@ -881,7 +881,7 @@ void MapVoteManager::FinishVote()
 	int maxVotes = 0;
 	for (const auto &opt : m_options)
 	{
-		maxVotes = (std::max)(maxVotes, opt.votes);
+		maxVotes = std::max(maxVotes, opt.votes);
 	}
 
 	if (maxVotes == 0)
@@ -932,7 +932,7 @@ void MapVoteManager::FinishVote()
 				{
 					if (opt.votes < maxVotes)
 					{
-						secondVotes = (std::max)(secondVotes, opt.votes);
+						secondVotes = std::max(secondVotes, opt.votes);
 					}
 				}
 				std::vector<int> runoffIndices = topIndices;

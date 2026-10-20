@@ -312,8 +312,8 @@ bool RTV_LoadConfig(const char *path, RTVConfig &config)
 		return false;
 	}
 
-	fresh.mapvote.voteDuration = (std::max)(fresh.mapvote.voteDuration, 1);
-	fresh.rtv.votePercentage = (std::min)(fresh.rtv.votePercentage, 100);
+	fresh.mapvote.voteDuration = std::max(fresh.mapvote.voteDuration, 1);
+	fresh.rtv.votePercentage = std::min(fresh.rtv.votePercentage, 100);
 
 	config = std::move(fresh);
 	mmu::config::ApplyLogBlock(config.log);

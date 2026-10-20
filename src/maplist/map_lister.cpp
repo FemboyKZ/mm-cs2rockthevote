@@ -1003,10 +1003,10 @@ int MapLister::TierCells() const
 	size_t most = 0;
 	for (const MapEntry &map : m_maps)
 	{
-		most = (std::max)({most, classic ? map.classicTiers.size() : 0, vanilla ? map.vanillaTiers.size() : 0});
+		most = std::max({most, classic ? map.classicTiers.size() : 0, vanilla ? map.vanillaTiers.size() : 0});
 	}
 	// Two at least, which a mode's heading takes.
-	return static_cast<int>((std::max)((std::min)(most, MAX_COURSES), size_t(2)));
+	return static_cast<int>(std::max(std::min(most, MAX_COURSES), size_t(2)));
 }
 
 std::string MapLister::GetNameAndCells(const MapEntry &e, int columns, std::vector<std::string> &cells) const
@@ -1045,7 +1045,7 @@ std::vector<std::string> MapLister::GetTierDetails(const MapEntry &e) const
 	bool classic = false;
 	bool vanilla = false;
 	TierModes(classic, vanilla);
-	const size_t courses = (std::max)(classic ? e.classicTiers.size() : 0, vanilla ? e.vanillaTiers.size() : 0);
+	const size_t courses = std::max(classic ? e.classicTiers.size() : 0, vanilla ? e.vanillaTiers.size() : 0);
 	std::vector<std::string> lines;
 	for (size_t i = 0; courses > MAX_COURSES && i < courses; i++)
 	{
@@ -1105,7 +1105,7 @@ void MapLister::ValidateMapsAsync() const
 	const int BATCH = 100;
 	for (int start = 0; start < static_cast<int>(workshopMaps.size()); start += BATCH)
 	{
-		int end = (std::min)(start + BATCH, static_cast<int>(workshopMaps.size()));
+		int end = std::min(start + BATCH, static_cast<int>(workshopMaps.size()));
 		std::vector<MapEntry> batch(workshopMaps.begin() + start, workshopMaps.begin() + end);
 
 		std::string postBody = "itemcount=" + std::to_string(batch.size());

@@ -298,7 +298,7 @@ int RTVTimeLimit::GetHeadroomMinutes() const
 		return -1;
 	}
 
-	return (std::max)(0, static_cast<int>(std::floor(cap - ref.Get())));
+	return std::max(0, static_cast<int>(std::floor(cap - ref.Get())));
 }
 
 bool RTVTimeLimit::ExtendLimitReached() const
@@ -376,9 +376,9 @@ ExtendResult RTVTimeLimit::Extend(int minutes)
 	// so the rebase above does not announce minutes that were already spent.
 	float timeLeftAfter = 0.0f;
 	GetTimeLeftSeconds(timeLeftAfter);
-	float gained = timeLeftAfter - (std::max)(timeLeftBefore, 0.0f);
+	float gained = timeLeftAfter - std::max(timeLeftBefore, 0.0f);
 
-	res.granted = (std::max)(0, static_cast<int>(std::lround(gained / 60.0f)));
+	res.granted = std::max(0, static_cast<int>(std::lround(gained / 60.0f)));
 	res.applied = res.granted > 0;
 
 	if (!res.applied)
@@ -493,7 +493,7 @@ void RTV_AnnounceExtend(const ExtendResult &res)
 
 	float timeLeft = 0.0f;
 	g_RTVTimeLimit.GetTimeLeftSeconds(timeLeft);
-	RTV_ChatToAllT("Map extended by %d minute(s). About %d minute(s) left.", res.granted, (std::max)(0, static_cast<int>(timeLeft / 60.0f)));
+	RTV_ChatToAllT("Map extended by %d minute(s). About %d minute(s) left.", res.granted, std::max(0, static_cast<int>(timeLeft / 60.0f)));
 }
 
 void RTV_CommandExtend(int slot, int minutes)

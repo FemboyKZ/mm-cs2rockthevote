@@ -93,7 +93,7 @@ bool RTVManager::IsThresholdReached(int eligibleCount) const
 
 int RTVManager::GetVotesNeeded() const
 {
-	int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
+	int eligible = std::max(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
 	return RequiredVotes(eligible);
 }
 
@@ -158,7 +158,7 @@ void RTVManager::CommandHandler(int slot, StartVoteCallback startVote)
 		return;
 	}
 
-	int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
+	int eligible = std::max(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
 	int required = RequiredVotes(eligible);
 
 	if (HasVoted(slot))
@@ -204,7 +204,7 @@ void RTVManager::RecheckThreshold(StartVoteCallback startVote)
 		return;
 	}
 
-	int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
+	int eligible = std::max(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
 	if (!IsThresholdReached(eligible))
 	{
 		return;
@@ -286,9 +286,9 @@ void RTVManager::PrintStatus() const
 	float curtime = globals ? globals->curtime : 0.0f;
 	MMU_LOG_INFO("RTV: enabled %d, votes %d/%d, vote started %d, change scheduled %d, map age %.0f s, cooldown %.0f s, reminder timer %d.\n",
 				 g_RTVConfig.rtv.enabled, GetVoteCount(), GetVotesNeeded(), m_voteStarted, m_mapChangeScheduled, curtime - m_mapStartTime,
-				 (std::max)(m_cooldownExpireTime - curtime, 0.0f), m_reminderTimerId);
+				 std::max(m_cooldownExpireTime - curtime, 0.0f), m_reminderTimerId);
 	MMU_LOG_INFO("EndOfMapVote: enabled %d, trigger %d s, triggered %d, next check in %.0f s.\n", g_RTVConfig.endOfMapVote.enabled,
-				 g_RTVConfig.endOfMapVote.triggerTime, m_endOfMapVoteTriggered, (std::max)(m_nextEomCheckTime - curtime, 0.0f));
+				 g_RTVConfig.endOfMapVote.triggerTime, m_endOfMapVoteTriggered, std::max(m_nextEomCheckTime - curtime, 0.0f));
 }
 
 void RTVManager::StartReminderTimer()
@@ -309,10 +309,10 @@ void RTVManager::StartReminderTimer()
 				StopReminderTimer();
 				return;
 			}
-			int eligible = (std::max)(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
+			int eligible = std::max(g_RTVPlayerManager.GetEligiblePlayerCount(), 1);
 			int required = RequiredVotes(eligible);
 			int count = GetVoteCount();
-			int need = (std::max)(required - count, 0);
+			int need = std::max(required - count, 0);
 			if (need > 0)
 			{
 				RTV_ChatToAllT("Type %crtv to vote for a map change. (%d more vote(s) needed)", g_RTVConfig.general.HintPrefix(), need);

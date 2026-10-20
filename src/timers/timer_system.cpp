@@ -7,7 +7,7 @@ RTVTimerSystem g_Timers;
 int RTVTimerSystem::CreateTimer(float delay, TimerCallback callback, float interval)
 {
 	// Negative would read as an absolute time below.
-	delay = (std::max)(delay, 0.0f);
+	delay = std::max(delay, 0.0f);
 
 	TimerEntry entry;
 	entry.id = m_nextId++;
