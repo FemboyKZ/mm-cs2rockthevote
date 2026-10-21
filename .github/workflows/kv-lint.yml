@@ -23,11 +23,14 @@ concurrency:
 jobs:
   kv-lint:
     name: KV Lint
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name : Init workspace
+        with:
+          fetch-depth: 0
+          submodules: false
+      - name: Init workspace
         shell: bash
         run: |
           git config --global --add safe.directory "*"
