@@ -2,6 +2,7 @@
 #include "common.h"
 #include <cctype>
 #include <cstdlib>
+#include <new>
 #include <stdio.h>
 
 #include "config/config.h"
@@ -154,13 +155,76 @@ class CS2RTVAPI : public ICS2RTV
 			RTV_ChatToAllT("An admin is changing the map - active vote cancelled.");
 		}
 	}
+
+	bool ShowMapMenu(PluginId owner, int slot, const char *title, bool push, RTVMapPickFn onPick) override
+	{
+		if (!mmu::ValidSlot(slot) || !onPick || !g_RTVMenus.Available() || g_MapLister.GetMaps().empty())
+		{
+			return false;
+		}
+		m_mapPicks[slot] = {owner, std::move(onPick)};
+
+		MapMenu menu;
+		menu.title = title;
+		menu.show = push ? CS2MenusClient::Show::Push : CS2MenusClient::Show::Display;
+		menu.mark = [](int playerSlot, const MapEntry &e, bool &disabled)
+		{
+			disabled = g_MapVoteManager.IsCurrentMap(e);
+			return disabled ? " " + RTV_Translate(playerSlot, "[current]") : std::string();
+		};
+		// Looked up per pick, so CloseMapMenus takes effect.
+		menu.onPick = [this](int playerSlot, const MapEntry &e)
+		{
+			RTVMapPickFn pick = m_mapPicks[playerSlot].fn;
+			if (pick)
+			{
+				pick(playerSlot, (e.workshopId.empty() ? e.mapName : e.workshopId).c_str());
+			}
+		};
+		RTV_ShowMapMenu(slot, menu);
+		return true;
+	}
+
+	void CloseMapMenus(PluginId owner) override
+	{
+		for (MapPick &pick : m_mapPicks)
+		{
+			if (pick.owner == owner)
+			{
+				pick = {};
+			}
+		}
+	}
+
+public:
+	// Leaks: destroying an unloaded owner's callback runs unmapped code.
+	void DropMapMenus(PluginId owner)
+	{
+		for (MapPick &pick : m_mapPicks)
+		{
+			if (pick.owner == owner)
+			{
+				new (&pick.fn) RTVMapPickFn();
+				pick.owner = 0;
+			}
+		}
+	}
+
+private:
+	struct MapPick
+	{
+		PluginId owner = 0;
+		RTVMapPickFn fn;
+	};
+
+	MapPick m_mapPicks[MAXPLAYERS];
 };
 
 static CS2RTVAPI g_CS2RTVAPI;
 
 void *CS2RTVPlugin::OnMetamodQuery(const char *iface, int *ret)
 {
-	if (!strcmp(iface, CS2RTV_INTERFACE) || !strcmp(iface, "ICS2RTV001"))
+	if (!strcmp(iface, CS2RTV_INTERFACE) || !strcmp(iface, "ICS2RTV002") || !strcmp(iface, "ICS2RTV001"))
 	{
 		if (ret)
 		{
@@ -353,6 +417,7 @@ void CS2RTVPlugin::OnPluginUnload(PluginId id)
 	RTV_WhitelistBridge_Refresh();
 	g_RTVMenus.Refresh();
 	g_CS2RTVForwards.DropOwnedBy(id);
+	g_CS2RTVAPI.DropMapMenus(id);
 }
 
 // IMetamodListener: map load/unload

@@ -139,14 +139,16 @@ void RTVMenuBridge::ShowMenu(int slot, const RTVMenuDef &def)
 
 	g_RTVConfig.menu.ApplyKeys(m_menus.Get(), h);
 
-	bool shown = m_menus.Present(slot, h, def.duration,
-								 [onExit = def.onExit](MenuHandle, int s, MenuEndReason reason)
-								 {
-									 if (reason == MenuEndReason::Exit && onExit)
-									 {
-										 onExit(s);
-									 }
-								 });
+	bool shown = m_menus.Present(
+		slot, h, def.duration,
+		[onExit = def.onExit](MenuHandle, int s, MenuEndReason reason)
+		{
+			if (reason == MenuEndReason::Exit && onExit)
+			{
+				onExit(s);
+			}
+		},
+		def.show);
 	if (!shown)
 	{
 		// Refused: another menu system holds the slot.

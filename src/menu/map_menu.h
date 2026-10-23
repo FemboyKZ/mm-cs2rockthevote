@@ -5,6 +5,7 @@
 // A panorama viewer gets a table: the tiers in columns, a tier filter per mode and sorting by a click on a heading.
 
 #include "src/maplist/map_lister.h"
+#include "interfaces/cs2menus/menus_client.h"
 
 #include <functional>
 #include <string>
@@ -19,6 +20,7 @@ struct MapMenu
 	std::function<std::string(int slot, const MapEntry &e, bool &disabled)> mark;
 	// `e` is the row's copy of the entry, as it was when the menu was built.
 	std::function<void(int slot, const MapEntry &e)> onPick;
+	CS2MenusClient::Show show = CS2MenusClient::Show::Display;
 };
 
 struct MapMenuView

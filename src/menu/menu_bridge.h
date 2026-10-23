@@ -46,6 +46,7 @@ struct RTVMenuDef
 	bool closeOnSelect = true;
 	MenuItemCallback onExit; // closed with the exit option
 	bool quiet = false;      // no chat line when the display is refused
+	CS2MenusClient::Show show = CS2MenusClient::Show::Display;
 	// mm-cs2menus panorama page labels skip map prefixes like "kz_", matching SortByName in nominate.cpp.
 	bool mapList = false;
 	std::vector<RTVMenuChip> chips;

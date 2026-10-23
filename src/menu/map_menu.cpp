@@ -21,6 +21,7 @@ void RTV_ShowMapMenu(int slot, const MapMenu &menu, const MapMenuView &view)
 	def.closeOnSelect = true;
 	def.mapList = true;
 	def.table = g_RTVMenus.UsesPanorama(slot);
+	def.show = menu.show;
 
 	auto hasTier = [](const std::vector<int> &tiers, int tier) { return tier == 0 || std::find(tiers.begin(), tiers.end(), tier) != tiers.end(); };
 	std::vector<const MapEntry *> sorted;
@@ -91,19 +92,22 @@ void RTV_ShowMapMenu(int slot, const MapMenu &menu, const MapMenuView &view)
 			chip.selected = (mode == 1 ? view.classicTier : view.vanillaTier) - 1;
 			def.chips.push_back(std::move(chip));
 		}
+		// In place, so a pushed menu keeps its Back.
+		MapMenu again = menu;
+		again.show = CS2MenusClient::Show::Replace;
 		// A second click on the sorted heading turns the order around.
-		def.onColumn = [menu, view, sorts](int playerSlot, int column)
+		def.onColumn = [again, view, sorts](int playerSlot, int column)
 		{
 			MapMenuView next = view;
 			next.descending = view.sort == sorts[column] && !view.descending;
 			next.sort = sorts[column];
-			RTV_ShowMapMenu(playerSlot, menu, next);
+			RTV_ShowMapMenu(playerSlot, again, next);
 		};
-		def.onChip = [menu, view, sorts](int playerSlot, int chip, int selected)
+		def.onChip = [again, view, sorts](int playerSlot, int chip, int selected)
 		{
 			MapMenuView next = view;
 			(sorts[chip + 1] == 1 ? next.classicTier : next.vanillaTier) = selected + 1;
-			RTV_ShowMapMenu(playerSlot, menu, next);
+			RTV_ShowMapMenu(playerSlot, again, next);
 		};
 	}
 
