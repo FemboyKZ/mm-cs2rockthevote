@@ -935,7 +935,8 @@ std::string MapLister::GetNameAndTiers(const MapEntry &e, bool colorize, std::st
 	}
 	if (parts.empty())
 	{
-		return clean;
+		// No API tiers to stand in for a hand-written annotation.
+		return base;
 	}
 
 	const char *def = colorize ? CHAT_COLOR_DEFAULT : "";
