@@ -196,6 +196,16 @@ class CS2RTVAPI : public ICS2RTV
 		}
 	}
 
+	void ReloadMaps() override
+	{
+		g_NominateManager.CommandReloadMaps(-1);
+	}
+
+	int GetWorkshopDownloadTimeout() override
+	{
+		return g_RTVConfig.mapvote.workshopDownloadTimeout;
+	}
+
 public:
 	// Leaks: destroying an unloaded owner's callback runs unmapped code.
 	void DropMapMenus(PluginId owner)
@@ -224,7 +234,7 @@ static CS2RTVAPI g_CS2RTVAPI;
 
 void *CS2RTVPlugin::OnMetamodQuery(const char *iface, int *ret)
 {
-	if (!strcmp(iface, CS2RTV_INTERFACE) || !strcmp(iface, "ICS2RTV002") || !strcmp(iface, "ICS2RTV001"))
+	if (!strcmp(iface, CS2RTV_INTERFACE) || !strcmp(iface, "ICS2RTV003") || !strcmp(iface, "ICS2RTV002") || !strcmp(iface, "ICS2RTV001"))
 	{
 		if (ret)
 		{
@@ -246,20 +256,6 @@ void *CS2RTVPlugin::OnMetamodQuery(const char *iface, int *ret)
 		*ret = META_IFACE_FAILED;
 	}
 	return nullptr;
-}
-
-static void ShowMapChooserMenu(int slot)
-{
-	MapMenu menu;
-	menu.title = "Choose a map (immediate change)";
-	menu.onPick = [](int playerSlot, const MapEntry &e)
-	{
-		if (!g_MapVoteManager.ChangeMapNow(e))
-		{
-			RTV_PrintToChatT(playerSlot, "%s is not installed on this server.", e.mapName.c_str());
-		}
-	};
-	RTV_ShowMapMenu(slot, menu);
 }
 
 static void StartRtvVote()
@@ -607,14 +603,6 @@ static void RTV_CmdNominate(int slot, const std::string &argLine)
 	}
 }
 
-static void RTV_CmdMapMenu(int slot, const std::string & /*argLine*/)
-{
-	if (RTV_Allowed(slot, "mapmenu", g_RTVConfig.permissions.mapChooser))
-	{
-		ShowMapChooserMenu(slot);
-	}
-}
-
 static void RTV_CmdListMaps(int slot, const std::string & /*argLine*/)
 {
 	if (RTV_Allowed(slot, "maps"))
@@ -691,7 +679,6 @@ struct RTVChatCommand
 static const RTVChatCommand s_chatCommands[] = {
 	{"rtv", nullptr, RTV_CmdRtv},
 	{"nominate", "nom", RTV_CmdNominate},
-	{"mapmenu", "mm", RTV_CmdMapMenu},
 	{"maps", "listmaps", RTV_CmdListMaps},
 	{"reloadmaps", nullptr, RTV_CmdReloadMaps},
 	{"extend", nullptr, RTV_CmdExtend},
@@ -825,11 +812,6 @@ CON_COMMAND_F(mm_revote, "Change your vote in an active map vote", FCVAR_RELEASE
 CON_COMMAND_F(mm_extend, "Admin: extend the current map's time limit", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
 {
 	RTV_RunFromConsole(context, args, RTV_CmdExtend);
-}
-
-CON_COMMAND_F(mm_mapmenu, "Admin: open immediate map change menu", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)
-{
-	RTV_RunFromConsole(context, args, RTV_CmdMapMenu);
 }
 
 CON_COMMAND_F(mm_rtv_reload, "Admin: reload cs2rtv config from disk", FCVAR_RELEASE | FCVAR_CLIENT_CAN_EXECUTE)

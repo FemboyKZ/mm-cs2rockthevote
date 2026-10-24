@@ -276,10 +276,6 @@
 	}
 
 	// Workshop downloads
-	"%s is not installed on this server."
-	{
-		"en"	"%s{red} is not installed on this server."
-	}
 	"Downloading %s, the map will change once it finishes."
 	{
 		"en"	"Downloading {green}%s{default}, the map will change once it finishes."
@@ -345,10 +341,6 @@
 	"Matching maps"
 	{
 		"en"	"Matching maps"
-	}
-	"Choose a map (immediate change)"
-	{
-		"en"	"Choose a map (immediate change)"
 	}
 	"Vote for next map"
 	{

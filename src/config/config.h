@@ -62,7 +62,6 @@ struct PermissionsCfg
 	std::string extend = "changemap";
 	std::string nominate;
 	std::string nominateExternal = "changemap"; // maps not in the local maplist
-	std::string mapChooser = "changemap";
 	std::string admin = "root";
 };
 

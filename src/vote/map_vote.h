@@ -98,10 +98,6 @@ public:
 
 	void PrintStatus() const;
 
-	// Immediate admin change to one map, through the same workshop download wait as the vote path.
-	// Change to this map right away, as !mapmenu does. False when it is a workshop map the server does not have.
-	bool ChangeMapNow(const MapEntry &entry);
-
 private:
 	bool m_voteActive = false;
 	bool m_isRTV = false;

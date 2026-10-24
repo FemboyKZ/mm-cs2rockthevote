@@ -187,17 +187,6 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 			known = false;
 		}
 	}
-	else if (sec == "mapchooser")
-	{
-		if (k == "permission")
-		{
-			cfg->permissions.mapChooser = value;
-		}
-		else
-		{
-			known = false;
-		}
-	}
 	else if (sec == "general")
 	{
 		if (k == "chatprefix")
@@ -279,10 +268,6 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		else if (k == "nominateexternal")
 		{
 			cfg->permissions.nominateExternal = value;
-		}
-		else if (k == "mapchooser")
-		{
-			cfg->permissions.mapChooser = value;
 		}
 		else if (k == "admin")
 		{

@@ -10,11 +10,11 @@ CS2 RTV Plugin using Metamod: Source
 
 - CS2 Dedicated Server
 - [Metamod: Source 2.0](https://www.metamodsource.net/downloads.php?branch=dev)
-- [mm-cs2menus](https://github.com/FemboyKZ/mm-cs2menus), which renders every menu (map votes, nominate, mapmenu)
+- [mm-cs2menus](https://github.com/FemboyKZ/mm-cs2menus), which renders every menu (map votes, nominate)
 - (Optional\*) [mm-cs2admin](https://github.com/FemboyKZ/mm-cs2admin)
 - (Optional\*\*) [mm-cs2whitelist](https://github.com/FemboyKZ/mm-cs2whitelist)
 
-\*Admin commands like `reloadrtv` and `mapmenu` will not work without it.
+\*Admin commands like `reloadrtv` and `extend` will not work without it.
 
 \*\*When loaded alongside cs2rtv, only players that are whitelisted can use !rtv.
 This stops players from spamming it on join before getting kicked to trigger a vote maliciously.

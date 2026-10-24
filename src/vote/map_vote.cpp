@@ -239,7 +239,7 @@ void MapVoteManager::OnMatchEnded()
 		return;
 	}
 
-	if (!g_RTVConfig.endOfMapVote.enabled)
+	if (!g_RTVConfig.endOfMapVote.enabled || g_CS2RTVForwards.FireOnMapVoteStart(false))
 	{
 		return;
 	}
@@ -301,35 +301,6 @@ const MapEntry *MapVoteManager::PickMatchEndMap() const
 		}
 	}
 	return maps.empty() ? nullptr : maps[0];
-}
-
-// A workshop map the server does not have is downloaded first.
-bool MapVoteManager::ChangeMapNow(const MapEntry &entry)
-{
-	// The download wait below is shared with a vote's own change.
-	if (m_voteActive || m_changeScheduled)
-	{
-		// An admin download is scheduled too, with no vote behind it.
-		const bool vote = m_voteActive || !m_scheduledMap.empty();
-		CancelVote();
-		if (vote)
-		{
-			RTV_ChatToAllT("An admin is changing the map - active vote cancelled.");
-		}
-	}
-
-	uint64_t fileId = entry.isWorkshop ? std::strtoull(entry.workshopId.c_str(), nullptr, 10) : 0;
-	if (fileId == 0 || mmu::workshop::IsReady(fileId))
-	{
-		DoMapChange(entry);
-		return true;
-	}
-
-	// Holds off votes while the map downloads.
-	m_changeScheduled = true;
-	m_changeAttempts = 0;
-	g_RTVManager.OnMapChangeScheduled();
-	return WaitForWorkshopMap(entry);
 }
 
 void MapVoteManager::StartVote(bool isRTV, const std::vector<std::string> &nominations)

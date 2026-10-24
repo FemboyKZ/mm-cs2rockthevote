@@ -1,7 +1,7 @@
 #ifndef _INCLUDE_RTV_MAP_MENU_H_
 #define _INCLUDE_RTV_MAP_MENU_H_
 
-// The map list as a menu: !nominate's, the matches of a partial name and !mapmenu's.
+// The map list as a menu: !nominate's, the matches of a partial name and mm-cs2admin's !map.
 // A panorama viewer gets a table: the tiers in columns, a tier filter per mode and sorting by a click on a heading.
 
 #include "src/maplist/map_lister.h"

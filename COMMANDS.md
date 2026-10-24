@@ -27,7 +27,6 @@ Arguments are `key=value` pairs like cs2kz's, and a command's one argument can b
 | `!rtv`               | `mm_rtv`        | open                           | Rock the vote for a map change                         |
 | `!nominate`, `!nom`  | `mm_nominate`   | `Permissions.Nominate`         | Nominate a map                                         |
 | -                    | -               | `Permissions.NominateExternal` | `nominate_ext`: nominating off-list / workshop-ID maps |
-| `!mapmenu`, `!mm`    | `mm_mapmenu`    | `Permissions.MapChooser`       | Admin: open immediate map-change menu                  |
 | `!maps`, `!listmaps` | `mm_maps`       | open                           | List available maps                                    |
 | `!reloadmaps`        | `mm_reloadmaps` | `Permissions.Admin`            | Admin: reload the map list                             |
 | `!vote`              | `mm_vote`       | open                           | Open the ballot of an active vote                      |
@@ -37,13 +36,13 @@ Arguments are `key=value` pairs like cs2kz's, and a command's one argument can b
 
 `mm_rtv_version` prints the plugin version, from the server console only.
 
-mm-cs2admin leaves its `!maps` to this plugin while both are loaded.
+mm-cs2admin leaves its `!maps` to this plugin while both are loaded. Its `!map` changes maps from this plugin's map list.
 
 Config permissions in `cfg/cs2rtv/core.cfg` accept a flag letter (`b`), a named flag (`generic`, `changemap`, `root`, ...), or empty for open.
 
 That value becomes the command's default flag; an `admin_overrides.cfg` entry overrides it.
 
-Override keys are the chat names without `!`. `nom` and `mm` use `nominate` and `mapmenu`. The command group is `@cs2rtv`.
+Override keys are the chat names without `!`. `nom` uses `nominate`. The command group is `@cs2rtv`.
 
 ## admin_overrides.cfg examples
 
