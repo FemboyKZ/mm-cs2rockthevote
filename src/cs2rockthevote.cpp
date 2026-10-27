@@ -507,7 +507,7 @@ KHook::Return<void> CS2RTVPlugin::Hook_OnClientConnected(IServerGameClients *, C
 	return {KHook::Action::Ignore};
 }
 
-KHook::Return<void> CS2RTVPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const * /*pszName*/, int /*type*/,
+KHook::Return<void> CS2RTVPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const * /*pszName*/, ClientPutInServerType_t /*type*/,
 														 uint64 /*xuid*/)
 {
 	// type: 0=player, 1=bot
