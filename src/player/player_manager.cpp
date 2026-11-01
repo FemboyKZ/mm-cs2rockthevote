@@ -39,6 +39,12 @@ bool RTVPlayerManager::IsEligible(int slot)
 	return g_RTVConfig.general.includeSpectator || p->teamNum != CS_TEAM_SPECTATOR;
 }
 
+bool RTVPlayerManager::IsAlive(int slot)
+{
+	CCSPlayerController *controller = CCSPlayerController::FromSlot(slot);
+	return controller && controller->m_bPawnIsAlive();
+}
+
 int RTVPlayerManager::GetEligiblePlayerCount()
 {
 	int count = 0;

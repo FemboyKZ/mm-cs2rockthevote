@@ -578,6 +578,12 @@ bool MapVoteManager::ShowVoteNotice(int slot)
 	{
 		return false;
 	}
+	// An observer's client sends spec_next for Mouse1 instead of IN_ATTACK, so the notice's click would never arrive.
+	if (!g_RTVPlayerManager.IsAlive(slot))
+	{
+		g_RTVMenus.HideNotice(slot);
+		return false;
+	}
 
 	CGlobalVars *globals = mmu::GetGameGlobals();
 	float curtime = globals ? globals->curtime : 0.0f;

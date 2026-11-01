@@ -24,6 +24,9 @@ public:
 	// Refreshes each counted player's teamNum from their controller.
 	int GetEligiblePlayerCount();
 	bool IsEligible(int slot);
+
+	// False for spectators and dead players alike, both are observers on the client.
+	bool IsAlive(int slot);
 };
 
 extern RTVPlayerManager g_RTVPlayerManager;
