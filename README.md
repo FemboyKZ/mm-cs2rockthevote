@@ -27,7 +27,7 @@ This stops players from spamming it on join before getting kicked to trigger a v
 ### Configuration
 
 - `/cfg/cs2rtv/core.cfg` - Main config file
-- `/cfg/maplist.txt` - Maplist file (unused with `KzApiMaplist`)
+- `/cfg/maplist.txt` - Maplist file (unused with `KzApiMaplist 1`, extra maps on top of the API's with `KzApiMaplist 2`)
 
 ### Commands
 

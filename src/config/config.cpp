@@ -203,7 +203,7 @@ static void ConfigHandler(const std::string &section, const std::string &key, co
 		}
 		else if (k == "kzapimaplist")
 		{
-			cfg->general.kzApiMaplist = (value != "0");
+			cfg->general.kzApiMaplist = value == "2" ? 2 : (value != "0" ? 1 : 0);
 		}
 		else if (k == "mapvalidationenabled" || k == "enablemapvalidation")
 		{

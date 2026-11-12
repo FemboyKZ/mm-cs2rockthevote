@@ -507,8 +507,8 @@ KHook::Return<void> CS2RTVPlugin::Hook_OnClientConnected(IServerGameClients *, C
 	return {KHook::Action::Ignore};
 }
 
-KHook::Return<void> CS2RTVPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const * /*pszName*/, ClientPutInServerType_t /*type*/,
-														 uint64 /*xuid*/)
+KHook::Return<void> CS2RTVPlugin::Hook_ClientPutInServer(IServerGameClients *, CPlayerSlot slot, char const * /*pszName*/,
+														 ClientPutInServerType_t /*type*/, uint64 /*xuid*/)
 {
 	// type: 0=player, 1=bot
 	int s = slot.Get();
@@ -835,8 +835,10 @@ CON_COMMAND_F(mm_rtv_status, "Print the plugin's state for debugging", FCVAR_REL
 			installed += mmu::workshop::IsReady(std::strtoull(e.workshopId.c_str(), nullptr, 10)) ? 1 : 0;
 		}
 	}
-	MMU_LOG_INFO("Pool: %s, %s, %d maps, %d workshop of which %d on disk.\n", g_MapLister.UsesApiPool() ? "CS2KZ API" : "maplist.txt",
-				 g_MapLister.PoolPending() ? "pending" : "ready", static_cast<int>(g_MapLister.GetMaps().size()), workshop, installed);
+	const char *source = g_MapLister.UsesFileExtras() ? "CS2KZ API + maplist.txt" : g_MapLister.UsesApiPool() ? "CS2KZ API" : "maplist.txt";
+	const char *state = g_MapLister.PoolPending() ? "pending" : g_MapLister.ApiPending() ? "API pending, maplist.txt only" : "ready";
+	MMU_LOG_INFO("Pool: %s, %s, %d maps, %d workshop of which %d on disk.\n", source, state, static_cast<int>(g_MapLister.GetMaps().size()), workshop,
+				 installed);
 
 	std::string noms;
 	for (const std::string &n : g_NominateManager.GetNominations())

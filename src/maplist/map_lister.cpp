@@ -168,18 +168,22 @@ bool MapLister::ParseLine(const std::string &rawLine, MapEntry &out)
 
 void MapLister::LoadForMap(const char *path)
 {
-	m_apiPool = g_RTVConfig.general.kzApiMaplist;
+	m_apiPool = g_RTVConfig.general.kzApiMaplist != 0;
+	m_fileExtras = g_RTVConfig.general.kzApiMaplist == 2;
 	if (!m_apiPool)
 	{
 		LoadFromFile(path);
 		return;
 	}
 
+	m_lastPath = path;
 	if (!m_poolLoaded)
 	{
 		// Left over from file mode.
 		m_maps.clear();
 	}
+	// Mode 2 has maplist.txt alone until the API answers.
+	BuildPool();
 	if (NeedsRefresh())
 	{
 		RefreshAsync();
@@ -222,16 +226,32 @@ void MapLister::RefreshAsync(std::function<void(int)> onDone)
 				{
 					m_refreshInFlight = false;
 
+					// Landed after a switch to maplist.txt mode.
+					if (!m_apiPool)
+					{
+						if (onDone)
+						{
+							onDone(-1);
+						}
+						return;
+					}
+
 					if (fresh->empty())
 					{
-						MMU_LOG_WARN("CS2KZ map pool fetch failed or returned no maps.%s\n", m_poolLoaded ? " Keeping the previous pool." : "");
+						// So !reloadmaps still rereads maplist.txt.
+						BuildPool();
+						const char *keeping = m_poolLoaded   ? " Keeping the previous pool."
+											  : m_extras > 0 ? " Using the maplist.txt maps until it loads."
+															 : "";
+						MMU_LOG_WARN("CS2KZ map pool fetch failed or returned no maps.%s\n", keeping);
 						if (!m_poolLoaded)
 						{
 							g_Timers.KillTimer(m_retryTimerId);
+							// Not PoolPending: maplist.txt standing in must not stop the retries.
 							m_retryTimerId = g_Timers.CreateTimer(kRetrySeconds,
 																  [this]()
 																  {
-																	  if (PoolPending())
+																	  if (ApiPending())
 																	  {
 																		  RefreshAsync();
 																	  }
@@ -245,7 +265,15 @@ void MapLister::RefreshAsync(std::function<void(int)> onDone)
 					}
 
 					ApplyPool(std::move(*fresh));
-					MMU_LOG_INFO("Map pool loaded: %d maps from the CS2KZ API.\n", static_cast<int>(m_maps.size()));
+					if (m_fileExtras)
+					{
+						MMU_LOG_INFO("Map pool loaded: %d maps from the CS2KZ API, %d more from maplist.txt.\n", static_cast<int>(m_apiMaps.size()),
+									 m_extras);
+					}
+					else
+					{
+						MMU_LOG_INFO("Map pool loaded: %d maps from the CS2KZ API.\n", static_cast<int>(m_apiMaps.size()));
+					}
 
 					if (g_RTVConfig.general.mapValidationEnabled && !g_RTVConfig.general.steamApiKey.empty())
 					{
@@ -262,35 +290,73 @@ void MapLister::RefreshAsync(std::function<void(int)> onDone)
 
 void MapLister::ApplyPool(std::vector<MapEntry> fresh)
 {
+	m_apiMaps = std::move(fresh);
+	m_poolLoaded = true;
+	m_lastRefresh = std::chrono::steady_clock::now();
+	BuildPool();
+}
+
+void MapLister::BuildPool()
+{
 	std::vector<MapEntry> old = std::move(m_maps);
-	m_maps = std::move(fresh);
+	m_maps = m_apiMaps;
+
+	// FindExact per entry took 100 ms for 1000 maps.
+	std::unordered_set<std::string> names;
+	std::unordered_set<std::string> ids;
+	auto note = [&](const MapEntry &e)
+	{
+		names.insert(str::ToLower(e.displayName));
+		names.insert(str::ToLower(e.mapName));
+		if (e.isWorkshop)
+		{
+			ids.insert(e.workshopId);
+		}
+	};
+	auto inPool = [&](const MapEntry &e) { return names.count(str::ToLower(e.mapName)) || (!e.workshopId.empty() && ids.count(e.workshopId)); };
+	auto append = [&](MapEntry &e)
+	{
+		note(e);
+		m_maps.push_back(std::move(e));
+	};
+	for (const auto &e : m_maps)
+	{
+		note(e);
+	}
+
+	m_extras = 0;
+	std::vector<MapEntry> file;
+	// Missing maplist.txt: no extras, nothing generated.
+	if (m_fileExtras && ReadFile(m_lastPath.c_str(), file))
+	{
+		for (auto &e : file)
+		{
+			if (!inPool(e))
+			{
+				append(e);
+				m_extras++;
+			}
+		}
+	}
 
 	// Keep off-pool nominations resolvable.
 	for (auto &e : old)
 	{
-		if (!e.dynamic)
+		if (e.dynamic && !inPool(e))
 		{
-			continue;
-		}
-		bool inPool = FindExact(e.mapName) != nullptr || (!e.workshopId.empty() && FindByWorkshopId(e.workshopId) != nullptr);
-		if (!inPool)
-		{
-			m_maps.push_back(std::move(e));
+			append(e);
 		}
 	}
-
-	m_poolLoaded = true;
-	m_lastRefresh = std::chrono::steady_clock::now();
 }
 
 int MapLister::LoadFromFile(const char *path)
 {
 	m_maps.clear();
 	m_poolLoaded = false;
+	m_apiMaps.clear();
 	m_lastPath = path;
 
-	FILE *fp = fopen(path, "r");
-	if (!fp)
+	if (!ReadFile(path, m_maps))
 	{
 		MMU_LOG_WARN("maplist.txt not found at '%s' - attempting "
 					 "auto-generate from CS2KZ API.\n",
@@ -298,25 +364,6 @@ int MapLister::LoadFromFile(const char *path)
 		GenerateMaplistAsync(path);
 		return -1;
 	}
-
-	std::unordered_set<std::string> seen;
-	char line[512];
-	while (fgets(line, sizeof(line), fp))
-	{
-		MapEntry entry;
-		if (!ParseLine(std::string(line), entry))
-		{
-			continue;
-		}
-		if (!seen.insert(str::ToLower(entry.mapName)).second)
-		{
-			MMU_LOG_WARN("maplist.txt lists '%s' more than once, keeping the first entry.\n", entry.mapName.c_str());
-			continue;
-		}
-		m_maps.push_back(std::move(entry));
-	}
-
-	fclose(fp);
 
 	// Apply any already-cached CS2KZ tiers to the freshly loaded entries.
 	for (auto &e : m_maps)
@@ -338,6 +385,35 @@ int MapLister::LoadFromFile(const char *path)
 	}
 
 	return static_cast<int>(m_maps.size());
+}
+
+bool MapLister::ReadFile(const char *path, std::vector<MapEntry> &out)
+{
+	FILE *fp = fopen(path, "r");
+	if (!fp)
+	{
+		return false;
+	}
+
+	std::unordered_set<std::string> seen;
+	char line[512];
+	while (fgets(line, sizeof(line), fp))
+	{
+		MapEntry entry;
+		if (!ParseLine(std::string(line), entry))
+		{
+			continue;
+		}
+		if (!seen.insert(str::ToLower(entry.mapName)).second)
+		{
+			MMU_LOG_WARN("maplist.txt lists '%s' more than once, keeping the first entry.\n", entry.mapName.c_str());
+			continue;
+		}
+		out.push_back(std::move(entry));
+	}
+
+	fclose(fp);
+	return true;
 }
 
 int MapLister::Reload()
