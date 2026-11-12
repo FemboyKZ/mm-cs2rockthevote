@@ -150,6 +150,34 @@ std::string MapLister::StripAnnotation(const std::string &displayName)
 	return mmu::StripMapAnnotation(displayName);
 }
 
+// The 1-10 number after `label` in a lowercased annotation ("t3", "ckz: 3", "vnl 4"), 0 without one.
+static int AnnotationTier(const std::string &annotation, const std::string &label)
+{
+	for (size_t pos = annotation.find(label); pos != std::string::npos; pos = annotation.find(label, pos + 1))
+	{
+		if (pos > 0 && std::isalnum(static_cast<unsigned char>(annotation[pos - 1])))
+		{
+			continue;
+		}
+		size_t start = pos + label.size();
+		while (start < annotation.size() && (annotation[start] == ' ' || annotation[start] == ':'))
+		{
+			start++;
+		}
+		size_t end = start;
+		while (end < annotation.size() && std::isdigit(static_cast<unsigned char>(annotation[end])))
+		{
+			end++;
+		}
+		int tier = end > start && end - start <= 2 ? std::atoi(annotation.substr(start, end - start).c_str()) : 0;
+		if (tier >= 1 && tier <= 10)
+		{
+			return tier;
+		}
+	}
+	return 0;
+}
+
 bool MapLister::ParseLine(const std::string &rawLine, MapEntry &out)
 {
 	mmu::MapListEntry parsed;
@@ -163,6 +191,20 @@ bool MapLister::ParseLine(const std::string &rawLine, MapEntry &out)
 	out.mapName = parsed.mapName;
 	out.workshopId = parsed.workshopId;
 	out.isWorkshop = parsed.isWorkshop;
+
+	// "(T3)" is both modes.
+	std::string annotation = str::ToLower(out.displayName.substr(out.mapName.size()));
+	int both = AnnotationTier(annotation, "t");
+	int classic = AnnotationTier(annotation, "ckz");
+	int vanilla = AnnotationTier(annotation, "vnl");
+	if (classic || both)
+	{
+		out.classicTiers = {classic ? classic : both};
+	}
+	if (vanilla || both)
+	{
+		out.vanillaTiers = {vanilla ? vanilla : both};
+	}
 	return true;
 }
 
@@ -938,14 +980,18 @@ void MapLister::FetchTiersAsync()
 
 void MapLister::ApplyCachedTiers(MapEntry &e) const
 {
-	if (!e.classicTiers.empty() || !e.vanillaTiers.empty())
+	auto it = m_tierCache.find(str::ToLower(e.mapName));
+	if (it == m_tierCache.end())
 	{
 		return;
 	}
-	auto it = m_tierCache.find(str::ToLower(e.mapName));
-	if (it != m_tierCache.end())
+	// Per mode, the API wins over an annotation's tier.
+	if (!it->second.classic.empty())
 	{
 		e.classicTiers = it->second.classic;
+	}
+	if (!it->second.vanilla.empty())
+	{
 		e.vanillaTiers = it->second.vanilla;
 	}
 }

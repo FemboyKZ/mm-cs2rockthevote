@@ -169,7 +169,7 @@ private:
 	// game thread and the HTTP worker thread, hence atomic.
 	std::atomic<bool> m_tierFetchInFlight {false};
 
-	// Fill an entry's tiers from m_tierCache if not already set.
+	// Fill an entry's tiers from m_tierCache.
 	void ApplyCachedTiers(MapEntry &e) const;
 
 	// Paginate the CS2KZ approved-maps endpoint, parsing tiers into each entry.

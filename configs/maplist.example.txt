@@ -5,6 +5,9 @@
 // mapname:workshopid   - workshop map (uses host_workshop_map)
 // display name:workshopid - workshop map with custom display name
 //
+// DisplayKzTiers reads tiers from the display name for maps the CS2KZ API has none for:
+// "kz_lumen (T3)" for both modes, "kz_lumen (CKZ 3, VNL 4)" per mode.
+//
 // Rename this file or create a new file called maplist.txt for your actual maplist.
 //
 // Lines starting with // or # are comments.
